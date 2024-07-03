@@ -75,6 +75,25 @@ class NoiseCollate:
         return inputs_tens, targets_tens
 
 
+def get_validation_score(model, loss_function, threshold, dataloader, device):
+    loss = 0
+    correct_count = 0
+    whole_count = 0
+    for batch_inputs, batch_targets in dataloader:
+        batch_inputs = batch_inputs.to(device)
+        batch_targets = batch_targets.to(device)
+
+        output = model(batch_inputs)
+        loss += loss_function(output, batch_targets)
+
+        correct_count += torch.sum((output > threshold) == (batch_targets > threshold))
+        whole_count += batch_targets.numel()
+    loss /= whole_count
+    accuracy = correct_count / whole_count
+
+    return loss, accuracy
+
+
 RES_PREFIX = "res"
 ROOT_DIR = "train_results"
 DATE_FORMAT = "%Y-%m-%d"
@@ -82,7 +101,6 @@ MODEL_NAME = "model.pt"
 
 
 def find_last_model_in_tree(train_name):
-
     dir_of_days = os.path.join(ROOT_DIR, train_name)
     res_dir = None
 

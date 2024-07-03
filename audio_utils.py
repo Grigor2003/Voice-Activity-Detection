@@ -190,6 +190,11 @@ def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=800
 def augment_sample(aw, noises=None, noise_count=1, noise_duration_range=(2, 5), snr_db=3):
     audio = aw.wave
     sample_rate = aw.rate
+    orig_audio = audio.clone()
+    augmentation_params = None
+
+    if noises is None:
+        return orig_audio, augmentation_params
 
     resampled_noises = []
     for noise in noises:
@@ -202,25 +207,26 @@ def augment_sample(aw, noises=None, noise_count=1, noise_duration_range=(2, 5), 
     noises = resampled_noises
 
     sec = audio.size(-1) / sample_rate
-    temp = audio.clone()
 
-    if noise_count > 0:
+    if noise_count <= 0:
+        return orig_audio, augmentation_params
 
-        noises_starts, _ = torch.sort(torch.rand(noise_count) * sec)
-        noise_durations = torch.rand(noise_count) * (noise_duration_range[1] - noise_duration_range[0]) + \
-                          noise_duration_range[0]
+    noises_starts, _ = torch.sort(torch.rand(noise_count) * sec)
+    noise_durations = torch.rand(noise_count) * (noise_duration_range[1] - noise_duration_range[0]) + \
+                      noise_duration_range[0]
 
-        noises_to_use = torch.randint(len(noises), (noise_count,))
+    noises_to_use = torch.randint(len(noises), (noise_count,))
 
-        for i, noise_ind in enumerate(noises_to_use):
-            temp = add_noise(temp,
-                             noises[noise_ind],
-                             snr_db=snr_db,
-                             start=noises_starts[i],
-                             end=-noise_durations[i],
-                             sample_rate=sample_rate)
+    for i, noise_ind in enumerate(noises_to_use):
+        orig_audio = add_noise(orig_audio,
+                               noises[noise_ind],
+                               snr_db=snr_db,
+                               start=noises_starts[i],
+                               end=-noise_durations[i],
+                               sample_rate=sample_rate)
 
     augmentation_params = {"noises_starts": noises_starts,
                            "noise_durations": noise_durations,
                            "noises_to_use": noises_to_use}
-    return temp, augmentation_params
+
+    return orig_audio, augmentation_params
