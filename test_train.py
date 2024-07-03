@@ -1,93 +1,13 @@
-import torch.nn as nn
-from torch.utils.data import DataLoader
 import os
 import random
-from tqdm import tqdm
-
-from audio_utils import *
 from datetime import datetime
+from tqdm import tqdm
+import torch
 
-
-class WaveToMFCCConverter:
-    def __init__(self, n_mfcc, sample_rate=8000, frame_duration_in_ms=None, win_length=None, hop_length=None):
-        self.n_mfcc = n_mfcc
-
-        if frame_duration_in_ms is not None:
-            sample_count = torch.tensor(sample_rate * frame_duration_in_ms / 1000, dtype=torch.int)
-            win_length = torch.pow(2, torch.ceil(torch.log2(sample_count)).to(torch.int)).to(torch.int).item()
-        elif win_length is None:
-            return
-        win_length = int(win_length)
-
-        if hop_length is None:
-            hop_length = int(win_length // 2)
-        hop_length = int(hop_length)
-
-        mfcc_params = {
-            "n_mfcc": n_mfcc,
-            "sample_rate": sample_rate
-        }
-        mel_params = {
-            "n_fft": win_length,
-            "win_length": win_length,
-            "hop_length": hop_length,
-            "center": False
-        }
-
-        self.converter = torchaudio.transforms.MFCC(**mfcc_params, melkwargs=mel_params)
-
-    def __call__(self, waveform):
-        return self.converter(waveform).transpose(-1, -2)
-
-
-class NoiseCollate:
-    def __init__(self, dataset_sample_rate, noises, params, mfcc_converter):
-        self.dataset_sample_rate = dataset_sample_rate
-        self.noises = noises
-        self.params = params
-        self.mfcc_converter = mfcc_converter
-
-    def __call__(self, batch):
-        inputs = []
-        targets = []
-
-        for au, label_txt in batch:
-            au.resample(self.dataset_sample_rate)
-            if self.params is None:
-                augmented_wave, _ = augment_sample(au, self.noises)
-            else:
-                augmented_wave, _ = augment_sample(au, self.noises, **self.params)
-            inp = self.mfcc_converter(augmented_wave)
-            tar = torch.tensor([*map(float, label_txt)])
-            if tar.size(-1) != inp.size(-2):
-                print(tar.size(-1), inp.size(-2), au.name)
-            inputs.append(inp)
-            targets.append(tar)
-
-        inp_dim_2 = max(i.size(1) for i in inputs)
-        inputs_tens = torch.zeros([len(inputs), inp_dim_2, inputs[0].size(-1)])
-        for i, inp in enumerate(inputs):
-            inputs_tens[i, :inp.size(1), :] = inp
-
-        tar_dim_1 = max(t.size(0) for t in targets)
-        targets_tens = torch.zeros([len(targets), tar_dim_1, 1])
-        for i, tar in enumerate(targets):
-            targets_tens[i, :tar.size(0), 0] = tar
-
-        return inputs_tens, targets_tens
-
-
-class SimpleG(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_layers=1):
-        super(SimpleG, self).__init__()
-        self.gru = nn.GRU(input_dim, hidden_dim, num_layers, batch_first=True)
-        self.fc = nn.Linear(hidden_dim, 1)
-
-    def forward(self, x):
-        out, _ = self.gru(x)
-        out = self.fc(out)
-        return out
-
+from torch.utils.data import DataLoader
+from audio_utils import AudioWorker, OpenSLRDataset
+from gru_model import SimpleG
+from utils import NoiseCollate, WaveToMFCCConverter, find_last_model_in_tree, create_new_model_dir
 
 noise_data_path = r"data\noise-16k"
 clean_audios_path = r"data\train-clean-100"
@@ -132,52 +52,23 @@ if __name__ == '__main__':
         win_length=dataset.label_window,
         hop_length=dataset.label_hop)
 
-    res_prefix = "res"
-    max_num = 0
-
-    train_results_by_model_name = os.path.join("train_results", train_name)
-
     if continue_last_model:
-        res_dir = None
+        model_path = find_last_model_in_tree(train_name)
 
-        if os.path.exists(train_results_by_model_name):
-            date_objects = [datetime.strptime(date, "%Y-%m-%d")
-                            for date in os.listdir(train_results_by_model_name)
-                            if len(os.listdir(os.path.join(train_results_by_model_name, date))) != 0]
-            if len(date_objects) != 0:
-                day_dir = os.path.join(train_results_by_model_name, max(date_objects).strftime("%Y-%m-%d"))
-                for name in os.listdir(day_dir):
-                    st, num = name.split("_")
-                    folder_path = os.path.join(day_dir, name)
-                    if max_num <= int(num) and "model.pt" in os.listdir(folder_path):
-                        max_num = int(num)
-                        res_dir = folder_path
-
-        if res_dir is None:
-            raise ValueError("No model.pt found")
-        else:
-            model_path = os.path.join(res_dir, "model.pt")
-            print(f"Loading {model_path}")
+        checkpoint = torch.load(model_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        global_epoch = checkpoint['epoch']
+        model.train()
+        print(f"Loaded {model_path}")
+        print(f"Continuing training from epoch {global_epoch}")
 
     else:
-
-        day_dir = os.path.join(train_results_by_model_name, datetime.now().strftime("%Y-%m-%d"))
-        os.makedirs(day_dir, exist_ok=True)
-        for name in os.listdir(day_dir):
-            st, num = name.split("_")
-            folder_path = os.path.join(day_dir, name)
-            max_num = max(int(num), max_num)
-            if len(os.listdir(folder_path)) == 0:
-                max_num -= 1
-                break
-
-        res_dir = os.path.join(day_dir, res_prefix + "_" + str(max_num + 1))
-        os.makedirs(res_dir, exist_ok=True)
-
-        model_path = os.path.join(res_dir, "model.pt")
+        model_path = create_new_model_dir(train_name)
+        global_epoch = 0
         print(f"Created {model_path}")
 
-    for epoch in range(do_epoches):
+    for epoch in range(1, do_epoches + 1):
         noises = [AudioWorker(p, p.replace("\\", "__")) for p in random.sample(noise_files_paths, epoch_noise_count)]
         for noise in noises:
             noise.load()
@@ -202,12 +93,10 @@ if __name__ == '__main__':
             pass
 
         torch.save({
-            'epoch': epoch,
+            'epoch': global_epoch + epoch,
             'model_state_dict': model.state_dict(),
             'optimizer': optimizer.__ne__,
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss_history
+            'optimizer_state_dict': optimizer.state_dict()
         }, model_path)
-        input('__________')
 
     print(loss_history)

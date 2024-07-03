@@ -1,11 +1,13 @@
+import copy
+import glob
+import os
+
+import matplotlib.pyplot as plt
 import torch
 import torchaudio
 import torchaudio.functional as tf
-from torch.utils.data import Dataset
-import os, glob
-import copy
-import matplotlib.pyplot as plt
 from IPython.display import Audio as PyAudio, display
+from torch.utils.data import Dataset
 
 
 class AudioWorker:
