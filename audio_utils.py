@@ -188,13 +188,13 @@ def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=800
 
 
 def augment_sample(aw, noises=None, noise_count=1, noise_duration_range=(2, 5), snr_db=3):
+    if None in [noises, noise_count, noise_duration_range, snr_db]:
+        return aw.wave, None
+
     audio = aw.wave
     sample_rate = aw.rate
     orig_audio = audio.clone()
     augmentation_params = None
-
-    if noises is None:
-        return orig_audio, augmentation_params
 
     resampled_noises = []
     for noise in noises:

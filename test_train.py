@@ -2,13 +2,14 @@ import os
 import random
 from time import time
 
+import pandas as pd
 from tqdm import tqdm
 import torch
 
 from torch.utils.data import DataLoader, random_split
 from audio_utils import AudioWorker, OpenSLRDataset
 from gru_model import SimpleG
-from utils import NoiseCollate, WaveToMFCCConverter
+from utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
 from utils import find_last_model_in_tree, create_new_model_dir, get_validation_score
 
 noise_data_path = r"data\noise-16k"
@@ -34,6 +35,8 @@ if __name__ == '__main__':
         "snr_db": train_snr
     }
     val_params = params.copy()
+    del val_params["snr_db"]
+    val_snrs = [None, 10, 5, 0]
     threshold = 0.7
 
     dataset = OpenSLRDataset(clean_audios_path, clean_labels_path, blacklist)
@@ -65,7 +68,7 @@ if __name__ == '__main__':
         hop_length=dataset.label_hop)
 
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, params, mfcc_converter)
-    val_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, val_params, mfcc_converter)
+    val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
 
     train_name = type(model).__name__
     if continue_last_model:
@@ -83,6 +86,21 @@ if __name__ == '__main__':
         global_epoch = 0
         print(f"Created {model_path}")
 
+    columns = [
+        'global epoch',
+        'train loss', 'train accuracy',
+    ]
+
+    for snr in val_snrs:
+        if snr is None:
+            columns.append('clear audio loss')
+            columns.append('clear audio accuracy')
+        else:
+            columns.append(f'noised audio snr{snr} loss')
+            columns.append(f'noised audio snr{snr} accuracy')
+
+    training_history_table = pd.DataFrame(columns=columns)
+
     for epoch in range(1, do_epoches + 1):
         noises = [AudioWorker(p, p.replace("\\", "__")) for p in random.sample(noise_files_paths, epoch_noise_count)]
         for noise in noises:
@@ -90,7 +108,13 @@ if __name__ == '__main__':
             noise.resample(dataset.sample_rate)
 
         train_dataloader.collate_fn.noises = noises
+        val_dataloader.collate_fn.noises = noises
 
+        running_loss = 0
+        running_correct_count = 0
+        running_whole_count = 0
+
+        print("Training on", device)
         model.train()
         for batch_inputs, batch_targets in tqdm(train_dataloader, desc=f"epoch {global_epoch + epoch}({epoch})",
                                                 disable=0):
@@ -102,48 +126,63 @@ if __name__ == '__main__':
             loss = bce(output, batch_targets)
             loss_history.append(loss.item())
 
+            temp_count = batch_targets.numel()
+            running_loss += loss.item() * temp_count
+            running_whole_count += temp_count
+            running_correct_count += torch.sum((output > threshold) == (batch_targets > threshold))
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-        model.eval()
+        running_loss /= running_whole_count
+        accuracy = running_correct_count / running_whole_count
+
+        # accuracy = 0
+
+        row_values = {
+            'global epoch': global_epoch + epoch,
+            'train loss': running_loss, 'train accuracy': accuracy.item()
+        }
+
         print(f"{'=' * 40}")
-        s = time()
-        val_dataloader.collate_fn.noises = None
-        val_loss, val_acc = get_validation_score(model, bce_without_averaging, threshold, val_dataloader,
-                                                 device)
-        print(f"Validation")
-        print(f"{'-' * 30}")
-        print(f"Clear audios\nLoss: {val_loss}\nAccuracy: {val_acc}")
-        print(f"{'-' * 30}")
-        val_dataloader.collate_fn.noises = noises
-        val_dataloader.collate_fn.params["snr_db"] = 0
-        val_loss, val_acc = get_validation_score(model, bce_without_averaging, threshold, val_dataloader,
-                                                 device)
-        print(f"Noised audios snrDB 0\nLoss: {val_loss}\nAccuracy: {val_acc}")
-        print(f"{'-' * 30}")
-        val_dataloader.collate_fn.params["snr_db"] = 5
-        val_loss, val_acc = get_validation_score(model, bce_without_averaging, threshold, val_dataloader,
-                                                 device)
-        print(f"Noised audios snrDB 5\nLoss: {val_loss}\nAccuracy: {val_acc}")
-        print(f"{'-' * 30}")
-        val_dataloader.collate_fn.params["snr_db"] = 10
-        val_loss, val_acc = get_validation_score(model, bce_without_averaging, threshold, val_dataloader,
-                                                 device)
-        print(f"Noised audios snrDB 10\nLoss: {val_loss}\nAccuracy: {val_acc}")
-        print(f"{'-' * 30}")
-        print("Validation loss calculated in ", time() - s, "seconds")
+        print("Training scores")
+        print(f"Loss: {running_loss:.4f}\nAccuracy: {accuracy:.4f}")
+        print(f"{'=' * 40}")
+
+        model.eval()
+        print("Getting validation scores")
+        val_loss, val_acc = get_validation_score(model, bce_without_averaging, threshold, val_snrs,
+                                                 val_dataloader, device)
+
+        print(f"{'=' * 40}")
+        print("Validation scores")
+        for snr in val_snrs:
+            print(f"{'-' * 30}")
+            if snr is None:
+                name = "Clear audios"
+            else:
+                name = f"Noised audios snrDB {snr}"
+
+            print(name)
+            print(f"Loss: {val_loss[snr]:.4f}\nAccuracy: {val_acc[snr]:.4f}")
+
+            if snr is None:
+                row_values['clear audio loss'] = val_loss[snr].item()
+                row_values['clear audio accuracy'] = val_acc[snr].item()
+            else:
+                row_values[f'noised audio snr{snr} loss'] = val_loss[snr].item()
+                row_values[f'noised audio snr{snr} accuracy'] = val_acc[snr].item()
         print(f"{'=' * 40}\n")
 
-        running_loss = 0
-        running_correct_count = 0
-        running_whole_count = 0
+        training_history_table.loc[len(training_history_table)] = row_values
 
     torch.save({
         'epoch': global_epoch + epoch,
         'model_state_dict': model.state_dict(),
-        'optimizer':  type(optimizer).__name__,
+        'optimizer': type(optimizer).__name__,
         'optimizer_state_dict': optimizer.state_dict()
     }, model_path)
 
     print(loss_history)
+    print(training_history_table)
