@@ -1,6 +1,6 @@
 import os
 import random
-from time import time
+import time
 
 import pandas as pd
 from tqdm import tqdm
@@ -20,13 +20,14 @@ clean_labels_path = r"data\8000_30_50_100_50_max"
 blacklist = []
 
 # continue_last_model = True
-continue_last_model = False
+continue_last_model = True
 
 if __name__ == '__main__':
 
     train_ratio = 0.9
 
-    do_epoches = 1
+    do_epoches = 2
+    train_num_workers = 6
     epoch_noise_count = 500
     train_snr = 3
     params = {
@@ -48,7 +49,7 @@ if __name__ == '__main__':
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
-    train_dataloader = DataLoader(train_dataset, batch_size=2 ** 7, shuffle=True, num_workers=4)
+    train_dataloader = DataLoader(train_dataset, batch_size=2 ** 7, shuffle=True, num_workers=train_num_workers)
     val_dataloader = DataLoader(val_dataset, batch_size=2 ** 7, shuffle=True, num_workers=4)
 
     input_size = 64
@@ -59,7 +60,6 @@ if __name__ == '__main__':
 
     bce = torch.nn.BCEWithLogitsLoss()
     bce_without_averaging = torch.nn.BCEWithLogitsLoss(reduction="sum")
-    loss_history = []
 
     mfcc_converter = WaveToMFCCConverter(
         n_mfcc=input_size,
@@ -86,20 +86,18 @@ if __name__ == '__main__':
         global_epoch = 0
         print(f"Created {model_path}")
 
-    columns = [
-        'global epoch',
-        'train loss', 'train accuracy',
-    ]
+    loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
+    accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
+    loss_history_table.set_index('global_epoch', inplace=True)
+    accuracy_history_table.set_index('global_epoch', inplace=True)
 
     for snr in val_snrs:
         if snr is None:
-            columns.append('clear audio loss')
-            columns.append('clear audio accuracy')
+            loss_history_table['clear_audio_loss'] = []
+            accuracy_history_table['clear_audio_accuracy'] = []
         else:
-            columns.append(f'noised audio snr{snr} loss')
-            columns.append(f'noised audio snr{snr} accuracy')
-
-    training_history_table = pd.DataFrame(columns=columns)
+            loss_history_table[f'noised_audio_snr{snr}_loss'] = []
+            accuracy_history_table[f'noised_audio_snr{snr}_accuracy'] = []
 
     for epoch in range(1, do_epoches + 1):
         noises = [AudioWorker(p, p.replace("\\", "__")) for p in random.sample(noise_files_paths, epoch_noise_count)]
@@ -115,8 +113,10 @@ if __name__ == '__main__':
         running_whole_count = 0
 
         print("Training on", device)
+        time.sleep(0.2)
         model.train()
-        for batch_inputs, batch_targets in tqdm(train_dataloader, desc=f"epoch {global_epoch + epoch}({epoch})",
+        for batch_inputs, batch_targets in tqdm(train_dataloader,
+                                                desc=f"epoch {global_epoch + epoch}({epoch}\\{do_epoches})",
                                                 disable=0):
             batch_inputs = batch_inputs.to(device)
             batch_targets = batch_targets.to(device)
@@ -124,7 +124,6 @@ if __name__ == '__main__':
             output = model(batch_inputs)
 
             loss = bce(output, batch_targets)
-            loss_history.append(loss.item())
 
             temp_count = batch_targets.numel()
             running_loss += loss.item() * temp_count
@@ -136,15 +135,18 @@ if __name__ == '__main__':
             optimizer.step()
 
         running_loss /= running_whole_count
-        accuracy = running_correct_count / running_whole_count
+        accuracy = (running_correct_count / running_whole_count).item()
 
-        # accuracy = 0
-
-        row_values = {
-            'global epoch': global_epoch + epoch,
-            'train loss': running_loss, 'train accuracy': accuracy.item()
+        row_loss_values = {
+            'global_epoch': global_epoch + epoch,
+            'train_loss': running_loss
+        }
+        row_acc_values = {
+            'global_epoch': global_epoch + epoch,
+            'train_accuracy': accuracy
         }
 
+        time.sleep(0.5)
         print(f"{'=' * 40}")
         print("Training scores")
         print(f"Loss: {running_loss:.4f}\nAccuracy: {accuracy:.4f}")
@@ -152,8 +154,11 @@ if __name__ == '__main__':
 
         model.eval()
         print("Getting validation scores")
+
+        time.sleep(0.5)
         val_loss, val_acc = get_validation_score(model, bce_without_averaging, threshold, val_snrs,
                                                  val_dataloader, device)
+        time.sleep(0.2)
 
         print(f"{'=' * 40}")
         print("Validation scores")
@@ -168,21 +173,24 @@ if __name__ == '__main__':
             print(f"Loss: {val_loss[snr]:.4f}\nAccuracy: {val_acc[snr]:.4f}")
 
             if snr is None:
-                row_values['clear audio loss'] = val_loss[snr].item()
-                row_values['clear audio accuracy'] = val_acc[snr].item()
+                row_loss_values['clear_audio_loss'] = val_loss[snr].item()
+                row_acc_values['clear_audio_accuracy'] = val_acc[snr].item()
             else:
-                row_values[f'noised audio snr{snr} loss'] = val_loss[snr].item()
-                row_values[f'noised audio snr{snr} accuracy'] = val_acc[snr].item()
+                row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[snr].item()
+                row_acc_values[f'noised_audio_snr{snr}_accuracy'] = val_acc[snr].item()
         print(f"{'=' * 40}\n")
 
-        training_history_table.loc[len(training_history_table)] = row_values
+        loss_history_table.loc[len(loss_history_table)] = row_loss_values
+        accuracy_history_table.loc[len(accuracy_history_table)] = row_acc_values
 
     torch.save({
-        'epoch': global_epoch + epoch,
+        'epoch': global_epoch + do_epoches,
         'model_state_dict': model.state_dict(),
         'optimizer': type(optimizer).__name__,
         'optimizer_state_dict': optimizer.state_dict()
     }, model_path)
 
-    print(loss_history)
-    print(training_history_table)
+    print(accuracy_history_table.T)
+    print()
+    print(f"{'=' * 40}\n")
+    print(loss_history_table.T)
