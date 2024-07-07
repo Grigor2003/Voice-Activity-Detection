@@ -10,17 +10,21 @@ from torch.utils.data import DataLoader, random_split
 from audio_utils import AudioWorker, OpenSLRDataset
 from gru_model import SimpleG
 from utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
-from utils import find_last_model_in_tree, create_new_model_dir, get_validation_score
+from utils import find_last_model_in_tree, create_new_model_trains_dir, get_validation_score
+
 
 noise_data_path = r"data\noise-16k"
 clean_audios_path = r"data\train-clean-100"
 clean_labels_path = r"data\8000_30_50_100_50_max"
+
+train_name = ""
 
 # blacklist = ['7067-76048-0021']
 blacklist = []
 
 # continue_last_model = True
 continue_last_model = True
+models_root_dir = "train_results"
 
 if __name__ == '__main__':
 
@@ -70,9 +74,15 @@ if __name__ == '__main__':
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, params, mfcc_converter)
     val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
 
-    train_name = type(model).__name__
+    if train_name == "":
+        train_name = type(model).__name__
+
+    model_trains_tree_dir = os.path.join(models_root_dir, train_name)
+
     if continue_last_model:
-        model_path = find_last_model_in_tree(train_name)
+        model_path = find_last_model_in_tree(model_trains_tree_dir)
+        if model_path is None:
+            raise FileNotFoundError(f"Could not find model in folder {model_trains_tree_dir}")
 
         checkpoint = torch.load(model_path)
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -82,7 +92,7 @@ if __name__ == '__main__':
         print(f"Continuing training from epoch {global_epoch}")
 
     else:
-        model_path = create_new_model_dir(train_name)
+        model_path = create_new_model_trains_dir(model_trains_tree_dir)
         global_epoch = 0
         print(f"Created {model_path}")
 

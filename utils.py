@@ -136,22 +136,20 @@ def get_validation_score(model, loss_function, threshold, snr_dbs, dataloader, d
 
 
 RES_PREFIX = "res"
-ROOT_DIR = "train_results"
 DATE_FORMAT = "%Y-%m-%d"
 MODEL_NAME = "model.pt"
 
 
-def find_last_model_in_tree(train_name):
-    dir_of_days = os.path.join(ROOT_DIR, train_name)
+def find_last_model_in_tree(model_trains_tree_dir):
     res_dir = None
 
-    if os.path.exists(dir_of_days):
+    if os.path.exists(model_trains_tree_dir):
         date_objects = [datetime.strptime(date, DATE_FORMAT)
-                        for date in os.listdir(dir_of_days)
-                        if len(os.listdir(os.path.join(dir_of_days, date))) != 0]
+                        for date in os.listdir(model_trains_tree_dir)
+                        if len(os.listdir(os.path.join(model_trains_tree_dir, date))) != 0]
         if len(date_objects) != 0:
             max_num = 0
-            day_dir = os.path.join(dir_of_days, max(date_objects).strftime(DATE_FORMAT))
+            day_dir = os.path.join(model_trains_tree_dir, max(date_objects).strftime(DATE_FORMAT))
             for name in os.listdir(day_dir):
                 st, num = name.split("_")
                 folder_path = os.path.join(day_dir, name)
@@ -160,24 +158,23 @@ def find_last_model_in_tree(train_name):
                     res_dir = folder_path
 
     if res_dir is None:
-        raise ValueError("No model.pt found")
+        return None
     else:
         return os.path.join(res_dir, MODEL_NAME)
 
 
-def create_new_model_dir(train_name):
-    day_dir = os.path.join(ROOT_DIR, train_name, datetime.now().strftime(DATE_FORMAT))
-    os.makedirs(day_dir, exist_ok=True)
+def create_new_model_trains_dir(model_trains_tree_dir):
+    os.makedirs(model_trains_tree_dir, exist_ok=True)
     max_num = 0
-    for name in os.listdir(day_dir):
+    for name in os.listdir(model_trains_tree_dir):
         st, num = name.split("_")
-        folder_path = os.path.join(day_dir, name)
+        folder_path = os.path.join(model_trains_tree_dir, name)
         max_num = max(int(num), max_num)
         if len(os.listdir(folder_path)) == 0:
             max_num -= 1
             break
 
-    res_dir = os.path.join(day_dir, RES_PREFIX + "_" + str(max_num + 1))
+    res_dir = os.path.join(model_trains_tree_dir, RES_PREFIX + "_" + str(max_num + 1))
     os.makedirs(res_dir, exist_ok=True)
 
     return os.path.join(res_dir, MODEL_NAME)
