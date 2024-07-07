@@ -12,7 +12,6 @@ from gru_model import SimpleG
 from utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
 from utils import find_last_model_in_tree, create_new_model_trains_dir, get_validation_score
 
-
 noise_data_path = r"data\noise-16k"
 clean_audios_path = r"data\train-clean-100"
 clean_labels_path = r"data\8000_30_50_100_50_max"
@@ -22,16 +21,17 @@ train_name = ""
 # blacklist = ['7067-76048-0021']
 blacklist = []
 
-# continue_last_model = True
 continue_last_model = True
+# continue_last_model = False
+
 models_root_dir = "train_results"
 
 if __name__ == '__main__':
 
     train_ratio = 0.9
 
-    do_epoches = 2
-    train_num_workers = 6
+    do_epoches = 1
+    train_num_workers = 4
     epoch_noise_count = 500
     train_snr = 3
     params = {
@@ -88,6 +88,16 @@ if __name__ == '__main__':
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         global_epoch = checkpoint['epoch']
+
+        input_size = checkpoint['model_input_size']
+        hidden_dim = checkpoint['model_hidden_dim']
+
+        mfcc_converter = WaveToMFCCConverter(
+            n_mfcc=checkpoint['mfcc_n_mfcc'],
+            sample_rate=checkpoint['mfcc_sample_rate'],
+            win_length=checkpoint['mfcc_win_length'],
+            hop_length=checkpoint['mfcc_hop_length'])
+
         print(f"Loaded {model_path} with optimizer {checkpoint['optimizer']}")
         print(f"Continuing training from epoch {global_epoch}")
 
@@ -197,7 +207,16 @@ if __name__ == '__main__':
         'epoch': global_epoch + do_epoches,
         'model_state_dict': model.state_dict(),
         'optimizer': type(optimizer).__name__,
-        'optimizer_state_dict': optimizer.state_dict()
+        'optimizer_state_dict': optimizer.state_dict(),
+
+        'model_input_size': input_size,
+        'model_hidden_dim': hidden_dim,
+
+        'mfcc_n_mfcc': mfcc_converter.n_mfcc,
+        'mfcc_sample_rate': mfcc_converter.sample_rate,
+        'mfcc_win_length': mfcc_converter.win_length,
+        'mfcc_hop_length': mfcc_converter.hop_length,
+
     }, model_path)
 
     print(accuracy_history_table.T)

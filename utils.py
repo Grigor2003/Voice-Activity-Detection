@@ -11,6 +11,8 @@ import torchaudio
 class WaveToMFCCConverter:
     def __init__(self, n_mfcc, sample_rate=8000, frame_duration_in_ms=None, win_length=None, hop_length=None):
         self.n_mfcc = n_mfcc
+        self.sample_rate = sample_rate
+        self.frame_duration_in_ms = frame_duration_in_ms
 
         if frame_duration_in_ms is not None:
             sample_count = torch.tensor(sample_rate * frame_duration_in_ms / 1000, dtype=torch.int)
@@ -22,6 +24,9 @@ class WaveToMFCCConverter:
         if hop_length is None:
             hop_length = int(win_length // 2)
         hop_length = int(hop_length)
+
+        self.win_length = win_length
+        self.hop_length = hop_length
 
         mfcc_params = {
             "n_mfcc": n_mfcc,
@@ -164,17 +169,18 @@ def find_last_model_in_tree(model_trains_tree_dir):
 
 
 def create_new_model_trains_dir(model_trains_tree_dir):
-    os.makedirs(model_trains_tree_dir, exist_ok=True)
+    day_dir = os.path.join(model_trains_tree_dir, datetime.now().strftime(DATE_FORMAT))
+    os.makedirs(day_dir, exist_ok=True)
     max_num = 0
-    for name in os.listdir(model_trains_tree_dir):
+    for name in os.listdir(day_dir):
         st, num = name.split("_")
-        folder_path = os.path.join(model_trains_tree_dir, name)
+        folder_path = os.path.join(day_dir, name)
         max_num = max(int(num), max_num)
         if len(os.listdir(folder_path)) == 0:
             max_num -= 1
             break
 
-    res_dir = os.path.join(model_trains_tree_dir, RES_PREFIX + "_" + str(max_num + 1))
+    res_dir = os.path.join(day_dir, RES_PREFIX + "_" + str(max_num + 1))
     os.makedirs(res_dir, exist_ok=True)
 
     return os.path.join(res_dir, MODEL_NAME)

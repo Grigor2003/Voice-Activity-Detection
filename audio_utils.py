@@ -105,8 +105,8 @@ class OpenSLRDataset(Dataset):
         self.label_region_sec = int(args[3]) / 1000.0
         self.label_overlap_percent = int(args[4]) / 100.0
         self.decision_function_name = args[5]
-        self.label_window = self.sample_rate * self.label_region_sec
-        self.label_hop = self.label_window * (1 - self.label_overlap_percent)
+        self.label_window = int(self.sample_rate * self.label_region_sec)
+        self.label_hop = int(self.label_window * (1 - self.label_overlap_percent))
 
     def __len__(self):
         return len(self.txt_files)
