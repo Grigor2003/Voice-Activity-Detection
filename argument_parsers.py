@@ -1,5 +1,5 @@
 import argparse
-from models import MODELS_COUNT
+from models import MODELS_COUNT, NAMES
 
 
 def get_range(fr=0, to=1, tp=float):
@@ -51,8 +51,10 @@ train_parser.add_argument("-u", "--use_last", required=False, action="store_true
                           help="Indicates whether the last model from the training results will be used")
 train_parser.add_argument("--model_path", required=False, type=str,
                           help="The path to the model which will be used")
-add_def_arg("--model_name", default=None, desc="The name of the model from models.py")
-add_def_arg("--model_id", default=0, tp=get_range(0, MODELS_COUNT - 1, int), desc="The id of the model from models.py")
+add_def_arg_short("--model_name", short="-m", default=None,
+                  desc=f"The name of the model from models.py one of {NAMES}")
+add_def_arg_short("--model_id", short="-i", default=0, tp=get_range(0, MODELS_COUNT - 1, int),
+                  desc=f"The id of the model from models.py from 0 to {MODELS_COUNT - 1}")
 add_def_arg("--val_ratio", default=0.05, tp=get_range(), desc="The ratio of validation data taken from clean data")
 add_def_arg_short("--epoch", short="-e", default=1, tp=get_range(0, 1000, int),
                   desc="The number of epochs to train the model in current session")
