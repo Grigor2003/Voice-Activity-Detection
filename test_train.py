@@ -72,8 +72,13 @@ if __name__ == '__main__':
 
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
 
-    if load_last:
-        model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
+    if load_last or args.model_path is not None:
+        if args.model_path is not None:
+            model_path = args.model_path
+            model_dir = os.path.dirname(model_path)
+        else:
+            model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
+            
         if model_path is None:
             raise FileNotFoundError(f"Could not find model in folder {model_trains_tree_dir}")
 

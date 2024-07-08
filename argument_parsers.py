@@ -49,7 +49,8 @@ add_def_arg("--noise", default=r"data\noise-16k", desc="Path to noises data")
 add_def_arg("--train_res", default=r"train_results", desc="The directory to save train results")
 train_parser.add_argument("-u", "--use_last", required=False, action="store_true",
                           help="Indicates whether the last model from the training results will be used")
-add_def_arg("--model_path", default=r"test_results", desc="The path to the model which will be used")
+train_parser.add_argument("--model_path", required=False, type=str,
+                          help="The path to the model which will be used")
 add_def_arg("--model_name", default=None, desc="The name of the model from models.py")
 add_def_arg("--model_id", default=0, tp=get_range(0, MODELS_COUNT - 1, int), desc="The id of the model from models.py")
 add_def_arg("--val_ratio", default=0.05, tp=get_range(), desc="The ratio of validation data taken from clean data")
