@@ -4,13 +4,20 @@ import time
 
 import pandas as pd
 from tqdm import tqdm
-import torch
+import argparse
 
+import torch
 from torch.utils.data import DataLoader, random_split
+
 from audio_utils import AudioWorker, OpenSLRDataset
 from models import MODELS, NAMES
 from utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
 from utils import find_last_model_in_tree, create_new_model_trains_dir, get_validation_score
+
+
+parser = argparse.ArgumentParser(description="Training script for Open SLR dataset with noise")
+
+
 
 noise_data_path = r"data\noise-16k"
 clean_audios_path = r"data\train-clean-100"
@@ -68,7 +75,7 @@ if __name__ == '__main__':
     model_trains_tree_dir = os.path.join(models_root_dir, model_name)
 
     if continue_last_model:
-        model_path = find_last_model_in_tree(model_trains_tree_dir)
+        model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
         if model_path is None:
             raise FileNotFoundError(f"Could not find model in folder {model_trains_tree_dir}")
 
@@ -83,11 +90,14 @@ if __name__ == '__main__':
             win_length=checkpoint['mfcc_win_length'],
             hop_length=checkpoint['mfcc_hop_length'])
 
+        loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
+        accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'), index_col="global_epoch")
+
         print(f"Loaded {model_path} with optimizer {checkpoint['optimizer']}")
         print(f"Continuing training from epoch {global_epoch}")
 
     else:
-        model_path = create_new_model_trains_dir(model_trains_tree_dir)
+        model_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
         global_epoch = 0
 
         mfcc_converter = WaveToMFCCConverter(
@@ -96,23 +106,25 @@ if __name__ == '__main__':
             win_length=dataset.label_window,
             hop_length=dataset.label_hop)
 
+        loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
+        accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
+        loss_history_table.set_index('global_epoch', inplace=True)
+        accuracy_history_table.set_index('global_epoch', inplace=True)
+
+        for snr in val_snrs:
+            if snr is None:
+                loss_history_table['clear_audio_loss'] = []
+                accuracy_history_table['clear_audio_accuracy'] = []
+            else:
+                loss_history_table[f'noised_audio_snr{snr}_loss'] = []
+                accuracy_history_table[f'noised_audio_snr{snr}_accuracy'] = []
+
         print(f"Created {model_path}")
 
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, params, mfcc_converter)
     val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
 
-    loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
-    accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
-    loss_history_table.set_index('global_epoch', inplace=True)
-    accuracy_history_table.set_index('global_epoch', inplace=True)
 
-    for snr in val_snrs:
-        if snr is None:
-            loss_history_table['clear_audio_loss'] = []
-            accuracy_history_table['clear_audio_accuracy'] = []
-        else:
-            loss_history_table[f'noised_audio_snr{snr}_loss'] = []
-            accuracy_history_table[f'noised_audio_snr{snr}_accuracy'] = []
 
     for epoch in range(1, do_epoches + 1):
         noises = [AudioWorker(p, p.replace("\\", "__")) for p in random.sample(noise_files_paths, epoch_noise_count)]
@@ -123,9 +135,9 @@ if __name__ == '__main__':
         train_dataloader.collate_fn.noises = noises
         val_dataloader.collate_fn.noises = noises
 
-        running_loss = 0
-        running_correct_count = 0
-        running_whole_count = 0
+        running_loss = torch.scalar_tensor(0, device=device)
+        running_correct_count = torch.scalar_tensor(0, device=device)
+        running_whole_count = torch.scalar_tensor(0, device=device)
 
         print("Training on", device)
         time.sleep(0.2)
@@ -149,7 +161,7 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
-        running_loss /= running_whole_count
+        running_loss = (running_loss / running_whole_count).item()
         accuracy = (running_correct_count / running_whole_count).item()
 
         row_loss_values = {
@@ -210,6 +222,9 @@ if __name__ == '__main__':
         'mfcc_hop_length': mfcc_converter.hop_length,
 
     }, model_path)
+
+    loss_history_table.to_csv(os.path.join(model_dir, 'loss_history.csv'))
+    accuracy_history_table.to_csv(os.path.join(model_dir, 'accuracy_history.csv'))
 
     print(accuracy_history_table.T)
     print()

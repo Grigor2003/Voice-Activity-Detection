@@ -145,7 +145,7 @@ DATE_FORMAT = "%Y-%m-%d"
 MODEL_NAME = "model.pt"
 
 
-def find_last_model_in_tree(model_trains_tree_dir):
+def find_last_model_in_tree(model_trains_tree_dir) -> (str, str):
     res_dir = None
 
     if os.path.exists(model_trains_tree_dir):
@@ -163,12 +163,12 @@ def find_last_model_in_tree(model_trains_tree_dir):
                     res_dir = folder_path
 
     if res_dir is None:
-        return None
+        return None, None
     else:
-        return os.path.join(res_dir, MODEL_NAME)
+        return res_dir, os.path.join(res_dir, MODEL_NAME)
 
 
-def create_new_model_trains_dir(model_trains_tree_dir):
+def create_new_model_trains_dir(model_trains_tree_dir) -> (str, str):
     day_dir = os.path.join(model_trains_tree_dir, datetime.now().strftime(DATE_FORMAT))
     os.makedirs(day_dir, exist_ok=True)
     max_num = 0
@@ -183,4 +183,4 @@ def create_new_model_trains_dir(model_trains_tree_dir):
     res_dir = os.path.join(day_dir, RES_PREFIX + "_" + str(max_num + 1))
     os.makedirs(res_dir, exist_ok=True)
 
-    return os.path.join(res_dir, MODEL_NAME)
+    return res_dir, os.path.join(res_dir, MODEL_NAME)
