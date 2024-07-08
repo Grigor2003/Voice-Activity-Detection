@@ -60,7 +60,7 @@ add_def_arg("--noise_pool", default=500, tp=get_range(0, 5000, int),
             desc="The size of the noise pool for audio augmentation")
 add_def_arg("--noise_count", default=2, tp=get_range(0, 10, int),
             desc="The count of noises added on a single audio")
-add_def_arg("--noise_duration", default=5, tp=get_range_parser(get_range(0, 60), get_range(0, 60)),
+add_def_arg("--noise_duration", default=(5, 10), tp=get_range_parser(get_range(0, 60), get_range(0, 60)),
             desc="The duration of added noises in seconds seperated by f,t")
 add_def_arg_short("--workers", short="-w", default=1, tp=get_range(0, 32, int),
                   desc="The number of workers for data loading during training")
