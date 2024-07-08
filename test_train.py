@@ -75,9 +75,9 @@ if __name__ == '__main__':
     if load_last or args.model_path is not None:
         if args.model_path is not None:
             model_path = args.model_path
-            model_dir = os.path.dirname(model_path)
+            model_new_dir = os.path.dirname(model_path)
         else:
-            model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
+            model_new_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
 
         if model_path is None:
             raise FileNotFoundError(f"Could not find model in folder {model_trains_tree_dir}")
@@ -93,14 +93,13 @@ if __name__ == '__main__':
             win_length=checkpoint['mfcc_win_length'],
             hop_length=checkpoint['mfcc_hop_length'])
 
-        loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
-        accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'), index_col="global_epoch")
+        loss_history_table = pd.read_csv(os.path.join(model_new_dir, 'loss_history.csv'), index_col="global_epoch")
+        accuracy_history_table = pd.read_csv(os.path.join(model_new_dir, 'accuracy_history.csv'), index_col="global_epoch")
 
         print(f"Loaded {model_path} with optimizer {checkpoint['optimizer']}")
         print(f"Continuing training from epoch {global_epoch}")
 
     else:
-        model_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
         global_epoch = 0
 
         mfcc_converter = WaveToMFCCConverter(
@@ -122,7 +121,6 @@ if __name__ == '__main__':
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
                 accuracy_history_table[f'noised_audio_snr{snr}_accuracy'] = []
 
-        print(f"Created {model_path}")
 
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, mfcc_converter)
     val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
@@ -211,6 +209,9 @@ if __name__ == '__main__':
         loss_history_table.loc[len(loss_history_table)] = row_loss_values
         accuracy_history_table.loc[len(accuracy_history_table)] = row_acc_values
 
+    model_new_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
+    print(f"Created {model_new_dir}")
+
     torch.save({
         'epoch': global_epoch + do_epoches,
         'model_state_dict': model.state_dict(),
@@ -224,9 +225,11 @@ if __name__ == '__main__':
 
     }, model_path)
 
-    loss_history_table.to_csv(os.path.join(model_dir, 'loss_history.csv'))
-    accuracy_history_table.to_csv(os.path.join(model_dir, 'accuracy_history.csv'))
+    loss_history_table.to_csv(os.path.join(model_new_dir, 'loss_history.csv'))
+    accuracy_history_table.to_csv(os.path.join(model_new_dir, 'accuracy_history.csv'))
 
+    print(f"Saved as {model_path}")
+    print()
     print(accuracy_history_table.T)
     print()
     print(f"{'=' * 40}\n")
