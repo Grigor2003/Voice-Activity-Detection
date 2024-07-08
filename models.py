@@ -8,3 +8,7 @@ MODELS = {
 }
 
 NAMES = [*MODELS.keys()]
+MODELS_COUNT = len(NAMES)
+
+if MODELS_COUNT == 0:
+    raise Exception("You must specify at least one model")

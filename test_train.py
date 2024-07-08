@@ -4,7 +4,6 @@ import time
 
 import pandas as pd
 from tqdm import tqdm
-import argparse
 
 import torch
 from torch.utils.data import DataLoader, random_split
@@ -13,48 +12,47 @@ from audio_utils import AudioWorker, OpenSLRDataset
 from models import MODELS, NAMES
 from utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
 from utils import find_last_model_in_tree, create_new_model_trains_dir, get_validation_score
+from argument_parsers import train_parser
 
+args = train_parser.parse_args()
 
-parser = argparse.ArgumentParser(description="Training script for Open SLR dataset with noise")
+noise_data_path = args.noise
+clean_audios_path = args.clean
+clean_labels_path = args.labels
 
+if args.model_name is not None:
+    model_name = args.model_name
+    if model_name not in NAMES:
+        raise ValueError(f"Model name must be one of: {NAMES}")
+else:
+    model_name = NAMES[args.model_id]
 
+train_res_dir = args.train_res
+load_last = args.use_last
 
-noise_data_path = r"data\noise-16k"
-clean_audios_path = r"data\train-clean-100"
-clean_labels_path = r"data\8000_30_50_100_50_max"
+batch_size = args.batch
+num_workers = args.workers
+val_batch_size = args.val_batch
+val_num_workers = args.val_workers
 
-model_name = NAMES[0]  # SimpleG
+train_ratio = 1 - args.val_ratio
+do_epoches = args.epoch
+epoch_noise_count = args.noise_pool
 
-if model_name not in NAMES:
-    raise ValueError("Model name must be one of: {}".format(NAMES))
+augmentation_params = {
+    "noise_count": args.noise_count,
+    "noise_duration_range": (args.noise_duration_min, args.noise_duration_max),
+    "snr_db": args.snr
+}
 
-# blacklist = ['7067-76048-0021']
-blacklist = []
-
-continue_last_model = True
-# continue_last_model = False
-
-models_root_dir = "train_results"
+val_params = augmentation_params.copy()
+del val_params["snr_db"]
+val_snrs = [None, 10, 5, 0]
+threshold = args.threshold
 
 if __name__ == '__main__':
 
-    train_ratio = 0.9
-
-    do_epoches = 1
-    train_num_workers = 8
-    epoch_noise_count = 500
-    train_snr = 3
-    params = {
-        "noise_count": 2,
-        "noise_duration_range": (5, 10),
-        "snr_db": train_snr
-    }
-    val_params = params.copy()
-    del val_params["snr_db"]
-    val_snrs = [None, 10, 5, 0]
-    threshold = 0.7
-
-    dataset = OpenSLRDataset(clean_audios_path, clean_labels_path, blacklist)
+    dataset = OpenSLRDataset(clean_audios_path, clean_labels_path, [])
     noise_files_paths = [os.path.join(noise_data_path, p) for p in os.listdir(noise_data_path) if p.endswith(".wav")]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -63,8 +61,8 @@ if __name__ == '__main__':
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
-    train_dataloader = DataLoader(train_dataset, batch_size=2 ** 7, shuffle=True, num_workers=train_num_workers)
-    val_dataloader = DataLoader(val_dataset, batch_size=2 ** 7, shuffle=True, num_workers=4)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    val_dataloader = DataLoader(val_dataset, batch_size=val_batch_size, shuffle=True, num_workers=val_num_workers)
 
     model = MODELS[model_name].to(device)
 
@@ -72,9 +70,9 @@ if __name__ == '__main__':
     bce = torch.nn.BCEWithLogitsLoss()
     bce_without_averaging = torch.nn.BCEWithLogitsLoss(reduction="sum")
 
-    model_trains_tree_dir = os.path.join(models_root_dir, model_name)
+    model_trains_tree_dir = os.path.join(train_res_dir, model_name)
 
-    if continue_last_model:
+    if load_last:
         model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
         if model_path is None:
             raise FileNotFoundError(f"Could not find model in folder {model_trains_tree_dir}")
@@ -121,10 +119,8 @@ if __name__ == '__main__':
 
         print(f"Created {model_path}")
 
-    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, params, mfcc_converter)
+    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, mfcc_converter)
     val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
-
-
 
     for epoch in range(1, do_epoches + 1):
         noises = [AudioWorker(p, p.replace("\\", "__")) for p in random.sample(noise_files_paths, epoch_noise_count)]
