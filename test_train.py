@@ -8,7 +8,7 @@ import torch
 
 from torch.utils.data import DataLoader, random_split
 from audio_utils import AudioWorker, OpenSLRDataset
-from gru_model import SimpleG
+from models import MODELS, NAMES
 from utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
 from utils import find_last_model_in_tree, create_new_model_trains_dir, get_validation_score
 
@@ -16,7 +16,10 @@ noise_data_path = r"data\noise-16k"
 clean_audios_path = r"data\train-clean-100"
 clean_labels_path = r"data\8000_30_50_100_50_max"
 
-train_name = ""
+model_name = NAMES[0]  # SimpleG
+
+if model_name not in NAMES:
+    raise ValueError("Model name must be one of: {}".format(NAMES))
 
 # blacklist = ['7067-76048-0021']
 blacklist = []
@@ -31,7 +34,7 @@ if __name__ == '__main__':
     train_ratio = 0.9
 
     do_epoches = 1
-    train_num_workers = 4
+    train_num_workers = 8
     epoch_noise_count = 500
     train_snr = 3
     params = {
@@ -56,28 +59,13 @@ if __name__ == '__main__':
     train_dataloader = DataLoader(train_dataset, batch_size=2 ** 7, shuffle=True, num_workers=train_num_workers)
     val_dataloader = DataLoader(val_dataset, batch_size=2 ** 7, shuffle=True, num_workers=4)
 
-    input_size = 64
-    hidden_dim = 48
+    model = MODELS[model_name].to(device)
 
-    model = SimpleG(input_dim=input_size, hidden_dim=hidden_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-
     bce = torch.nn.BCEWithLogitsLoss()
     bce_without_averaging = torch.nn.BCEWithLogitsLoss(reduction="sum")
 
-    mfcc_converter = WaveToMFCCConverter(
-        n_mfcc=input_size,
-        sample_rate=dataset.sample_rate,
-        win_length=dataset.label_window,
-        hop_length=dataset.label_hop)
-
-    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, params, mfcc_converter)
-    val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
-
-    if train_name == "":
-        train_name = type(model).__name__
-
-    model_trains_tree_dir = os.path.join(models_root_dir, train_name)
+    model_trains_tree_dir = os.path.join(models_root_dir, model_name)
 
     if continue_last_model:
         model_path = find_last_model_in_tree(model_trains_tree_dir)
@@ -88,9 +76,6 @@ if __name__ == '__main__':
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         global_epoch = checkpoint['epoch']
-
-        input_size = checkpoint['model_input_size']
-        hidden_dim = checkpoint['model_hidden_dim']
 
         mfcc_converter = WaveToMFCCConverter(
             n_mfcc=checkpoint['mfcc_n_mfcc'],
@@ -104,7 +89,17 @@ if __name__ == '__main__':
     else:
         model_path = create_new_model_trains_dir(model_trains_tree_dir)
         global_epoch = 0
+
+        mfcc_converter = WaveToMFCCConverter(
+            n_mfcc=model.input_dim,
+            sample_rate=dataset.sample_rate,
+            win_length=dataset.label_window,
+            hop_length=dataset.label_hop)
+
         print(f"Created {model_path}")
+
+    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, params, mfcc_converter)
+    val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
 
     loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
     accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
@@ -208,9 +203,6 @@ if __name__ == '__main__':
         'model_state_dict': model.state_dict(),
         'optimizer': type(optimizer).__name__,
         'optimizer_state_dict': optimizer.state_dict(),
-
-        'model_input_size': input_size,
-        'model_hidden_dim': hidden_dim,
 
         'mfcc_n_mfcc': mfcc_converter.n_mfcc,
         'mfcc_sample_rate': mfcc_converter.sample_rate,
