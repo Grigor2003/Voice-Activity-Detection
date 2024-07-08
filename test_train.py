@@ -41,7 +41,7 @@ epoch_noise_count = args.noise_pool
 
 augmentation_params = {
     "noise_count": args.noise_count,
-    "noise_duration_range": (args.noise_duration_min, args.noise_duration_max),
+    "noise_duration_range": args.noise_duration,
     "snr_db": args.snr
 }
 
@@ -78,7 +78,7 @@ if __name__ == '__main__':
             model_dir = os.path.dirname(model_path)
         else:
             model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
-            
+
         if model_path is None:
             raise FileNotFoundError(f"Could not find model in folder {model_trains_tree_dir}")
 
