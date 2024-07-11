@@ -39,6 +39,7 @@ train_ratio = 1 - args.val_ratio
 do_epoches = args.epoch
 epoch_noise_count = args.noise_pool
 val_every = args.val_every
+verbose = args.verbose
 
 augmentation_params = {
     "noise_count": args.noise_count,
@@ -49,12 +50,13 @@ augmentation_params = {
 val_params = augmentation_params.copy()
 del val_params["snr_db"]
 val_snrs = [None, 10, 5, 0]
-if args.snr in val_snrs:
-    val_snrs.remove(args.snr)
-val_snrs.insert(0, args.snr)
 threshold = args.threshold
 
 if __name__ == '__main__':
+
+    if args.snr in val_snrs:
+        val_snrs.remove(args.snr)
+    val_snrs.insert(0, args.snr)
 
     dataset = OpenSLRDataset(clean_audios_path, clean_labels_path, [])
     noise_files_paths = [os.path.join(noise_data_path, p) for p in os.listdir(noise_data_path) if p.endswith(".wav")]
@@ -177,10 +179,12 @@ if __name__ == '__main__':
         }
 
         time.sleep(0.5)
-        print(f"{'=' * 40}")
-        print("Training scores")
-        print(f"Loss: {running_loss:.4f}\nAccuracy: {accuracy:.4f}")
-        print(f"{'=' * 40}")
+
+        if verbose > 0:
+            print(f"{'=' * 40}")
+            print("Training scores")
+            print(f"Loss: {running_loss:.4f}\nAccuracy: {accuracy:.4f}")
+            print(f"{'=' * 40}")
 
         if epoch % val_every == 0:
             model.eval()
@@ -191,25 +195,26 @@ if __name__ == '__main__':
                                                      val_dataloader, device)
             time.sleep(0.2)
 
-            print(f"{'=' * 40}")
-            print("Validation scores")
-            for snr in val_snrs:
-                print(f"{'-' * 30}")
-                if snr is None:
-                    name = "Clear audios"
-                else:
-                    name = f"Noised audios snrDB {snr}"
+            if verbose > 1:
+                print(f"{'=' * 40}")
+                print("Validation scores")
+                for snr in val_snrs:
+                    print(f"{'-' * 30}")
+                    if snr is None:
+                        name = "Clear audios"
+                    else:
+                        name = f"Noised audios snrDB {snr}"
 
-                print(name)
-                print(f"Loss: {val_loss[snr]:.4f}\nAccuracy: {val_acc[snr]:.4f}")
+                    print(name)
+                    print(f"Loss: {val_loss[snr]:.4f}\nAccuracy: {val_acc[snr]:.4f}")
 
-                if snr is None:
-                    row_loss_values['clear_audio_loss'] = val_loss[snr].item()
-                    row_acc_values['clear_audio_accuracy'] = val_acc[snr].item()
-                else:
-                    row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[snr].item()
-                    row_acc_values[f'noised_audio_snr{snr}_accuracy'] = val_acc[snr].item()
-            print(f"{'=' * 40}\n")
+                    if snr is None:
+                        row_loss_values['clear_audio_loss'] = val_loss[snr].item()
+                        row_acc_values['clear_audio_accuracy'] = val_acc[snr].item()
+                    else:
+                        row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[snr].item()
+                        row_acc_values[f'noised_audio_snr{snr}_accuracy'] = val_acc[snr].item()
+                print(f"{'=' * 40}\n")
 
             loss_history_table.loc[len(loss_history_table)] = row_loss_values
             accuracy_history_table.loc[len(accuracy_history_table)] = row_acc_values
