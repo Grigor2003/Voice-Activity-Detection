@@ -94,7 +94,8 @@ if __name__ == '__main__':
             hop_length=checkpoint['mfcc_hop_length'])
 
         loss_history_table = pd.read_csv(os.path.join(model_new_dir, 'loss_history.csv'), index_col="global_epoch")
-        accuracy_history_table = pd.read_csv(os.path.join(model_new_dir, 'accuracy_history.csv'), index_col="global_epoch")
+        accuracy_history_table = pd.read_csv(os.path.join(model_new_dir, 'accuracy_history.csv'),
+                                             index_col="global_epoch")
 
         print(f"Loaded {model_path} with optimizer {checkpoint['optimizer']}")
         print(f"Continuing training from epoch {global_epoch}")
@@ -120,7 +121,6 @@ if __name__ == '__main__':
             else:
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
                 accuracy_history_table[f'noised_audio_snr{snr}_accuracy'] = []
-
 
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, mfcc_converter)
     val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
@@ -227,6 +227,13 @@ if __name__ == '__main__':
 
     loss_history_table.to_csv(os.path.join(model_new_dir, 'loss_history.csv'))
     accuracy_history_table.to_csv(os.path.join(model_new_dir, 'accuracy_history.csv'))
+
+    if not args.no_plot:
+        loss_plot = loss_history_table.plot()
+        accuracy_plot = accuracy_history_table.plot()
+
+        loss_plot.figure.savefig(os.path.join(model_new_dir, 'loss.png'))
+        accuracy_plot.figure.savefig(os.path.join(model_new_dir, 'accuracy.png'))
 
     print(f"Saved as {model_path}")
     print()

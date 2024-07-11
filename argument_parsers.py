@@ -46,7 +46,11 @@ train_parser = argparse.ArgumentParser(description="Training script for Open SLR
 add_def_arg("--clean", default=r"data\train-clean-100", desc="Path to clean data")
 add_def_arg("--labels", default=r"data\8000_30_50_100_50_max", desc="Path to labels")
 add_def_arg("--noise", default=r"data\noise-16k", desc="Path to noises data")
+
 add_def_arg("--train_res", default=r"train_results", desc="The directory to save train results")
+train_parser.add_argument("--no_plot", required=False, action="store_true",
+                          help="If not exists the plots of current training run will be saved in results folder")
+
 train_parser.add_argument("-u", "--use_last", required=False, action="store_true",
                           help="Indicates whether the last model from the training results will be used")
 train_parser.add_argument("--model_path", required=False, type=str,
