@@ -195,6 +195,14 @@ if __name__ == '__main__':
                                                      val_dataloader, device)
             time.sleep(0.2)
 
+            for snr in val_snrs:
+                if snr is None:
+                    row_loss_values['clear_audio_loss'] = val_loss[snr].item()
+                    row_acc_values['clear_audio_accuracy'] = val_acc[snr].item()
+                else:
+                    row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[snr].item()
+                    row_acc_values[f'noised_audio_snr{snr}_accuracy'] = val_acc[snr].item()
+
             if verbose > 1:
                 print(f"{'=' * 40}")
                 print("Validation scores")
@@ -207,13 +215,6 @@ if __name__ == '__main__':
 
                     print(name)
                     print(f"Loss: {val_loss[snr]:.4f}\nAccuracy: {val_acc[snr]:.4f}")
-
-                    if snr is None:
-                        row_loss_values['clear_audio_loss'] = val_loss[snr].item()
-                        row_acc_values['clear_audio_accuracy'] = val_acc[snr].item()
-                    else:
-                        row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[snr].item()
-                        row_acc_values[f'noised_audio_snr{snr}_accuracy'] = val_acc[snr].item()
                 print(f"{'=' * 40}\n")
 
             loss_history_table.loc[len(loss_history_table)] = row_loss_values
