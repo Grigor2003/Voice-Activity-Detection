@@ -5,8 +5,26 @@ from tqdm import tqdm
 
 from audio_utils import augment_sample
 import torch
+from torch.utils.data import DataLoader, random_split
 import torchaudio
 from tabulate import tabulate
+
+
+def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers,
+                              seed=None):
+    train_size = int(train_ratio * len(dataset))
+    val_size = len(dataset) - train_size
+
+    if seed is None:
+        seed = torch.randint(low=0, high=2 ** 32, size=(1,)).item()
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=generator)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    val_dataloader = DataLoader(val_dataset, batch_size=val_batch_size, shuffle=True, num_workers=val_num_workers)
+    return train_dataloader, val_dataloader, seed
 
 
 class WaveToMFCCConverter:

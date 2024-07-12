@@ -6,12 +6,12 @@ import pandas as pd
 from tqdm import tqdm
 
 import torch
-from torch.utils.data import DataLoader, random_split
 
 from audio_utils import AudioWorker, OpenSLRDataset
 from models import MODELS, NAMES
 from utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
-from utils import find_last_model_in_tree, create_new_model_trains_dir, get_validation_score, print_as_table
+from utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, get_validation_score, \
+    print_as_table
 from argument_parsers import train_parser
 
 args = train_parser.parse_args()
@@ -63,13 +63,6 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_size = int(train_ratio * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
-
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    val_dataloader = DataLoader(val_dataset, batch_size=val_batch_size, shuffle=True, num_workers=val_num_workers)
-
     model = MODELS[model_name].to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -88,6 +81,12 @@ if __name__ == '__main__':
 
     if model_path is not None:
         checkpoint = torch.load(model_path)
+
+        seed = checkpoint["seed"]
+        train_dataloader, val_dataloader, _ = get_train_val_dataloaders(dataset, train_ratio, batch_size,
+                                                                        val_batch_size,
+                                                                        num_workers, val_num_workers, seed)
+
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         global_epoch = checkpoint['epoch']
@@ -110,6 +109,10 @@ if __name__ == '__main__':
         print(f"New model of {type(model)} type will be created instead")
 
         global_epoch = 1
+
+        train_dataloader, val_dataloader, seed = get_train_val_dataloaders(dataset, train_ratio, batch_size,
+                                                                           val_batch_size,
+                                                                           num_workers, val_num_workers)
 
         mfcc_converter = WaveToMFCCConverter(
             n_mfcc=model.input_dim,
@@ -214,6 +217,7 @@ if __name__ == '__main__':
     print(f"\nCreated {model_new_dir}")
 
     torch.save({
+        'seed': seed,
         'epoch': global_epoch + do_epoches,
         'model_state_dict': model.state_dict(),
         'optimizer': type(optimizer).__name__,
