@@ -71,7 +71,7 @@ if __name__ == '__main__':
 
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
 
-    model_path = None
+    model_new_dir, model_path = None, None
     if load_last or args.model_path is not None:
         if args.model_path is not None:
             model_path = args.model_path
@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        global_epoch = checkpoint['epoch']
+        curr_run_start_global_epoch = checkpoint['epoch']
 
         mfcc_converter = WaveToMFCCConverter(
             n_mfcc=checkpoint['mfcc_n_mfcc'],
@@ -102,13 +102,13 @@ if __name__ == '__main__':
                                              index_col="global_epoch")
 
         print(f"Loaded {model_path} with optimizer {checkpoint['optimizer']}")
-        print(f"Continuing training from epoch {global_epoch} on {device} device")
+        print(f"Continuing training from epoch {curr_run_start_global_epoch} on {device} device")
 
     else:
         print(f"Could not find model in folder {model_trains_tree_dir}")
         print(f"New model of {type(model)} type will be created instead")
 
-        global_epoch = 1
+        curr_run_start_global_epoch = 1
 
         train_dataloader, val_dataloader, seed = get_train_val_dataloaders(dataset, train_ratio, batch_size,
                                                                            val_batch_size,
@@ -138,6 +138,7 @@ if __name__ == '__main__':
 
     for epoch in range(1, do_epoches + 1):
 
+        global_epoch = curr_run_start_global_epoch + epoch - 1
         print(f"\n{'=' * 100}\n")
 
         noises = [AudioWorker(p, p.replace("\\", "__")) for p in random.sample(noise_files_paths, epoch_noise_count)]
@@ -154,7 +155,7 @@ if __name__ == '__main__':
 
         model.train()
         for batch_inputs, batch_targets in tqdm(train_dataloader,
-                                                desc=f"Training epoch: {global_epoch + epoch} ({epoch}\\{do_epoches})",
+                                                desc=f"Training epoch: {global_epoch} ({epoch}\\{do_epoches})",
                                                 disable=0):
             batch_inputs = batch_inputs.to(device)
             batch_targets = batch_targets.to(device)
@@ -176,11 +177,11 @@ if __name__ == '__main__':
         accuracy = (running_correct_count / running_whole_count).item()
 
         row_loss_values = {
-            'global_epoch': global_epoch + epoch,
+            'global_epoch': global_epoch,
             'train_loss': running_loss
         }
         row_acc_values = {
-            'global_epoch': global_epoch + epoch,
+            'global_epoch': global_epoch,
             'train_accuracy': accuracy
         }
 
@@ -204,8 +205,8 @@ if __name__ == '__main__':
                 row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[snr].item() if val_loss is not None else None
                 row_acc_values[f'noised_audio_snr{snr}_acc'] = val_acc[snr].item() if val_acc is not None else None
 
-        loss_history_table.loc[len(loss_history_table)] = row_loss_values
-        accuracy_history_table.loc[len(accuracy_history_table)] = row_acc_values
+        loss_history_table.loc[global_epoch] = row_loss_values
+        accuracy_history_table.loc[global_epoch] = row_acc_values
 
         if verbose > 1:
             print(f"\nLoss history")
@@ -218,7 +219,7 @@ if __name__ == '__main__':
 
     torch.save({
         'seed': seed,
-        'epoch': global_epoch + do_epoches,
+        'epoch': curr_run_start_global_epoch + do_epoches - 1,
         'model_state_dict': model.state_dict(),
         'optimizer': type(optimizer).__name__,
         'optimizer_state_dict': optimizer.state_dict(),
