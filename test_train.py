@@ -3,7 +3,6 @@ import random
 import time
 
 import pandas as pd
-from tabulate import tabulate
 from tqdm import tqdm
 
 import torch
@@ -12,7 +11,7 @@ from torch.utils.data import DataLoader, random_split
 from audio_utils import AudioWorker, OpenSLRDataset
 from models import MODELS, NAMES
 from utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
-from utils import find_last_model_in_tree, create_new_model_trains_dir, get_validation_score
+from utils import find_last_model_in_tree, create_new_model_trains_dir, get_validation_score, print_as_table
 from argument_parsers import train_parser
 
 args = train_parser.parse_args()
@@ -79,6 +78,7 @@ if __name__ == '__main__':
 
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
 
+    model_path = None
     if load_last or args.model_path is not None:
         if args.model_path is not None:
             model_path = args.model_path
@@ -86,9 +86,7 @@ if __name__ == '__main__':
         else:
             model_new_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
 
-        if model_path is None:
-            raise FileNotFoundError(f"Could not find model in folder {model_trains_tree_dir}")
-
+    if model_path is not None:
         checkpoint = torch.load(model_path)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -105,10 +103,13 @@ if __name__ == '__main__':
                                              index_col="global_epoch")
 
         print(f"Loaded {model_path} with optimizer {checkpoint['optimizer']}")
-        print(f"Continuing training from epoch {global_epoch}")
+        print(f"Continuing training from epoch {global_epoch} on {device} device")
 
     else:
-        global_epoch = 0
+        print(f"Could not find model in folder {model_trains_tree_dir}")
+        print(f"New model of {type(model)} type will be created instead")
+
+        global_epoch = 1
 
         mfcc_converter = WaveToMFCCConverter(
             n_mfcc=model.input_dim,
@@ -124,15 +125,18 @@ if __name__ == '__main__':
         for snr in val_snrs:
             if snr is None:
                 loss_history_table['clear_audio_loss'] = []
-                accuracy_history_table['clear_audio_accuracy'] = []
+                accuracy_history_table['clear_audio_acc'] = []
             else:
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
-                accuracy_history_table[f'noised_audio_snr{snr}_accuracy'] = []
+                accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
 
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, mfcc_converter)
     val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
 
     for epoch in range(1, do_epoches + 1):
+
+        print(f"\n{'=' * 100}\n")
+
         noises = [AudioWorker(p, p.replace("\\", "__")) for p in random.sample(noise_files_paths, epoch_noise_count)]
         for noise in noises:
             noise.load()
@@ -145,11 +149,9 @@ if __name__ == '__main__':
         running_correct_count = torch.scalar_tensor(0, device=device)
         running_whole_count = torch.scalar_tensor(0, device=device)
 
-        print("Training on", device)
-        time.sleep(0.2)
         model.train()
         for batch_inputs, batch_targets in tqdm(train_dataloader,
-                                                desc=f"epoch {global_epoch + epoch}({epoch}\\{do_epoches})",
+                                                desc=f"Training epoch: {global_epoch + epoch} ({epoch}\\{do_epoches})",
                                                 disable=0):
             batch_inputs = batch_inputs.to(device)
             batch_targets = batch_targets.to(device)
@@ -179,60 +181,37 @@ if __name__ == '__main__':
             'train_accuracy': accuracy
         }
 
-        time.sleep(0.5)
-
         if verbose > 0:
-            print(f"{'=' * 40}")
-            print("Training scores")
-            print(f"Loss: {running_loss:.4f}\nAccuracy: {accuracy:.4f}")
-            print(f"{'=' * 40}")
+            time.sleep(0.25)
+            print(f"Training | loss: {running_loss:.4f} | accuracy: {accuracy:.4f}")
+            time.sleep(0.25)
 
+        val_loss, val_acc = None, None
         if epoch % val_every == 0:
             model.eval()
-            print("Getting validation scores")
 
-            time.sleep(0.5)
             val_loss, val_acc = get_validation_score(model, bce_without_averaging, threshold, val_snrs,
                                                      val_dataloader, device)
-            time.sleep(0.2)
 
-            for snr in val_snrs:
-                if snr is None:
-                    row_loss_values['clear_audio_loss'] = val_loss[snr].item()
-                    row_acc_values['clear_audio_accuracy'] = val_acc[snr].item()
-                else:
-                    row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[snr].item()
-                    row_acc_values[f'noised_audio_snr{snr}_accuracy'] = val_acc[snr].item()
+        for snr in val_snrs:
+            if snr is None:
+                row_loss_values['clear_audio_loss'] = val_loss[snr].item() if val_loss is not None else None
+                row_acc_values['clear_audio_acc'] = val_acc[snr].item() if val_acc is not None else None
+            else:
+                row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[snr].item() if val_loss is not None else None
+                row_acc_values[f'noised_audio_snr{snr}_acc'] = val_acc[snr].item() if val_acc is not None else None
 
-            if verbose > 1:
-                data = {
-                    'loss': [running_loss] + [val_loss[snr].item() for snr in val_snrs],
-                    'accuracy': [accuracy] + [val_acc[snr].item() for snr in val_snrs]
-                }
-                index = ['train'] + ['clear' if i is None else f'snr{i}' for i in val_snrs]
-                table_to_print = pd.DataFrame(data, index=index)
+        loss_history_table.loc[len(loss_history_table)] = row_loss_values
+        accuracy_history_table.loc[len(accuracy_history_table)] = row_acc_values
 
-                print(f"{'=' * 40}")
-                print("Validation scores")
-
-                print(tabulate(table_to_print, headers='keys', tablefmt='grid'))
-
-                # for snr in val_snrs:
-                #     print(f"{'-' * 30}")
-                #     if snr is None:
-                #         name = "Clear audios"
-                #     else:
-                #         name = f"Noised audios snrDB {snr}"
-                #
-                #     print(name)
-                #     print(f"Loss: {val_loss[snr]:.4f}\nAccuracy: {val_acc[snr]:.4f}")
-                print(f"{'=' * 40}\n")
-
-            loss_history_table.loc[len(loss_history_table)] = row_loss_values
-            accuracy_history_table.loc[len(accuracy_history_table)] = row_acc_values
+        if verbose > 1:
+            print(f"\nLoss history")
+            print_as_table(loss_history_table)
+            print(f"\nAccuracy history")
+            print_as_table(accuracy_history_table)
 
     model_new_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
-    print(f"Created {model_new_dir}")
+    print(f"\nCreated {model_new_dir}")
 
     torch.save({
         'epoch': global_epoch + do_epoches,
@@ -258,8 +237,3 @@ if __name__ == '__main__':
         accuracy_plot.figure.savefig(os.path.join(model_new_dir, 'accuracy.png'))
 
     print(f"Saved as {model_path}")
-    print()
-    print(accuracy_history_table.T)
-    print()
-    print(f"{'=' * 40}\n")
-    print(loss_history_table.T)

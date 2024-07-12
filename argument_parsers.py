@@ -81,6 +81,6 @@ add_def_arg("--threshold", default=0.7, tp=get_range(),
 add_def_arg("--snr", default=3, tp=get_range(-20, 20),
             desc="The size of the batch for simultaneous usage of samples during validation score calculation")
 add_def_arg("--val_every", default=1, tp=get_range(0, 1000, int),
-                  desc="The count of epoches to pass before calculating the validation score")
+            desc="The count of epoches to pass before calculating the validation score")
 add_def_arg("--verbose", default=2, tp=get_range(0, 2, int),
-                  desc="The level of detail of printing")
+            desc="The level of detail of printing")

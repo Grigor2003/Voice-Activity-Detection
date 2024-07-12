@@ -6,6 +6,7 @@ from tqdm import tqdm
 from audio_utils import augment_sample
 import torch
 import torchaudio
+from tabulate import tabulate
 
 
 class WaveToMFCCConverter:
@@ -124,7 +125,7 @@ def get_validation_score(model, loss_function, threshold, snr_dbs, dataloader, d
     whole_count = {snr_db: 0.0 for snr_db in snr_dbs}
     accuracy = {snr_db: 0.0 for snr_db in snr_dbs}
 
-    for all_tensors in tqdm(dataloader):
+    for all_tensors in tqdm(dataloader, desc=f"Calculating validation scores: "):
         for snr_db in snr_dbs:
             batch_inputs = all_tensors[snr_db][0].to(device)
             batch_targets = all_tensors[snr_db][1].to(device)
@@ -138,6 +139,13 @@ def get_validation_score(model, loss_function, threshold, snr_dbs, dataloader, d
         accuracy[snr_db] = correct_count[snr_db] / whole_count[snr_db]
 
     return loss, accuracy
+
+
+def print_as_table(dataframe):
+    if len(dataframe) > 4:
+        print(tabulate(dataframe.iloc[[0, -3, -2, -1], :].T, headers='keys', tablefmt='grid'))
+    else:
+        print(tabulate(dataframe.T, headers='keys', tablefmt='grid'))
 
 
 RES_PREFIX = "res"
