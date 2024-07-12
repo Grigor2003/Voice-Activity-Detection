@@ -194,8 +194,23 @@ if __name__ == '__main__':
         if epoch % val_every == 0:
             model.eval()
 
-            val_loss, val_acc = get_validation_score(model, bce_without_averaging, threshold, val_snrs,
-                                                     val_dataloader, device)
+            val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
+            val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
+            correct_count = {snr_db: 0 for snr_db in val_snrs}
+            whole_count = {snr_db: 0 for snr_db in val_snrs}
+
+            for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
+                for snr_db in val_snrs:
+                    batch_inputs = all_tensors[snr_db][0].to(device)
+                    batch_targets = all_tensors[snr_db][1].to(device)
+                    output = model(batch_inputs)
+                    val_loss[snr_db] += bce_without_averaging(output, batch_targets)
+                    correct_count[snr_db] += torch.sum((output > threshold) == (batch_targets > threshold))
+                    whole_count[snr_db] += batch_targets.numel()
+
+            for snr_db in val_snrs:
+                val_loss[snr_db] /= whole_count[snr_db]
+                val_acc[snr_db] = correct_count[snr_db] / whole_count[snr_db]
 
         for snr in val_snrs:
             if snr is None:

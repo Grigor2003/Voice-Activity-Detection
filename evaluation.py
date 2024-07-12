@@ -4,50 +4,49 @@ import time
 
 import numpy as np
 import torchaudio
+import os
+import random
+import time
+
+import pandas as pd
 from tqdm import tqdm
+
 import torch
 
-from audio_utils import AudioWorker, OpenSLRDataset
-from gru_model import SimpleG
-from utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
-from utils import find_last_model_in_tree, create_new_model_trains_dir, get_validation_score
+from audio_utils import AudioWorker
+from models import MODELS, NAMES
+from utils import WaveToMFCCConverter
+from utils import find_last_model_in_tree, get_train_val_dataloaders
 
 input_dir = r"data/simple_test/input"
-model_path = r""
 output_dir = r"data/simple_test/output"
-use_last_model_in = r"train_results/SimpleG"
+model_name = r"SimpleDGGD_64_32_32_16_8"
+train_res_dir = "train_results"
 
 if __name__ == '__main__':
 
-    if not os.path.exists(input_dir):
-        raise FileNotFoundError(input_dir)
+    model_trains_tree_dir = os.path.join(train_res_dir, model_name)
 
-    _model_dir, _model_path = find_last_model_in_tree(use_last_model_in)
-    if _model_path is not None:
-        model_path = _model_path
+    model_new_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
 
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(model_path)
+    if model_path is None:
+        raise Exception(f"No model was found at {model_trains_tree_dir}")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}")
 
     checkpoint = torch.load(model_path)
-    global_epoch = checkpoint['epoch']
+
     sample_rate = checkpoint['mfcc_sample_rate']
     win_lenght = checkpoint['mfcc_win_length']
     hop_lenght = checkpoint['mfcc_hop_length']
-
-    input_size = checkpoint['model_input_size']
-    hidden_dim = checkpoint['model_hidden_dim']
     th = 0.5
 
-    print(f"Loaded {model_path} trained to epoch {global_epoch}")
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    model = SimpleG(input_dim=input_size, hidden_dim=hidden_dim).to(device)
+    model = MODELS[model_name].to(device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     mfcc_converter = WaveToMFCCConverter(
-        n_mfcc=input_size,
+        n_mfcc=checkpoint['mfcc_n_mfcc'],
         sample_rate=sample_rate,
         win_length=win_lenght,
         hop_length=hop_lenght)
@@ -65,6 +64,7 @@ if __name__ == '__main__':
         print("\n".join(eval_paths))
 
     os.makedirs(output_dir, exist_ok=True)
+    time.sleep(0.5)
     for audio_path in tqdm(eval_paths):
         au = AudioWorker(audio_path, os.path.basename(audio_path))
         au.load()
