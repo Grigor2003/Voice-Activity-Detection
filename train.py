@@ -10,8 +10,7 @@ import torch
 from audio_utils import AudioWorker, OpenSLRDataset
 from models import MODELS, NAMES
 from utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
-from utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, get_validation_score, \
-    print_as_table
+from utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, print_as_table
 from argument_parsers import train_parser
 
 args = train_parser.parse_args()
@@ -65,7 +64,7 @@ if __name__ == '__main__':
 
     model = MODELS[model_name].to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
     bce = torch.nn.BCEWithLogitsLoss()
     bce_without_averaging = torch.nn.BCEWithLogitsLoss(reduction="sum")
 

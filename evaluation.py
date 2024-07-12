@@ -1,14 +1,8 @@
-import os
-import random
-import time
-
 import numpy as np
 import torchaudio
 import os
-import random
 import time
 
-import pandas as pd
 from tqdm import tqdm
 
 import torch
@@ -16,7 +10,7 @@ import torch
 from audio_utils import AudioWorker
 from models import MODELS, NAMES
 from utils import WaveToMFCCConverter
-from utils import find_last_model_in_tree, get_train_val_dataloaders
+from utils import find_last_model_in_tree
 
 input_dir = r"data/simple_test/input"
 output_dir = r"data/simple_test/output"
@@ -63,12 +57,13 @@ if __name__ == '__main__':
     if len(eval_paths) <= 10:
         print("\n".join(eval_paths))
 
+    output_dir = os.path.join(output_dir, model_name)
     os.makedirs(output_dir, exist_ok=True)
     time.sleep(0.5)
     for audio_path in tqdm(eval_paths):
         au = AudioWorker(audio_path, os.path.basename(audio_path))
         au.load()
-        au.resample(8000)  # TODO: parse this from mfcc parameters
+        au.resample(sample_rate)
         inp = mfcc_converter(au.wave).to(device)
         speech_mask = model(inp).squeeze(-1).detach().cpu().numpy()
         item_wise_mask = np.full(au.wave.size(1), False, dtype=bool)
