@@ -3,6 +3,7 @@ import random
 import time
 
 import pandas as pd
+from tabulate import tabulate
 from tqdm import tqdm
 
 import torch
@@ -204,17 +205,27 @@ if __name__ == '__main__':
                     row_acc_values[f'noised_audio_snr{snr}_accuracy'] = val_acc[snr].item()
 
             if verbose > 1:
+                data = {
+                    'loss': [running_loss] + [val_loss[snr].item() for snr in val_snrs],
+                    'accuracy': [accuracy] + [val_acc[snr].item() for snr in val_snrs]
+                }
+                index = ['train'] + ['clear' if i is None else f'snr{i}' for i in val_snrs]
+                table_to_print = pd.DataFrame(data, index=index)
+
                 print(f"{'=' * 40}")
                 print("Validation scores")
-                for snr in val_snrs:
-                    print(f"{'-' * 30}")
-                    if snr is None:
-                        name = "Clear audios"
-                    else:
-                        name = f"Noised audios snrDB {snr}"
 
-                    print(name)
-                    print(f"Loss: {val_loss[snr]:.4f}\nAccuracy: {val_acc[snr]:.4f}")
+                print(tabulate(table_to_print, headers='keys', tablefmt='grid'))
+
+                # for snr in val_snrs:
+                #     print(f"{'-' * 30}")
+                #     if snr is None:
+                #         name = "Clear audios"
+                #     else:
+                #         name = f"Noised audios snrDB {snr}"
+                #
+                #     print(name)
+                #     print(f"Loss: {val_loss[snr]:.4f}\nAccuracy: {val_acc[snr]:.4f}")
                 print(f"{'=' * 40}\n")
 
             loss_history_table.loc[len(loss_history_table)] = row_loss_values
