@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        curr_run_start_global_epoch = checkpoint['epoch']
+        curr_run_start_global_epoch = checkpoint['epoch'] + 1
 
         mfcc_converter = WaveToMFCCConverter(
             n_mfcc=checkpoint['mfcc_n_mfcc'],
@@ -102,7 +102,7 @@ if __name__ == '__main__':
                                              index_col="global_epoch")
 
         print(f"Loaded {model_path} with optimizer {checkpoint['optimizer']}")
-        print(f"Continuing training from epoch {curr_run_start_global_epoch} on {device} device")
+        print(f"Continuing training from epoch {curr_run_start_global_epoch + 1} on {device} device")
 
     else:
         print(f"Could not find model in folder {model_trains_tree_dir}")
