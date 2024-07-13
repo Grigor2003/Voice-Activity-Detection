@@ -2,6 +2,7 @@ import os
 import random
 import time
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
@@ -14,18 +15,13 @@ from utils import find_last_model_in_tree, create_new_model_trains_dir, get_trai
     save_history_plot
 from argument_parsers import train_parser
 
+# arguments from parsing
+
 args = train_parser.parse_args()
 
 noise_data_path = args.noise
 clean_audios_path = args.clean
 clean_labels_path = args.labels
-
-if args.model_name is not None:
-    model_name = args.model_name
-    if model_name not in NAMES:
-        raise ValueError(f"Model name must be one of: {NAMES}")
-else:
-    model_name = NAMES[args.model_id]
 
 train_res_dir = args.train_res
 load_last = args.use_last
@@ -41,6 +37,22 @@ lr = args.lr
 epoch_noise_count = args.noise_pool
 val_every = args.val_every
 verbose = args.verbose
+saves_count = args.saves_count
+threshold = args.threshold
+
+# other arguments
+
+if args.model_name is not None:
+    model_name = args.model_name
+    if model_name not in NAMES:
+        raise ValueError(f"Model name must be one of: {NAMES}")
+else:
+    model_name = NAMES[args.model_id]
+
+if saves_count > do_epoches:
+    raise ValueError(f"Saves count must be less than epoches count to do: {do_epoches}")
+
+save_frames = np.linspace(do_epoches / saves_count, do_epoches, saves_count, dtype=int)
 
 augmentation_params = {
     "noise_count": args.noise_count,
@@ -51,7 +63,6 @@ augmentation_params = {
 val_params = augmentation_params.copy()
 del val_params["snr_db"]
 val_snrs = [None, 10, 5, 0]
-threshold = args.threshold
 
 if __name__ == '__main__':
 
@@ -72,13 +83,13 @@ if __name__ == '__main__':
 
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
 
-    model_new_dir, model_path = None, None
+    model_dir, model_path = None, None
     if load_last or args.model_path is not None:
         if args.model_path is not None:
             model_path = args.model_path
-            model_new_dir = os.path.dirname(model_path)
+            model_dir = os.path.dirname(model_path)
         else:
-            model_new_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
+            model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
 
     if model_path is not None:
         checkpoint = torch.load(model_path)
@@ -98,8 +109,8 @@ if __name__ == '__main__':
             win_length=checkpoint['mfcc_win_length'],
             hop_length=checkpoint['mfcc_hop_length'])
 
-        loss_history_table = pd.read_csv(os.path.join(model_new_dir, 'loss_history.csv'), index_col="global_epoch")
-        accuracy_history_table = pd.read_csv(os.path.join(model_new_dir, 'accuracy_history.csv'),
+        loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
+        accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'),
                                              index_col="global_epoch")
 
         print(f"Loaded {model_path} with optimizer {checkpoint['optimizer']}")
@@ -134,8 +145,12 @@ if __name__ == '__main__':
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
                 accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
 
+    model_new_dir, model_new_path = None, None
+
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, mfcc_converter)
     val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
+
+    print(f"Checkpoints: {save_frames}")
 
     for epoch in range(1, do_epoches + 1):
 
@@ -216,11 +231,11 @@ if __name__ == '__main__':
 
         for snr in val_snrs:
             if snr is None:
-                row_loss_values['clear_audio_loss'] = val_loss[snr].item() if val_loss is not None else None
-                row_acc_values['clear_audio_acc'] = val_acc[snr].item() if val_acc is not None else None
+                row_loss_values['clear_audio_loss'] = val_loss[snr].item() if val_loss is not None else np.nan
+                row_acc_values['clear_audio_acc'] = val_acc[snr].item() if val_acc is not None else np.nan
             else:
-                row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[snr].item() if val_loss is not None else None
-                row_acc_values[f'noised_audio_snr{snr}_acc'] = val_acc[snr].item() if val_acc is not None else None
+                row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[snr].item() if val_loss is not None else np.nan
+                row_acc_values[f'noised_audio_snr{snr}_acc'] = val_acc[snr].item() if val_acc is not None else np.nan
 
         loss_history_table.loc[global_epoch] = row_loss_values
         accuracy_history_table.loc[global_epoch] = row_acc_values
@@ -231,31 +246,33 @@ if __name__ == '__main__':
             print(f"\nAccuracy history")
             print_as_table(accuracy_history_table)
 
-    model_new_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
-    print(f"\nCreated {model_new_dir}")
+        if epoch in save_frames:
+            if epoch == save_frames[0]:
+                model_new_dir, model_new_path = create_new_model_trains_dir(model_trains_tree_dir)
+                print(f"\nCreated {model_new_dir}")
 
-    torch.save({
-        'seed': seed,
-        'epoch': curr_run_start_global_epoch + do_epoches - 1,
-        'model_state_dict': model.state_dict(),
-        'optimizer': type(optimizer).__name__,
-        'optimizer_state_dict': optimizer.state_dict(),
+            print(f"Saving model for {global_epoch} (checkpoint {epoch})")
 
-        'mfcc_n_mfcc': mfcc_converter.n_mfcc,
-        'mfcc_sample_rate': mfcc_converter.sample_rate,
-        'mfcc_win_length': mfcc_converter.win_length,
-        'mfcc_hop_length': mfcc_converter.hop_length,
+            loss_history_table.to_csv(os.path.join(model_new_dir, 'loss_history.csv'))
+            accuracy_history_table.to_csv(os.path.join(model_new_dir, 'accuracy_history.csv'))
 
-    }, model_path)
+            if not args.no_plot:
+                save_history_plot(loss_history_table, 'global_epoch', 'Loss history', 'Epoch', 'Loss',
+                                  os.path.join(model_new_dir, 'loss.png'))
 
-    loss_history_table.to_csv(os.path.join(model_new_dir, 'loss_history.csv'))
-    accuracy_history_table.to_csv(os.path.join(model_new_dir, 'accuracy_history.csv'))
+                save_history_plot(accuracy_history_table, 'global_epoch', 'Accuracy history', 'Epoch', 'Accuracy',
+                                  os.path.join(model_new_dir, 'accuracy.png'))
 
-    if not args.no_plot:
-        save_history_plot(loss_history_table, 'global_epoch', 'Loss history', 'Epoch', 'Loss',
-                          os.path.join(model_new_dir, 'loss.png'))
+            torch.save({
+                'seed': seed,
+                'epoch': curr_run_start_global_epoch + do_epoches - 1,
+                'model_state_dict': model.state_dict(),
+                'optimizer': type(optimizer).__name__,
+                'optimizer_state_dict': optimizer.state_dict(),
 
-        save_history_plot(accuracy_history_table, 'global_epoch', 'Accuracy history', 'Epoch', 'Accuracy',
-                          os.path.join(model_new_dir, 'accuracy.png'))
+                'mfcc_n_mfcc': mfcc_converter.n_mfcc,
+                'mfcc_sample_rate': mfcc_converter.sample_rate,
+                'mfcc_win_length': mfcc_converter.win_length,
+                'mfcc_hop_length': mfcc_converter.hop_length,
 
-    print(f"Saved as {model_path}")
+            }, model_new_path)

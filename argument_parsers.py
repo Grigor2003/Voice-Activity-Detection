@@ -86,3 +86,5 @@ add_def_arg("--verbose", default=2, tp=get_range(0, 2, int),
             desc="The level of detail of printing")
 add_def_arg("--lr", default=-3, tp=get_range(-2000, 2000),
             desc="The learning rate given by power of 10")
+add_def_arg("--saves_count", default=1, tp=get_range(1, 100, int),
+            desc="The count of saves (one save is always done in the end of run)")
