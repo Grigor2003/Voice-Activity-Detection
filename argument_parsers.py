@@ -84,3 +84,5 @@ add_def_arg("--val_every", default=1, tp=get_range(0, 1000, int),
             desc="The count of epoches to pass before calculating the validation score")
 add_def_arg("--verbose", default=2, tp=get_range(0, 2, int),
             desc="The level of detail of printing")
+add_def_arg("--lr", default=-3, tp=get_range(-2000, 2000),
+            desc="The learning rate given by power of 10")

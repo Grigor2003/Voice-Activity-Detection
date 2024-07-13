@@ -36,6 +36,7 @@ val_num_workers = args.val_workers
 
 train_ratio = 1 - args.val_ratio
 do_epoches = args.epoch
+lr = args.lr
 epoch_noise_count = args.noise_pool
 val_every = args.val_every
 verbose = args.verbose
@@ -64,7 +65,7 @@ if __name__ == '__main__':
 
     model = MODELS[model_name].to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=10 ** lr)
     bce = torch.nn.BCEWithLogitsLoss()
     bce_without_averaging = torch.nn.BCEWithLogitsLoss(reduction="sum")
 

@@ -188,3 +188,7 @@ def create_new_model_trains_dir(model_trains_tree_dir) -> (str, str):
     os.makedirs(res_dir, exist_ok=True)
 
     return res_dir, os.path.join(res_dir, MODEL_NAME)
+
+
+def get_model_param_count(model):
+    return sum(p.numel() for p in model.parameters()).item()
