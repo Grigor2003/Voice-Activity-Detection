@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 
+from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from audio_utils import augment_sample
@@ -8,6 +9,7 @@ import torch
 from torch.utils.data import DataLoader, random_split
 import torchaudio
 from tabulate import tabulate
+import numpy as np
 
 
 def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers,
@@ -192,3 +194,30 @@ def create_new_model_trains_dir(model_trains_tree_dir) -> (str, str):
 
 def get_model_param_count(model):
     return sum(p.numel() for p in model.parameters()).item()
+
+
+def save_history_plot(history_table, index, title, x_label, y_label, path):
+    history_dict = history_table.to_dict(orient='list')
+    history_dict[index] = history_table.index.tolist()
+    history_dict = {key: np.array(value) for key, value in history_dict.items()}
+
+    fig, ax = plt.subplots()
+    ax.set_title(title)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+
+    x = history_dict[index]
+
+    for key, val in history_dict.items():
+        temp_x = x
+        if key == 'global_epoch':
+            continue
+
+        if np.isnan(val).any():
+            non_nan_mask = ~np.isnan(val)
+            temp_x = x[non_nan_mask]
+            val = val[non_nan_mask]
+        ax.plot(temp_x, val, label=key)
+        ax.legend()
+
+    fig.savefig(path)

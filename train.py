@@ -10,7 +10,8 @@ import torch
 from audio_utils import AudioWorker, OpenSLRDataset
 from models import MODELS, NAMES
 from utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
-from utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, print_as_table
+from utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, print_as_table, \
+    save_history_plot
 from argument_parsers import train_parser
 
 args = train_parser.parse_args()
@@ -191,26 +192,27 @@ if __name__ == '__main__':
             time.sleep(0.25)
 
         val_loss, val_acc = None, None
-        if epoch % val_every == 0:
-            model.eval()
+        if val_every != 0:
+            if epoch % val_every == 0:
+                model.eval()
 
-            val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
-            val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
-            correct_count = {snr_db: 0 for snr_db in val_snrs}
-            whole_count = {snr_db: 0 for snr_db in val_snrs}
+                val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
+                val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
+                correct_count = {snr_db: 0 for snr_db in val_snrs}
+                whole_count = {snr_db: 0 for snr_db in val_snrs}
 
-            for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
+                for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
+                    for snr_db in val_snrs:
+                        batch_inputs = all_tensors[snr_db][0].to(device)
+                        batch_targets = all_tensors[snr_db][1].to(device)
+                        output = model(batch_inputs)
+                        val_loss[snr_db] += bce_without_averaging(output, batch_targets)
+                        correct_count[snr_db] += torch.sum((output > threshold) == (batch_targets > threshold))
+                        whole_count[snr_db] += batch_targets.numel()
+
                 for snr_db in val_snrs:
-                    batch_inputs = all_tensors[snr_db][0].to(device)
-                    batch_targets = all_tensors[snr_db][1].to(device)
-                    output = model(batch_inputs)
-                    val_loss[snr_db] += bce_without_averaging(output, batch_targets)
-                    correct_count[snr_db] += torch.sum((output > threshold) == (batch_targets > threshold))
-                    whole_count[snr_db] += batch_targets.numel()
-
-            for snr_db in val_snrs:
-                val_loss[snr_db] /= whole_count[snr_db]
-                val_acc[snr_db] = correct_count[snr_db] / whole_count[snr_db]
+                    val_loss[snr_db] /= whole_count[snr_db]
+                    val_acc[snr_db] = correct_count[snr_db] / whole_count[snr_db]
 
         for snr in val_snrs:
             if snr is None:
@@ -250,10 +252,10 @@ if __name__ == '__main__':
     accuracy_history_table.to_csv(os.path.join(model_new_dir, 'accuracy_history.csv'))
 
     if not args.no_plot:
-        loss_plot = loss_history_table.plot()
-        accuracy_plot = accuracy_history_table.plot()
+        save_history_plot(loss_history_table, 'global_epoch', 'Loss history', 'Epoch', 'Loss',
+                          os.path.join(model_new_dir, 'loss.png'))
 
-        loss_plot.figure.savefig(os.path.join(model_new_dir, 'loss.png'))
-        accuracy_plot.figure.savefig(os.path.join(model_new_dir, 'accuracy.png'))
+        save_history_plot(accuracy_history_table, 'global_epoch', 'Accuracy history', 'Epoch', 'Accuracy',
+                          os.path.join(model_new_dir, 'accuracy.png'))
 
     print(f"Saved as {model_path}")
