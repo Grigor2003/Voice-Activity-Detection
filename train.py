@@ -70,7 +70,7 @@ if __name__ == '__main__':
         val_snrs.remove(args.snr)
     val_snrs.insert(0, args.snr)
 
-    dataset = OpenSLRDataset(clean_audios_path, clean_labels_path, [])
+    dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
     noise_files_paths = [os.path.join(noise_data_path, p) for p in os.listdir(noise_data_path) if p.endswith(".wav")]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -3,6 +3,7 @@ import glob
 import os
 
 import matplotlib.pyplot as plt
+import pandas as pd
 import torch
 import torchaudio
 import torchaudio.functional as tf
@@ -90,15 +91,14 @@ class OpenSLRDataset(Dataset):
         ext = new_extension.strip('.')
         return os.path.splitext(file_path)[0] + "." + ext
 
-    def __init__(self, openslr_path, labels_pack_path, blacklist=[]):
+    def __init__(self, openslr_path, labels_path):
+        # def init(self, openslr_path, labels_path, blacklist_names=[], blacklist_readers=[]):
         self.openslr_path = openslr_path
-        self.labels_pack_path = labels_pack_path
-        self.blacklist = blacklist
+        self.labels_path = labels_path
 
-        self.txt_files = [p for p in self.get_files_by_extension(self.labels_pack_path)
-                          if os.path.splitext(os.path.basename(p))[0] not in self.blacklist]
+        self.labels = pd.read_csv(labels_path)
 
-        args = os.path.basename(self.labels_pack_path).split("_")
+        args = os.path.basename(self.labels_path).split("_")
         self.sample_rate = int(args[0])
         self.vad_window = int(args[1])
         self.vad_overlap_percent = int(args[2]) / 100.0
@@ -109,19 +109,19 @@ class OpenSLRDataset(Dataset):
         self.label_hop = int(self.label_window * (1 - self.label_overlap_percent))
 
     def __len__(self):
-        return len(self.txt_files)
+        return len(self.labels)
 
     def __getitem__(self, idx) -> AudioWorker:
-        file_path = os.path.join(self.labels_pack_path, self.txt_files[idx])
-        with open(file_path, 'r') as file:
-            labels_text = file.readline().strip()
+        filename = self.labels.filename[idx]
+        reader, chapter, _ = filename.split('-')
+        audio_file_path = os.path.join(self.openslr_path, reader, chapter, filename)
 
-        audio_file_path = self.change_file_extension(self.txt_files[idx], ".flac")
-        name = os.path.splitext(audio_file_path)[0].replace("\\", "-")
-        au = AudioWorker(os.path.join(self.openslr_path, audio_file_path), name)
+        # name = os.path.splitext(audio_file_path)[0].replace("\\", "-")
+        # au = AudioWorker(os.path.join(self.openslr_path, audio_file_path), name)
+        au = AudioWorker(audio_file_path, os.path.basename(filename))
         au.load()
 
-        return au, labels_text
+        return au, self.labels.labels[idx]
 
 
 def calculate_rms(tensor):

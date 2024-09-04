@@ -2,4 +2,5 @@
 .ipynb_checkpoints/
 data/
 train_results/
+buffer/
 __pycache__/

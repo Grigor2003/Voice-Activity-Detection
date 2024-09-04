@@ -44,7 +44,7 @@ train_parser = argparse.ArgumentParser(description="Training script for Open SLR
                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 add_def_arg("--clean", default=r"data\train-clean-100", desc="Path to clean data")
-add_def_arg("--labels", default=r"data\8000_30_50_100_50_max", desc="Path to labels")
+add_def_arg("--labels", default=r"data\8000_30_50_100_50_max.csv", desc="Path to labels")
 add_def_arg("--noise", default=r"data\noise-16k", desc="Path to noises data")
 
 add_def_arg("--train_res", default=r"train_results", desc="The directory to save train results")

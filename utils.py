@@ -100,7 +100,7 @@ class NoiseCollate:
             inp = self.mfcc_converter(augmented_wave)
             tar = torch.tensor([*map(float, label_txt)])
             if tar.size(-1) != inp.size(-2):
-                print(tar.size(-1), inp.size(-2), au.name)
+                print(tar.size(-1), inp.size(-2), au.name, au.wave.size(), augmented_wave.size())
             inputs.append(inp)
             targets.append(tar)
 
