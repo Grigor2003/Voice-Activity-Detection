@@ -20,7 +20,7 @@ if model_name is not None:
     if model_name not in NAMES:
         raise ValueError(f"Model name must be one of: {NAMES}")
 else:
-    model_name = NAMES[args.model_id]
+    model_name = NAMES[model_id]
 
 if saves_count > do_epoches:
     raise ValueError(f"Saves count must be less than epoches count to do: {do_epoches}")
@@ -28,9 +28,9 @@ if saves_count > do_epoches:
 save_frames = np.linspace(do_epoches / saves_count, do_epoches, saves_count, dtype=int)
 
 augmentation_params = {
-    "noise_count": args.noise_count,
-    "noise_duration_range": args.noise_duration,
-    "snr_db": args.snr
+    "noise_count": noise_count,
+    "noise_duration_range": noise_duration,
+    "snr_db": snr
 }
 
 val_params = augmentation_params.copy()
@@ -39,9 +39,9 @@ val_snrs = [None, 10, 5, 0]
 
 if __name__ == '__main__':
 
-    if args.snr in val_snrs:
-        val_snrs.remove(args.snr)
-    val_snrs.insert(0, args.snr)
+    if snr in val_snrs:
+        val_snrs.remove(snr)
+    val_snrs.insert(0, snr)
 
     dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
     noise_files_paths = [os.path.join(noise_data_path, p) for p in os.listdir(noise_data_path) if p.endswith(".wav")]
@@ -57,9 +57,9 @@ if __name__ == '__main__':
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
 
     model_dir, model_path = None, None
-    if load_last or args.model_path is not None:
-        if args.model_path is not None:
-            model_path = args.model_path
+    if load_last or model_path is not None:
+        if model_path is not None:
+            model_path = model_path
             model_dir = os.path.dirname(model_path)
         else:
             model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
@@ -229,7 +229,7 @@ if __name__ == '__main__':
             loss_history_table.to_csv(os.path.join(model_new_dir, 'loss_history.csv'))
             accuracy_history_table.to_csv(os.path.join(model_new_dir, 'accuracy_history.csv'))
 
-            if not args.no_plot:
+            if not no_plot:
                 save_history_plot(loss_history_table, 'global_epoch', 'Loss history', 'Epoch', 'Loss',
                                   os.path.join(model_new_dir, 'loss.png'))
 
