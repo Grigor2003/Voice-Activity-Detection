@@ -9,7 +9,8 @@ import torchaudio
 import torchaudio.functional as tf
 from IPython.display import Audio as PyAudio, display
 from torch.utils.data import Dataset
-
+import textgrids
+import numpy as np
 
 class AudioWorker:
     def __init__(self, path, name=None):
@@ -79,7 +80,6 @@ class AudioWorker:
     def deepcopy(self):
         return copy.deepcopy(self)
 
-
 class OpenSLRDataset(Dataset):
     @staticmethod
     def get_files_by_extension(directory, ext='txt'):
@@ -122,6 +122,71 @@ class OpenSLRDataset(Dataset):
         au.load()
 
         return au, self.labels.labels[idx]
+
+class EnotDataset(OpenSLRDataset):
+
+    def __init__(self, pack_path, openslr_dataset, blacklist=[]):
+        self.audio_path = os.path.join(pack_path, "audio") 
+        self.label_path = os.path.join(pack_path, "annotations")
+        self.blacklist = blacklist
+
+        self.txt_files = [p for p in self.get_files_by_extension(self.label_path, ext='TextGrid')
+                          if os.path.splitext(os.path.basename(p))[0] not in self.blacklist]
+
+        self.sample_rate = openslr_dataset.sample_rate
+        self.vad_window = openslr_dataset.vad_window
+        self.vad_overlap_percent = openslr_dataset.vad_overlap_percent
+        self.label_region_sec = openslr_dataset.label_region_sec
+        self.label_overlap_percent = openslr_dataset.label_overlap_percent
+        self.decision_function_name = openslr_dataset.decision_function_name
+        self.label_window = openslr_dataset.label_window
+        self.label_hop = openslr_dataset.label_hop
+
+    def __getitem__(self, idx):
+
+        audio_file_path = self.change_file_extension(self.txt_files[idx], ".wav")
+        name = os.path.splitext(audio_file_path)[0]
+        au = AudioWorker(os.path.join(self.audio_path, audio_file_path), name)
+        au.load()
+        au.resample(self.sample_rate)
+
+        file_path = os.path.join(self.label_path, self.txt_files[idx])
+
+        label_grid = textgrids.TextGrid(file_path)
+        sample_labels, region_labels = self.convert_textgrid(label_grid, au.wave.size(-1))
+
+        return au, sample_labels, region_labels
+
+    @staticmethod
+    def max_count_deciding(items) -> bool:
+        counts = np.bincount(items)
+        return bool(np.argmax(counts))
+
+    def convert_textgrid(self, grid, sample_count):
+
+        labeled_samples = np.zeros(sample_count, dtype='int64')
+
+        for interval in grid['silences']:
+            label = int(interval.text)
+            if label == 0:
+                continue
+
+            start = int(interval.xmin * self.sample_rate)
+            end = int(interval.xmax * self.sample_rate)
+            if end > len(labeled_samples):
+                end = len(labeled_samples)
+            labeled_samples[start:end] = 1
+
+        count = int(np.floor((len(labeled_samples) - self.label_window) / self.label_hop) + 1)
+        region_labels = []
+        for i in range(count):
+            start = i * self.label_hop
+            end = min((i + 1) * self.label_hop, len(labeled_samples))
+            part = labeled_samples[start:end]
+            reg_is_speech = self.max_count_deciding(part)
+            region_labels.append(reg_is_speech)
+
+        return labeled_samples, region_labels
 
 
 def calculate_rms(tensor):

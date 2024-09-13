@@ -1,0 +1,61 @@
+data:
+  # Path to clean data
+  clean: "data\\train-clean-100"
+  # Path to labels
+  labels: "data\\8000_30_50_100_50_max.csv"
+  # Path to noises data
+  noise: "data\\noise-16k"
+
+model:
+  # Indicates whether the last model from the training results will be used
+  use_last: false
+  # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
+  id: 0
+  # The name of the model from models.py one of {NAMES}
+  name:
+  # The path to the model which will be used
+  path:
+
+noise:
+  # The size of the noise pool for audio augmentation
+  pool: 500
+  # The count of noises added on a single audio
+  count: 2
+  # The duration of added noises in seconds separated by f,t
+  duration: [5, 10]
+  # The signal-to-noise ratio for audio augmentation
+  snr: 3
+
+train:
+  # The learning rate given by power of 10
+  lr: -3
+  # The number of epochs to train the model in current session
+  epoch: 1
+  # The number of workers for data loading during training
+  workers: 1
+  # The size of the batch for simultaneous usage of samples during training
+  batch: 64
+
+result:
+  # The count of saves (one save is always done at the end of the run)
+  saves_count: 1
+  # The directory to save train results
+  directory: "train_results"
+
+val:
+  # The ratio of validation data taken from clean data
+  ratio: 0.05
+  # The number of epochs to pass before calculating the validation score
+  every: 1
+  # The number of workers for data loading during validation score calculation
+  workers: 1
+  # The size of the batch for simultaneous usage of samples during validation score calculation
+  batch: 64
+
+verbose:
+  # The threshold for labeling the prediction 0 or 1
+  threshold: 0.7
+  # If not exists the plots of current training run will be saved in results folder
+  no_plot: false
+  # The level of detail of printing
+  print: 2

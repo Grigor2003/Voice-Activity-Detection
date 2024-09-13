@@ -4,7 +4,7 @@ from datetime import datetime
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-from audio_utils import augment_sample
+from other.audio_utils import augment_sample
 import torch
 from torch.utils.data import DataLoader, random_split
 import torchaudio
@@ -151,7 +151,7 @@ DATE_FORMAT = "%Y-%m-%d"
 MODEL_NAME = "model.pt"
 
 
-def find_last_model_in_tree(model_trains_tree_dir) -> (str, str):
+def find_last_model_in_tree(model_trains_tree_dir):
     res_dir = None
 
     if os.path.exists(model_trains_tree_dir):
@@ -174,7 +174,7 @@ def find_last_model_in_tree(model_trains_tree_dir) -> (str, str):
         return res_dir, os.path.join(res_dir, MODEL_NAME)
 
 
-def create_new_model_trains_dir(model_trains_tree_dir) -> (str, str):
+def create_new_model_trains_dir(model_trains_tree_dir):
     day_dir = os.path.join(model_trains_tree_dir, datetime.now().strftime(DATE_FORMAT))
     os.makedirs(day_dir, exist_ok=True)
     max_num = 0

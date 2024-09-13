@@ -7,10 +7,10 @@ from tqdm import tqdm
 
 import torch
 
-from audio_utils import AudioWorker
-from models import MODELS, NAMES
-from utils import WaveToMFCCConverter
-from utils import find_last_model_in_tree
+from other.audio_utils import AudioWorker
+from models_handler import MODELS, NAMES
+from other.utils import WaveToMFCCConverter
+from other.utils import find_last_model_in_tree
 
 input_dir = r"data/simple_test/input"
 output_dir = r"data/simple_test/output"

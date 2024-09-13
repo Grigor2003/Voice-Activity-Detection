@@ -13,9 +13,11 @@ from models_handler import MODELS, NAMES
 from other.utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, print_as_table, \
     save_history_plot
-import other.train_args_parser as args
+from other.parsing_utils import train_parser
 
 # arguments from parsing
+
+args = train_parser.parse_args()
 
 noise_data_path = args.noise
 clean_audios_path = args.clean
@@ -34,7 +36,7 @@ do_epoches = args.epoch
 lr = args.lr
 epoch_noise_count = args.noise_pool
 val_every = args.val_every
-verbose = args.print_level
+verbose = args.verbose
 saves_count = args.saves_count
 threshold = args.threshold
 
