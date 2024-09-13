@@ -123,7 +123,7 @@ if __name__ == '__main__':
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, mfcc_converter)
     val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
 
-    print(f"Checkpoints: {save_frames}")
+    print(f"Checkpoints(for this run): {save_frames}")
 
     for epoch in range(1, do_epoches + 1):
 

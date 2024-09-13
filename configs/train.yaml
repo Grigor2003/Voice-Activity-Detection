@@ -18,7 +18,7 @@ model:
 
 noise:
   # The size of the noise pool for audio augmentation
-  pool: 500
+  pool: 100
   # The count of noises added on a single audio
   count: 2
   # The duration of added noises in seconds separated by f,t

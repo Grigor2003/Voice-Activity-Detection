@@ -9,10 +9,14 @@ def at_least_one_of(args):
     if all(v is None for v in args):
         raise LookupError("One of required arguments was not given")
 
+def typecheck(v, tp):
+    if isinstance(tp, (list, tuple)):
+        return type(v) in tp
+    return type(v) == tp
 
 def is_type_of(value, tp=str, req=True):
     check_req(value, req)
-    if value is not None and not isinstance(value, tp):
+    if value is not None and not typecheck(value, tp):
         raise TypeError(f"{value} is not a valid {tp}")
     else:
         return value
@@ -35,13 +39,15 @@ def parse_list(lst, first, second, order=True, req=True):
     if lst is None:
         return None, None
     try:
-        s, e = map(int, lst)
-        with_range(s, *first)
-        with_range(e, *second)
-        if order and s > e:
-            raise TypeError(
-                f"{lst} cannot be greater than {e}")
-        return s, e
+        if len(lst) != 2:
+            raise IndexError("Range must have exactly 2 intager items")
+        s, e = lst[0], lst[1]
     except Exception as err:
         raise TypeError(
             f"Range must be in the form [start, end]. The form you specified caused the following error: {str(err)}")
+    with_range(s, *first)
+    with_range(e, *second)
+    if order and s > e:
+        raise TypeError(
+            f"{s} cannot be greater than {e}")
+    return s, e
