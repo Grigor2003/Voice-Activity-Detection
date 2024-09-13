@@ -15,8 +15,8 @@ noise_data_path = is_type_of(ydict['data']['noise'])
 load_last = is_type_of(ydict['model']['use_last'], bool)
 model_id = with_range(ydict['model']['id'], 0, MODELS_COUNT, int, req=False)
 model_name = is_type_of(ydict['model']['name'], req=False)
-model_path = is_type_of(ydict['model']['path'], req=False)
-at_least_one_of([model_id, model_name, model_path])
+load_from = is_type_of(ydict['model']['weights'], req=False)
+at_least_one_of([model_id, model_name])
 
 # Noise section
 epoch_noise_count = with_range(ydict['noise']['pool'], 0, 5000, int)

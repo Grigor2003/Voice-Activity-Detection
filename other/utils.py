@@ -151,6 +151,19 @@ DATE_FORMAT = "%Y-%m-%d"
 MODEL_NAME = "model.pt"
 
 
+def find_model_in_dir_or_path(dp:str):
+    if os.path.isdir(dp):
+        for file in os.listdir(dp):
+            if file.endswith(".pt"):
+                return os.path.join(dp, file)
+        raise FileNotFoundError(f"There is no model file in given directory: {dp}")
+    elif os.path.isfile(dp):
+        if dp.endswith(".pt"):
+            return dp
+        raise TypeError(f"Model file must be pytorch model: {dp}")
+
+        
+
 def find_last_model_in_tree(model_trains_tree_dir):
     res_dir = None
 
@@ -179,18 +192,15 @@ def create_new_model_trains_dir(model_trains_tree_dir):
     os.makedirs(day_dir, exist_ok=True)
     max_num = 0
     for name in os.listdir(day_dir):
-        st, num = name.split("_")
-        folder_path = os.path.join(day_dir, name)
+        _, num = name.split("_")
         max_num = max(int(num), max_num)
-        if len(os.listdir(folder_path)) == 0:
-            max_num -= 1
-            break
+    
+    dir = os.path.join(day_dir, RES_PREFIX + "_" + str(max_num))
+    os.makedirs(dir, exist_ok=True)
+    
+    return dir, os.path.join(dir, MODEL_NAME)
 
-    res_dir = os.path.join(day_dir, RES_PREFIX + "_" + str(max_num + 1))
-    os.makedirs(res_dir, exist_ok=True)
-
-    return res_dir, os.path.join(res_dir, MODEL_NAME)
-
+        
 
 def get_model_param_count(model):
     return sum(p.numel() for p in model.parameters()).item()

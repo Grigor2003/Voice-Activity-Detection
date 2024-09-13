@@ -1,6 +1,7 @@
 import os
 import random
 import time
+import shutil
 
 import numpy as np
 import pandas as pd
@@ -12,7 +13,7 @@ from other.audio_utils import AudioWorker, OpenSLRDataset
 from models_handler import MODELS, NAMES
 from other.utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, print_as_table, \
-    save_history_plot
+    save_history_plot, find_model_in_dir_or_path
 from other.train_args_parser import *
 
 
@@ -49,23 +50,26 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = MODELS[model_name].to(device)
-
     optimizer = torch.optim.Adam(model.parameters(), lr=10 ** lr)
     bce = torch.nn.BCEWithLogitsLoss()
     bce_without_averaging = torch.nn.BCEWithLogitsLoss(reduction="sum")
 
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
-
     model_dir, model_path = None, None
-    if load_last or model_path is not None:
-        if model_path is not None:
-            model_path = model_path
-            model_dir = os.path.dirname(model_path)
+    last_weights_path = None
+    
+    if load_from is not None:
+        model_dir, last_weights_path = find_model_in_dir_or_path(load_from)
+    elif load_last:
+        model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
+        if model_path is None:
+            print(f"Couldn't find any model in {model_trains_tree_dir} so new model will be created")
         else:
-            model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
+            last_weights_path = model_path
 
-    if model_path is not None:
-        checkpoint = torch.load(model_path)
+
+    if last_weights_path is not None:
+        checkpoint = torch.load(last_weights_path)
 
         seed = checkpoint["seed"]
         train_dataloader, val_dataloader, _ = get_train_val_dataloaders(dataset, train_ratio, batch_size,
@@ -82,18 +86,18 @@ if __name__ == '__main__':
             win_length=checkpoint['mfcc_win_length'],
             hop_length=checkpoint['mfcc_hop_length'])
 
+        print(f"Successfully loaded {last_weights_path} with optimizer {checkpoint['optimizer']}")
+        print(f"Continuing training from epoch {curr_run_start_global_epoch} on {device} device")
+    else:
+        curr_run_start_global_epoch = 1
+        print(f"New model of {str(type(model))} type has been created, will be trained on {device} device")
+        
+        
+    try:
         loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
         accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'),
-                                             index_col="global_epoch")
-
-        print(f"Loaded {model_path} with optimizer {checkpoint['optimizer']}")
-        print(f"Continuing training from epoch {curr_run_start_global_epoch + 1} on {device} device")
-
-    else:
-        print(f"Could not find model in folder {model_trains_tree_dir}")
-        print(f"New model of {type(model)} type will be created instead")
-
-        curr_run_start_global_epoch = 1
+                                            index_col="global_epoch")
+    except:
 
         train_dataloader, val_dataloader, seed = get_train_val_dataloaders(dataset, train_ratio, batch_size,
                                                                            val_batch_size,
@@ -117,8 +121,6 @@ if __name__ == '__main__':
             else:
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
                 accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
-
-    model_new_dir, model_new_path = None, None
 
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, mfcc_converter)
     val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
@@ -220,21 +222,30 @@ if __name__ == '__main__':
             print_as_table(accuracy_history_table)
 
         if epoch in save_frames:
-            if epoch == save_frames[0]:
-                model_new_dir, model_new_path = create_new_model_trains_dir(model_trains_tree_dir)
-                print(f"\nCreated {model_new_dir}")
+            # if epoch == save_frames[0]:
+
+            if model_path is None:
+                model_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
+                print(f"\nCreated {model_dir}")                
+                
+            if last_weights_path is not None:
+                old = os.path.join(model_dir, "old", os.path.basename(last_weights_path))
+                shutil.copy(last_weights_path, old)
+                os.makedirs(os.path.join(model_dir))
+                
+                    
 
             print(f"Saving model for {global_epoch} (checkpoint {epoch})")
 
-            loss_history_table.to_csv(os.path.join(model_new_dir, 'loss_history.csv'))
-            accuracy_history_table.to_csv(os.path.join(model_new_dir, 'accuracy_history.csv'))
+            loss_history_table.to_csv(os.path.join(model_dir, 'loss_history.csv'))
+            accuracy_history_table.to_csv(os.path.join(model_dir, 'accuracy_history.csv'))
 
             if not no_plot:
                 save_history_plot(loss_history_table, 'global_epoch', 'Loss history', 'Epoch', 'Loss',
-                                  os.path.join(model_new_dir, 'loss.png'))
+                                  os.path.join(model_dir, 'loss.png'))
 
                 save_history_plot(accuracy_history_table, 'global_epoch', 'Accuracy history', 'Epoch', 'Accuracy',
-                                  os.path.join(model_new_dir, 'accuracy.png'))
+                                  os.path.join(model_dir, 'accuracy.png'))
 
             torch.save({
                 'seed': seed,
@@ -248,4 +259,5 @@ if __name__ == '__main__':
                 'mfcc_win_length': mfcc_converter.win_length,
                 'mfcc_hop_length': mfcc_converter.hop_length,
 
-            }, model_new_path)
+            }, model_path)
+            last_weights_path = model_path

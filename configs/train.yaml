@@ -7,14 +7,14 @@ data:
   noise: "data\\noise-16k"
 
 model:
-  # Indicates whether the last model from the training results will be used
-  use_last: false
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
   id: 0
   # The name of the model from models.py one of {NAMES}
   name:
-  # The path to the model which will be used
-  path:
+  # Indicates whether the last model from the training results will be used
+  use_last: false
+  # The path or directory to model weights which will be loaded
+  weights:
 
 noise:
   # The size of the noise pool for audio augmentation
