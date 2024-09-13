@@ -5,6 +5,11 @@ def check_req(value, required):
         return value
 
 
+def at_least_one_of(args):
+    if all(v is None for v in args):
+        raise LookupError("One of required arguments was not given")
+
+
 def is_type_of(value, tp=str, req=True):
     check_req(value, req)
     if value is not None and not isinstance(value, tp):
@@ -18,7 +23,9 @@ def with_range(value, fr=0, to=1, tp=(int, float), req=True):
         is_type_of(value, tp, req)
     else:
         check_req(value, req)
-    if value is not None and fr <= value <= to:
+    if value is None:
+        return value
+    if fr <= value <= to:
         return value
     raise ValueError(f"{value} is out of range ({fr} to {to})")
 

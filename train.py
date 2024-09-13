@@ -13,34 +13,10 @@ from models_handler import MODELS, NAMES
 from other.utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, print_as_table, \
     save_history_plot
-import other.train_args_parser as args
-
-# arguments from parsing
-
-noise_data_path = args.noise
-clean_audios_path = args.clean
-clean_labels_path = args.labels
-
-train_res_dir = args.train_res
-load_last = args.use_last
-
-batch_size = args.batch
-num_workers = args.workers
-val_batch_size = args.val_batch
-val_num_workers = args.val_workers
-
-train_ratio = 1 - args.val_ratio
-do_epoches = args.epoch
-lr = args.lr
-epoch_noise_count = args.noise_pool
-val_every = args.val_every
-verbose = args.print_level
-saves_count = args.saves_count
-threshold = args.threshold
+from other.train_args_parser import *
 
 
-if args.model_name is not None:
-    model_name = args.model_name
+if model_name is not None:
     if model_name not in NAMES:
         raise ValueError(f"Model name must be one of: {NAMES}")
 else:
@@ -198,7 +174,7 @@ if __name__ == '__main__':
             'train_accuracy': accuracy
         }
 
-        if verbose > 0:
+        if print_level > 0:
             time.sleep(0.25)
             print(f"Training | loss: {running_loss:.4f} | accuracy: {accuracy:.4f}")
             time.sleep(0.25)
@@ -237,7 +213,7 @@ if __name__ == '__main__':
         loss_history_table.loc[global_epoch] = row_loss_values
         accuracy_history_table.loc[global_epoch] = row_acc_values
 
-        if verbose > 1:
+        if print_level > 1:
             print(f"\nLoss history")
             print_as_table(loss_history_table)
             print(f"\nAccuracy history")
