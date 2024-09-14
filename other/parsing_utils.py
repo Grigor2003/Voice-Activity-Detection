@@ -9,10 +9,12 @@ def at_least_one_of(args):
     if all(v is None for v in args):
         raise LookupError("One of required arguments was not given")
 
+
 def typecheck(v, tp):
     if isinstance(tp, (list, tuple)):
         return type(v) in tp
-    return type(v) == tp
+    return v is tp
+
 
 def is_type_of(value, tp=str, req=True):
     check_req(value, req)

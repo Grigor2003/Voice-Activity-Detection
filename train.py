@@ -17,11 +17,7 @@ from other.utils import find_last_model_in_tree, create_new_model_trains_dir, ge
 from other.train_args_parser import *
 
 
-if model_name is not None:
-    if model_name not in NAMES:
-        raise ValueError(f"Model name must be one of: {NAMES}")
-else:
-    model_name = NAMES[model_id]
+
 
 if saves_count > do_epoches:
     raise ValueError(f"Saves count must be less than epoches count to do: {do_epoches}")
