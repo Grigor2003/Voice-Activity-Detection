@@ -59,7 +59,7 @@ if __name__ == '__main__':
     last_weights_path = None
     
     if load_from is not None:
-        model_dir, last_weights_path = find_model_in_dir_or_path(load_from)
+        last_weights_path = find_model_in_dir_or_path(load_from)
     elif load_last:
         model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
         if model_path is None:
@@ -67,7 +67,7 @@ if __name__ == '__main__':
         else:
             last_weights_path = model_path
 
-
+    print(f"\n{'=' * 100}\n")
     if last_weights_path is not None:
         checkpoint = torch.load(last_weights_path)
 
@@ -222,21 +222,15 @@ if __name__ == '__main__':
             print_as_table(accuracy_history_table)
 
         if epoch in save_frames:
-            # if epoch == save_frames[0]:
-
             if model_path is None:
                 model_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
                 print(f"\nCreated {model_dir}")                
                 
             if last_weights_path is not None:
                 old = os.path.join(model_dir, "old", os.path.basename(last_weights_path))
+                os.makedirs(old, exist_ok=True)
                 shutil.copy(last_weights_path, old)
-                os.makedirs(os.path.join(model_dir))
                 
-                    
-
-            print(f"Saving model for {global_epoch} (checkpoint {epoch})")
-
             loss_history_table.to_csv(os.path.join(model_dir, 'loss_history.csv'))
             accuracy_history_table.to_csv(os.path.join(model_dir, 'accuracy_history.csv'))
 
@@ -249,7 +243,7 @@ if __name__ == '__main__':
 
             torch.save({
                 'seed': seed,
-                'epoch': curr_run_start_global_epoch + do_epoches - 1,
+                'epoch': global_epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer': type(optimizer).__name__,
                 'optimizer_state_dict': optimizer.state_dict(),
@@ -261,3 +255,5 @@ if __name__ == '__main__':
 
             }, model_path)
             last_weights_path = model_path
+            print(f"Model saved (global epoch: {global_epoch}, checkpoint: {epoch})")
+

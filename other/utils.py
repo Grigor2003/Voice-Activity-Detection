@@ -195,7 +195,7 @@ def create_new_model_trains_dir(model_trains_tree_dir):
         _, num = name.split("_")
         max_num = max(int(num), max_num)
     
-    dir = os.path.join(day_dir, RES_PREFIX + "_" + str(max_num))
+    dir = os.path.join(day_dir, RES_PREFIX + "_" + str(max_num + 1))
     os.makedirs(dir, exist_ok=True)
     
     return dir, os.path.join(dir, MODEL_NAME)
