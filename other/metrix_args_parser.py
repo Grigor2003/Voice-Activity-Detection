@@ -1,3 +1,4 @@
+import numpy as np
 import yaml
 from other.parsing_utils import *
 from models_handler import MODELS_COUNT, NAMES
@@ -23,19 +24,20 @@ elif model_name is not None:
 else:
     raise ValueError(f"Model name or id has to be declared")
 
-load_from = is_type_of(ydict['model']['weights'], req=False)
+load_from = is_type_of(ydict['model']['weights'], req=True)
 
 # Noise section
 epoch_noise_count = with_range(ydict['noise']['pool'], 0, 5000, int)
-noise_count = with_range(ydict['noise']['count'], 0, 10, int)
-noise_duration = parse_list(ydict['noise']['duration'], [0, 60], [0, 60])
 snr = with_range(ydict['noise']['snr'], -20, 20)
+augmentation_params = {
+    "noise_count": with_range(ydict['noise']['count'], 0, 10, int),
+    "noise_duration_range": parse_range(ydict['noise']['duration'], [0, 60], [0, 60]),
+    "snr_db": snr
+}
 
 # Train section
 num_workers = with_range(ydict['train']['workers'], 0, 32, int)
 batch_size = with_range(ydict['train']['batch'], 1, 2 ** 15, int)
 
-# Verbose section
-threshold = with_range(ydict['verbose']['threshold'])
-no_plot = is_type_of(ydict['verbose']['no_plot'], bool)
-print_level = with_range(ydict['verbose']['print'], 0, 2, int)
+# ROC section
+thresholds = np.linspace(*parse_linspace(ydict['ROC']['thresholds'], [0, 1], [0, 1], [1, 1000, int]))
