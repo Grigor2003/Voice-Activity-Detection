@@ -15,12 +15,13 @@ enot_data_path = is_type_of(ydict['data']['enot_data'], req=False)
 # Model section
 model_id = with_range(ydict['model']['id'], 0, MODELS_COUNT, int, req=False)
 model_name = is_type_of(ydict['model']['name'], req=False)
-at_least_one_of([model_id, model_name])
-if model_name is not None:
+if model_id is not None:
+    model_name = NAMES[model_id]
+elif model_name is not None:
     if model_name not in NAMES:
         raise ValueError(f"Model name must be one of: {NAMES}")
 else:
-    model_name = NAMES[model_id]
+    raise ValueError(f"Model name or id has to be declared")
 
 load_from = is_type_of(ydict['model']['weights'], req=False)
 
@@ -31,8 +32,6 @@ noise_duration = parse_list(ydict['noise']['duration'], [0, 60], [0, 60])
 snr = with_range(ydict['noise']['snr'], -20, 20)
 
 # Train section
-lr = with_range(ydict['train']['lr'], -10, 10)
-do_epoches = with_range(ydict['train']['epoch'], 0, 1000, int)
 num_workers = with_range(ydict['train']['workers'], 0, 32, int)
 batch_size = with_range(ydict['train']['batch'], 1, 2 ** 15, int)
 

@@ -14,7 +14,7 @@ model:
   id: 2
   # The name of the model from models.py one of {NAMES}
   name:
-  # The path or directory to model weights which will be loaded (if empty the last model from results folder would be loaded)
+  # The path or directory to model weights which will be loaded
   weights:
 
 noise:
@@ -28,10 +28,6 @@ noise:
   snr: 3
 
 train:
-  # The learning rate given by power of 10
-  lr: -3
-  # The number of epochs to train the model in current session
-  epoch: 1
   # The number of workers for data loading during training
   workers: 1
   # The size of the batch for simultaneous usage of samples during training

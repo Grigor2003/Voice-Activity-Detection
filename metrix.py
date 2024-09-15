@@ -17,9 +17,6 @@ from other.utils import find_last_model_in_tree, create_new_model_trains_dir, ge
 from other.metrix_args_parser import *
 
 
-
-save_frames = np.linspace(do_epoches / saves_count, do_epoches, saves_count, dtype=int)
-
 augmentation_params = {
     "noise_count": noise_count,
     "noise_duration_range": noise_duration,
@@ -42,9 +39,6 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = MODELS[model_name].to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=10 ** lr)
-    bce = torch.nn.BCEWithLogitsLoss()
-    bce_without_averaging = torch.nn.BCEWithLogitsLoss(reduction="sum")
 
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
     model_dir, model_path = None, None

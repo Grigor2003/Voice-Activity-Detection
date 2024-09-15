@@ -16,12 +16,6 @@ from other.utils import find_last_model_in_tree, create_new_model_trains_dir, ge
     save_history_plot, find_model_in_dir_or_path
 from other.train_args_parser import *
 
-
-
-
-if saves_count > do_epoches:
-    raise ValueError(f"Saves count must be less than epoches count to do: {do_epoches}")
-
 save_frames = np.linspace(do_epoches / saves_count, do_epoches, saves_count, dtype=int)
 
 augmentation_params = {
@@ -53,7 +47,7 @@ if __name__ == '__main__':
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
     model_dir, model_path = None, None
     last_weights_path = None
-    
+
     if load_from is not None:
         last_weights_path = find_model_in_dir_or_path(load_from)
     elif load_last:
@@ -87,12 +81,11 @@ if __name__ == '__main__':
     else:
         curr_run_start_global_epoch = 1
         print(f"New model of {str(type(model))} type has been created, will be trained on {device} device")
-        
-        
+
     try:
         loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
         accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'),
-                                            index_col="global_epoch")
+                                             index_col="global_epoch")
     except:
 
         train_dataloader, val_dataloader, seed = get_train_val_dataloaders(dataset, train_ratio, batch_size,
@@ -205,7 +198,8 @@ if __name__ == '__main__':
                 row_loss_values['clear_audio_loss'] = val_loss[snr].item() if val_loss is not None else np.nan
                 row_acc_values['clear_audio_acc'] = val_acc[snr].item() if val_acc is not None else np.nan
             else:
-                row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[snr].item() if val_loss is not None else np.nan
+                row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[
+                    snr].item() if val_loss is not None else np.nan
                 row_acc_values[f'noised_audio_snr{snr}_acc'] = val_acc[snr].item() if val_acc is not None else np.nan
 
         loss_history_table.loc[global_epoch] = row_loss_values
@@ -220,13 +214,13 @@ if __name__ == '__main__':
         if epoch in save_frames:
             if model_path is None:
                 model_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
-                print(f"\nCreated {model_dir}")                
-                
+                print(f"\nCreated {model_dir}")
+
             if last_weights_path is not None:
                 old = os.path.join(model_dir, "old", os.path.basename(last_weights_path))
                 os.makedirs(old, exist_ok=True)
                 shutil.copy(last_weights_path, old)
-                
+
             loss_history_table.to_csv(os.path.join(model_dir, 'loss_history.csv'))
             accuracy_history_table.to_csv(os.path.join(model_dir, 'accuracy_history.csv'))
 
@@ -252,4 +246,3 @@ if __name__ == '__main__':
             }, model_path)
             last_weights_path = model_path
             print(f"Model saved (global epoch: {global_epoch}, checkpoint: {epoch})")
-
