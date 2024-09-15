@@ -3,37 +3,21 @@ import random
 import time
 import shutil
 
-import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
 import torch
 
 from other.audio_utils import AudioWorker, OpenSLRDataset
-from models_handler import MODELS, NAMES
+from models_handler import MODELS
 from other.utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, print_as_table, \
     save_history_plot, find_model_in_dir_or_path
 from other.train_args_parser import *
 
-save_frames = np.linspace(do_epoches / saves_count, do_epoches, saves_count, dtype=int)
-
-augmentation_params = {
-    "noise_count": noise_count,
-    "noise_duration_range": noise_duration,
-    "snr_db": snr
-}
-
-val_params = augmentation_params.copy()
-del val_params["snr_db"]
-val_snrs = [None, 10, 5, 0]
-
 if __name__ == '__main__':
 
-    if snr in val_snrs:
-        val_snrs.remove(snr)
-    val_snrs.insert(0, snr)
-
+    print(f"\n{'=' * 100}\n")
     dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
     noise_files_paths = [os.path.join(noise_data_path, p) for p in os.listdir(noise_data_path) if p.endswith(".wav")]
 
@@ -57,7 +41,7 @@ if __name__ == '__main__':
         else:
             last_weights_path = model_path
 
-    print(f"\n{'=' * 100}\n")
+    train_dataloader, val_dataloader, seed, mfcc_converter = [None] * 4
     if last_weights_path is not None:
         checkpoint = torch.load(last_weights_path)
 
@@ -212,19 +196,19 @@ if __name__ == '__main__':
             print_as_table(accuracy_history_table)
 
         if epoch in save_frames:
-            if model_path is None:
+            if model_dir is None:
                 model_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
                 print(f"\nCreated {model_dir}")
 
             if last_weights_path is not None:
-                old = os.path.join(model_dir, "old", os.path.basename(last_weights_path))
+                old = os.path.join(model_dir, "old")
                 os.makedirs(old, exist_ok=True)
                 shutil.copy(last_weights_path, old)
 
             loss_history_table.to_csv(os.path.join(model_dir, 'loss_history.csv'))
             accuracy_history_table.to_csv(os.path.join(model_dir, 'accuracy_history.csv'))
 
-            if not no_plot:
+            if plot:
                 save_history_plot(loss_history_table, 'global_epoch', 'Loss history', 'Epoch', 'Loss',
                                   os.path.join(model_dir, 'loss.png'))
 

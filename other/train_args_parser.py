@@ -1,3 +1,4 @@
+import numpy as np
 import yaml
 from other.parsing_utils import *
 from models_handler import MODELS_COUNT, NAMES
@@ -28,9 +29,12 @@ load_last = is_type_of(ydict['model']['use_last'], bool)
 
 # Noise section
 epoch_noise_count = with_range(ydict['noise']['pool'], 0, 5000, int)
-noise_count = with_range(ydict['noise']['count'], 0, 10, int)
-noise_duration = parse_list(ydict['noise']['duration'], [0, 60], [0, 60])
 snr = with_range(ydict['noise']['snr'], -20, 20)
+augmentation_params = {
+    "noise_count": with_range(ydict['noise']['count'], 0, 10, int),
+    "noise_duration_range": parse_list(ydict['noise']['duration'], [0, 60], [0, 60]),
+    "snr_db": snr
+}
 
 # Train section
 lr = with_range(ydict['train']['lr'], -10, 10)
@@ -42,6 +46,7 @@ batch_size = with_range(ydict['train']['batch'], 1, 2 ** 15, int)
 saves_count = with_range(ydict['result']['saves_count'], 1, 100, int)
 if saves_count > do_epoches:
     raise ValueError(f"Saves count must be less than epoches count to do: {do_epoches}")
+save_frames = np.linspace(do_epoches / saves_count, do_epoches, saves_count, dtype=int)
 
 train_res_dir = is_type_of(ydict['result']['directory'])
 
@@ -51,7 +56,15 @@ val_every = with_range(ydict['val']['every'], 0, 1000, int)
 val_num_workers = with_range(ydict['val']['workers'], 0, 32, int)
 val_batch_size = with_range(ydict['val']['batch'], 1, 2 ** 15, int)
 
+val_params = augmentation_params.copy()
+del val_params["snr_db"]
+val_snrs = [None, 10, 5, 0]
+
+if snr in val_snrs:
+    val_snrs.remove(snr)
+val_snrs.insert(0, snr)
+
 # Verbose section
 threshold = with_range(ydict['verbose']['threshold'])
-no_plot = is_type_of(ydict['verbose']['no_plot'], bool)
+plot = is_type_of(ydict['verbose']['plot'], bool)
 print_level = with_range(ydict['verbose']['print'], 0, 2, int)

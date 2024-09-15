@@ -12,6 +12,7 @@ from torch.utils.data import Dataset
 import textgrids
 import numpy as np
 
+
 class AudioWorker:
     def __init__(self, path, name=None):
 
@@ -80,6 +81,7 @@ class AudioWorker:
     def deepcopy(self):
         return copy.deepcopy(self)
 
+
 class OpenSLRDataset(Dataset):
     @staticmethod
     def get_files_by_extension(directory, ext='txt'):
@@ -123,10 +125,11 @@ class OpenSLRDataset(Dataset):
 
         return au, self.labels.labels[idx]
 
+
 class EnotDataset(OpenSLRDataset):
 
     def __init__(self, pack_path, openslr_dataset, blacklist=[]):
-        self.audio_path = os.path.join(pack_path, "audio") 
+        self.audio_path = os.path.join(pack_path, "audio")
         self.label_path = os.path.join(pack_path, "annotations")
         self.blacklist = blacklist
 

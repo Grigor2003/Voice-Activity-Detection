@@ -13,7 +13,7 @@ def at_least_one_of(args):
 def typecheck(v, tp):
     if isinstance(tp, (list, tuple)):
         return type(v) in tp
-    return v is tp
+    return type(v) is tp
 
 
 def is_type_of(value, tp=str, req=True):

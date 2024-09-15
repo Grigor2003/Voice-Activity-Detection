@@ -56,6 +56,6 @@ verbose:
   # The threshold for labeling the prediction 0 or 1
   threshold: 0.7
   # If not exists the plots of current training run will be saved in results folder
-  no_plot: false
+  plot: true
   # The level of detail of printing
   print: 2

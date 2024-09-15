@@ -78,33 +78,33 @@ if __name__ == '__main__':
         curr_run_start_global_epoch = 1
         print(f"New model of {str(type(model))} type has been created, will be trained on {device} device")
 
-    try:
-        loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
-        accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'),
-                                             index_col="global_epoch")
-    except:
-        train_dataloader, val_dataloader, seed = get_train_val_dataloaders(dataset, train_ratio, batch_size,
-                                                                           val_batch_size,
-                                                                           num_workers, val_num_workers)
+        try:
+            loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
+            accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'),
+                                                 index_col="global_epoch")
+        except:
+            train_dataloader, val_dataloader, seed = get_train_val_dataloaders(dataset, train_ratio, batch_size,
+                                                                               val_batch_size,
+                                                                               num_workers, val_num_workers)
 
-        mfcc_converter = WaveToMFCCConverter(
-            n_mfcc=model.input_dim,
-            sample_rate=dataset.sample_rate,
-            win_length=dataset.label_window,
-            hop_length=dataset.label_hop)
+            mfcc_converter = WaveToMFCCConverter(
+                n_mfcc=model.input_dim,
+                sample_rate=dataset.sample_rate,
+                win_length=dataset.label_window,
+                hop_length=dataset.label_hop)
 
-        loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
-        accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
-        loss_history_table.set_index('global_epoch', inplace=True)
-        accuracy_history_table.set_index('global_epoch', inplace=True)
+            loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
+            accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
+            loss_history_table.set_index('global_epoch', inplace=True)
+            accuracy_history_table.set_index('global_epoch', inplace=True)
 
-        for snr in val_snrs:
-            if snr is None:
-                loss_history_table['clear_audio_loss'] = []
-                accuracy_history_table['clear_audio_acc'] = []
-            else:
-                loss_history_table[f'noised_audio_snr{snr}_loss'] = []
-                accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
+            for snr in val_snrs:
+                if snr is None:
+                    loss_history_table['clear_audio_loss'] = []
+                    accuracy_history_table['clear_audio_acc'] = []
+                else:
+                    loss_history_table[f'noised_audio_snr{snr}_loss'] = []
+                    accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
 
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, mfcc_converter)
     val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
