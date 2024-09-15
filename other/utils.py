@@ -148,7 +148,7 @@ def print_as_table(dataframe):
 
 RES_PREFIX = "res"
 DATE_FORMAT = "%Y-%m-%d"
-MODEL_NAME = "TEST.pt"
+MODEL_NAME = "weights.pt"
 
 
 def find_model_in_dir_or_path(dp: str):

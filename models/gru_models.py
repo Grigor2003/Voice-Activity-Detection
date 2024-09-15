@@ -13,6 +13,8 @@ class SimpleG(nn.Module):
     def forward(self, x):
         out, _ = self.gru(x)
         out = self.fc(out)
+        out = F.sigmoid(out)
+
         return out
 
 
@@ -36,6 +38,8 @@ class SimpleDGGD(nn.Module):
         out = self.fc2(out)
         out = F.relu(out)
         out = self.fc3(out)
+        out = F.sigmoid(out)
+
         return out
 
 
@@ -66,4 +70,5 @@ class DGGD(nn.Module):
         out = self.layernorm2(out)
         out = self.dropout2(out)
         out = self.fc3(out)
+        out = F.sigmoid(out)
         return out

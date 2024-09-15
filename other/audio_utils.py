@@ -126,14 +126,13 @@ class OpenSLRDataset(Dataset):
         return au, self.labels.labels[idx]
 
 
-class EnotDataset(OpenSLRDataset):
+class EnotDataset:
 
-    def __init__(self, pack_path, openslr_dataset, blacklist=[]):
+    def __init__(self, pack_path, openslr_dataset):
         self.audio_path = os.path.join(pack_path, "audio")
         self.label_path = os.path.join(pack_path, "annotations")
-        self.blacklist = blacklist
 
-        self.txt_files = [p for p in self.get_files_by_extension(self.label_path, ext='TextGrid')
+        self.txt_files = [p for p in OpenSLRDataset.get_files_by_extension(self.label_path, ext='TextGrid')
                           if os.path.splitext(os.path.basename(p))[0] not in self.blacklist]
 
         self.sample_rate = openslr_dataset.sample_rate
@@ -147,7 +146,7 @@ class EnotDataset(OpenSLRDataset):
 
     def __getitem__(self, idx):
 
-        audio_file_path = self.change_file_extension(self.txt_files[idx], ".wav")
+        audio_file_path = OpenSLRDataset.change_file_extension(self.txt_files[idx], ".wav")
         name = os.path.splitext(audio_file_path)[0]
         au = AudioWorker(os.path.join(self.audio_path, audio_file_path), name)
         au.load()

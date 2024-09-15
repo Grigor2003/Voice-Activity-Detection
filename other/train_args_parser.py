@@ -32,7 +32,7 @@ epoch_noise_count = with_range(ydict['noise']['pool'], 0, 5000, int)
 snr = with_range(ydict['noise']['snr'], -20, 20)
 augmentation_params = {
     "noise_count": with_range(ydict['noise']['count'], 0, 10, int),
-    "noise_duration_range": parse_list(ydict['noise']['duration'], [0, 60], [0, 60]),
+    "noise_duration_range": parse_range(ydict['noise']['duration'], [0, 60], [0, 60]),
     "snr_db": snr
 }
 

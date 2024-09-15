@@ -2,7 +2,7 @@ data:
   # Path to clean data
   clean: data\train-clean-100
   # Path to labels
-  labels: data\8000_30_50_100_50_max_lite.csv
+  labels: data\8000_30_50_100_50_max.csv
   # Path to noises data
   noise: data\noise-16k
 
@@ -28,13 +28,13 @@ noise:
 
 train:
   # The learning rate given by power of 10
-  lr: -3
+  lr: 2
   # The number of epochs to train the model in current session
   epoch: 1
   # The number of workers for data loading during training
-  workers: 1
+  workers: 8
   # The size of the batch for simultaneous usage of samples during training
-  batch: 64
+  batch: 512
 
 result:
   # The count of saves (one save is always done at the end of the run)
@@ -44,13 +44,13 @@ result:
 
 val:
   # The ratio of validation data taken from clean data
-  ratio: 0.05
+  ratio: 0.2
   # The number of epochs to pass before calculating the validation score
   every: 1
   # The number of workers for data loading during validation score calculation
-  workers: 1
+  workers: 8
   # The size of the batch for simultaneous usage of samples during validation score calculation
-  batch: 64
+  batch: 128
 
 verbose:
   # The threshold for labeling the prediction 0 or 1

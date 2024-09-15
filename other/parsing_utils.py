@@ -36,20 +36,40 @@ def with_range(value, fr=0, to=1, tp=(int, float), req=True):
     raise ValueError(f"{value} is out of range ({fr} to {to})")
 
 
-def parse_list(lst, first, second, order=True, req=True):
+def parse_range(lst, first_range, second_range, order=True, req=True):
     check_req(lst, req)
     if lst is None:
         return None, None
     try:
         if len(lst) != 2:
-            raise IndexError("Range must have exactly 2 intager items")
+            raise IndexError("Range must have exactly 2 numeric items")
         s, e = lst[0], lst[1]
     except Exception as err:
         raise TypeError(
             f"Range must be in the form [start, end]. The form you specified caused the following error: {str(err)}")
-    with_range(s, *first)
-    with_range(e, *second)
+    with_range(s, *first_range)
+    with_range(e, *second_range)
     if order and s > e:
         raise TypeError(
-            f"{s} cannot be greater than {e}")
+            f"In [start, end], start({s}) cannot be greater than end({e})")
     return s, e
+
+
+def parse_linspace(lst, first_range, second_range, count_range, order=True, req=True):
+    check_req(lst, req)
+    if lst is None:
+        return None, None
+    try:
+        if len(lst) != 3:
+            raise IndexError("Range must have exactly 3 numeric items")
+        s, e, c = lst[0], lst[1], lst[2]
+    except Exception as err:
+        raise TypeError(
+            f"Range must be in the form [start, end, count]. The form you specified caused the following error: {str(err)}")
+    with_range(s, *first_range)
+    with_range(e, *second_range)
+    with_range(c, *count_range)
+    if order and s > e:
+        raise TypeError(
+            f"In [start, end, count], start({s}) cannot be greater than end({e})")
+    return s, e, c

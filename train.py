@@ -25,8 +25,8 @@ if __name__ == '__main__':
 
     model = MODELS[model_name]().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=10 ** lr)
-    bce = torch.nn.BCEWithLogitsLoss()
-    bce_without_averaging = torch.nn.BCEWithLogitsLoss(reduction="sum")
+    bce = torch.nn.BCELoss()
+    bce_without_averaging = torch.nn.BCELoss(reduction="sum")
 
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
     model_dir, model_path = None, None
