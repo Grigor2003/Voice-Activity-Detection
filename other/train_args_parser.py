@@ -43,8 +43,10 @@ num_workers = with_range(ydict['train']['workers'], 0, 32, int)
 batch_size = with_range(ydict['train']['batch'], 1, 2 ** 15, int)
 
 # Result section
-saves_count = with_range(ydict['result']['saves_count'], 1, 100, int)
-if saves_count > do_epoches:
+saves_count = with_range(ydict['result']['saves_count'], 0, 100, int)
+if saves_count == 0:
+    saves_count = do_epoches
+elif saves_count > do_epoches:
     raise ValueError(f"Saves count must be less than epoches count to do: {do_epoches}")
 save_frames = np.linspace(do_epoches / saves_count, do_epoches, saves_count, dtype=int)
 
