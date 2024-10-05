@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 from matplotlib import pyplot as plt
+from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
 
 from other.audio_utils import augment_sample
@@ -67,17 +68,13 @@ class WaveToMFCCConverter:
 
 
 def create_batch_tensor(inputs, targets):
-    inp_dim_2 = max(i.size(1) for i in inputs)
-    inputs_tens = torch.zeros([len(inputs), inp_dim_2, inputs[0].size(-1)])
-    for i, inp in enumerate(inputs):
-        inputs_tens[i, :inp.size(1), :] = inp
+    lengths = [t.size(0) for t in inputs]
+    max_len = max(lengths)
+    mask = torch.arange(max_len).expand(len(lengths), max_len) < torch.tensor(lengths).unsqueeze(1)
+    padded_input = pad_sequence(inputs, batch_first=True)
+    padded_output = pad_sequence(targets, batch_first=True)
 
-    tar_dim_1 = max(t.size(0) for t in targets)
-    targets_tens = torch.zeros([len(targets), tar_dim_1, 1])
-    for i, tar in enumerate(targets):
-        targets_tens[i, :tar.size(0), 0] = tar
-
-    return inputs_tens, targets_tens
+    return padded_input, mask, padded_output
 
 
 class NoiseCollate:
@@ -101,7 +98,7 @@ class NoiseCollate:
             tar = torch.tensor([*map(float, label_txt)])
             if tar.size(-1) != inp.size(-2):
                 print(tar.size(-1), inp.size(-2), au.name, au.wave.size(), augmented_wave.size())
-            inputs.append(inp)
+            inputs.append(inp.squeeze(0))
             targets.append(tar)
 
         return create_batch_tensor(inputs, targets)
@@ -129,7 +126,7 @@ class ValidationCollate:
                 if tar.size(-1) != inp.size(-2):
                     print(tar.size(-1), inp.size(-2), au.name)
                 else:
-                    all_inputs[snr_db].append(inp)
+                    all_inputs[snr_db].append(inp.squeeze(0))
                     all_targets[snr_db].append(tar)
 
         all_tensors = {snr_db: None for snr_db in self.snr_dbs}

@@ -5,7 +5,7 @@ data:
   labels: data\8000_30_50_100_50_max_lite.csv
   # Path to noises data
   noise: data\noise-16k
-  #Path to segmental data stored with textgrid annotations
+  # Path to segmental data stored with textgrid annotations
   enot_data:
 
 
@@ -15,7 +15,7 @@ model:
   # The name of the model from models.py one of {NAMES}
   name:
   # The path or directory to model weights which will be loaded
-  weights: C:\Users\ggyan\Projects\Voice Activity Detection\train_results\DGGD_64_48_32_16_8\2024-09-15\res_1
+  weights: train_results\DGGD_64_48_32_16_8\2024-09-15\res_1
 
 noise:
   # The size of the noise pool for audio augmentation
@@ -29,13 +29,13 @@ noise:
 
 train:
   # The number of workers for data loading during training
-  workers: 1
+  workers: 4
   # The size of the batch for simultaneous usage of samples during training
-  batch: 6400
+  batch: 50
 
 ROC:
   # The threshold for labeling the prediction 0 or 1
-  thresholds: [0, 1, 20]
+  thresholds: [0, 1, 100]
   # If not exists the plots of current training run will be saved in results folder
   no_plot: false
   # The level of detail of printing

@@ -1,9 +1,5 @@
 import os
 import random
-import time
-import shutil
-
-import pandas as pd
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from sklearn.metrics import auc
@@ -13,9 +9,8 @@ from torch.utils.data import DataLoader
 
 from other.audio_utils import AudioWorker, OpenSLRDataset, EnotDataset
 from models_handler import MODELS
-from other.utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
-from other.utils import create_new_model_trains_dir, get_train_val_dataloaders, print_as_table, \
-    save_history_plot, find_model_in_dir_or_path
+from other.utils import NoiseCollate, WaveToMFCCConverter
+from other.utils import find_model_in_dir_or_path
 from other.metrix_args_parser import *
 
 if __name__ == '__main__':
@@ -74,6 +69,10 @@ if __name__ == '__main__':
         batch_targets = batch_targets.to(device)
 
         output = model(batch_inputs)
+        print(output.shape)
+        print(batch_targets[0].shape)
+        input()
+
 
         temp_count = batch_targets.numel()
         whole_count += temp_count
@@ -89,104 +88,31 @@ if __name__ == '__main__':
     roc_y = (tp_to_thold / (tp_to_thold + fn_to_thold)).cpu()
     roc_auc = auc(roc_x, roc_y)
 
+    recall = roc_y
+    precision = (tp_to_thold / (tp_to_thold + fp_to_thold)).cpu().nan_to_num(0)
+    f1_score = (2 * precision * recall / (precision + recall)).nan_to_num(0)
+
+    best_th_by_f1 = thresholds[np.argmax(f1_score)]
+
     plt.figure()
     plt.plot(roc_x, roc_y, color='blue', label=f'ROC curve (AUC = {roc_auc:.2f})')
     plt.plot([0, 1], [0, 1], color='gray', linestyle='--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.005])
-    plt.xlabel('False Positive Rate')
+    plt.xlabel('False Positive Rate'),
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic')
     plt.legend(loc="lower right")
     plt.show()
 
-    row_loss_values = {
-        'global_epoch': global_epoch,
-        'train_loss': running_loss
-    }
-    row_acc_values = {
-        'global_epoch': global_epoch,
-        'train_accuracy': accuracy
-    }
-
-    if print_level > 0:
-        time.sleep(0.25)
-        print(f"Training | loss: {running_loss:.4f} | accuracy: {accuracy:.4f}")
-        time.sleep(0.25)
-
-    val_loss, val_acc = None, None
-    if val_every != 0:
-        if epoch % val_every == 0:
-            model.eval()
-
-            val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
-            val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
-            correct_count = {snr_db: 0 for snr_db in val_snrs}
-            whole_count = {snr_db: 0 for snr_db in val_snrs}
-
-            for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
-                for snr_db in val_snrs:
-                    batch_inputs = all_tensors[snr_db][0].to(device)
-                    batch_targets = all_tensors[snr_db][1].to(device)
-                    output = model(batch_inputs)
-                    val_loss[snr_db] += bce_without_averaging(output, batch_targets)
-                    correct_count[snr_db] += torch.sum((output > threshold) == (batch_targets > threshold))
-                    whole_count[snr_db] += batch_targets.numel()
-
-            for snr_db in val_snrs:
-                val_loss[snr_db] /= whole_count[snr_db]
-                val_acc[snr_db] = correct_count[snr_db] / whole_count[snr_db]
-
-    for snr in val_snrs:
-        if snr is None:
-            row_loss_values['clear_audio_loss'] = val_loss[snr].item() if val_loss is not None else np.nan
-            row_acc_values['clear_audio_acc'] = val_acc[snr].item() if val_acc is not None else np.nan
-        else:
-            row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[
-                snr].item() if val_loss is not None else np.nan
-            row_acc_values[f'noised_audio_snr{snr}_acc'] = val_acc[snr].item() if val_acc is not None else np.nan
-
-    loss_history_table.loc[global_epoch] = row_loss_values
-    accuracy_history_table.loc[global_epoch] = row_acc_values
-
-    if print_level > 1:
-        print(f"\nLoss history")
-        print_as_table(loss_history_table)
-        print(f"\nAccuracy history")
-        print_as_table(accuracy_history_table)
-
-    if epoch in save_frames:
-        if model_dir is None:
-            model_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
-            print(f"\nCreated {model_dir}")
-
-        if last_weights_path is not None:
-            old = os.path.join(model_dir, "old")
-            os.makedirs(old, exist_ok=True)
-            shutil.copy(last_weights_path, old)
-
-        loss_history_table.to_csv(os.path.join(model_dir, 'loss_history.csv'))
-        accuracy_history_table.to_csv(os.path.join(model_dir, 'accuracy_history.csv'))
-
-        if plot:
-            save_history_plot(loss_history_table, 'global_epoch', 'Loss history', 'Epoch', 'Loss',
-                              os.path.join(model_dir, 'loss.png'))
-
-            save_history_plot(accuracy_history_table, 'global_epoch', 'Accuracy history', 'Epoch', 'Accuracy',
-                              os.path.join(model_dir, 'accuracy.png'))
-
-        torch.save({
-            'seed': seed,
-            'epoch': global_epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer': type(optimizer).__name__,
-            'optimizer_state_dict': optimizer.state_dict(),
-
-            'mfcc_n_mfcc': mfcc_converter.n_mfcc,
-            'mfcc_sample_rate': mfcc_converter.sample_rate,
-            'mfcc_win_length': mfcc_converter.win_length,
-            'mfcc_hop_length': mfcc_converter.hop_length,
-
-        }, model_path)
-        last_weights_path = model_path
-        print(f"Model saved (global epoch: {global_epoch}, checkpoint: {epoch})")
+    plt.figure()
+    plt.plot(thresholds, f1_score, label=f'F1')
+    plt.plot(thresholds, precision, label=f'Precision')
+    plt.plot(thresholds, recall, label=f'Recall')
+    plt.vlines(best_th_by_f1, 0, 1, color='gray', linestyle='--', label=f'Best threshold on {best_th_by_f1} by f1')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.005])
+    plt.xlabel('Thresholds')
+    plt.title('Receiver Operating Characteristic')
+    plt.legend(loc="lower right")
+    plt.show()

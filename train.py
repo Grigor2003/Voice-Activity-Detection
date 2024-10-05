@@ -25,8 +25,7 @@ if __name__ == '__main__':
 
     model = MODELS[model_name]().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=10 ** lr)
-    bce = torch.nn.BCELoss()
-    bce_without_averaging = torch.nn.BCELoss(reduction="sum")
+    bce = torch.nn.BCELoss(reduction="sum")
 
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
     model_dir, model_path = None, None
@@ -118,20 +117,20 @@ if __name__ == '__main__':
         running_whole_count = torch.scalar_tensor(0, device=device)
 
         model.train()
-        for batch_inputs, batch_targets in tqdm(train_dataloader,
-                                                desc=f"Training epoch: {global_epoch} ({epoch}\\{do_epoches})",
-                                                disable=0):
+        for batch_inputs, mask, batch_targets in tqdm(train_dataloader,
+                                                      desc=f"Training epoch: {global_epoch} ({epoch}\\{do_epoches})",
+                                                      disable=0):
             batch_inputs = batch_inputs.to(device)
             batch_targets = batch_targets.to(device)
+            mask = mask.to(device)
+            real_samples_count = mask.sum()
 
-            output = model(batch_inputs)
+            output = mask * model(batch_inputs).squeeze(-1)
+            loss = bce(output, batch_targets) / real_samples_count
 
-            loss = bce(output, batch_targets)
-
-            temp_count = batch_targets.numel()
-            running_loss += loss.item() * temp_count
-            running_whole_count += temp_count
-            running_correct_count += torch.sum((output > threshold) == (batch_targets > threshold))
+            running_loss += loss.item() * real_samples_count
+            running_whole_count += real_samples_count
+            running_correct_count += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
 
             optimizer.zero_grad()
             loss.backward()
@@ -167,11 +166,14 @@ if __name__ == '__main__':
                 for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
                     for snr_db in val_snrs:
                         batch_inputs = all_tensors[snr_db][0].to(device)
-                        batch_targets = all_tensors[snr_db][1].to(device)
-                        output = model(batch_inputs)
-                        val_loss[snr_db] += bce_without_averaging(output, batch_targets)
-                        correct_count[snr_db] += torch.sum((output > threshold) == (batch_targets > threshold))
-                        whole_count[snr_db] += batch_targets.numel()
+                        mask = all_tensors[snr_db][1].to(device)
+                        batch_targets = all_tensors[snr_db][2].to(device)
+                        real_samples_count = mask.sum()
+
+                        output = mask * model(batch_inputs).squeeze(-1)
+                        val_loss[snr_db] += bce(output, batch_targets)
+                        correct_count[snr_db] += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
+                        whole_count[snr_db] += real_samples_count
 
                 for snr_db in val_snrs:
                     val_loss[snr_db] /= whole_count[snr_db]
