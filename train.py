@@ -154,30 +154,31 @@ if __name__ == '__main__':
             time.sleep(0.25)
 
         val_loss, val_acc = None, None
-        if val_every != 0:
-            if epoch % val_every == 0:
-                model.eval()
+        if val_every != 0 and epoch % val_every == 0:
+            model.eval()
 
-                val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
-                val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
-                correct_count = {snr_db: 0 for snr_db in val_snrs}
-                whole_count = {snr_db: 0 for snr_db in val_snrs}
+            val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
+            val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
+            correct_count = {snr_db: 0 for snr_db in val_snrs}
+            whole_count = {snr_db: 0 for snr_db in val_snrs}
 
-                for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
-                    for snr_db in val_snrs:
-                        batch_inputs = all_tensors[snr_db][0].to(device)
-                        mask = all_tensors[snr_db][1].to(device)
-                        batch_targets = all_tensors[snr_db][2].to(device)
-                        real_samples_count = mask.sum()
-
-                        output = mask * model(batch_inputs).squeeze(-1)
-                        val_loss[snr_db] += bce(output, batch_targets)
-                        correct_count[snr_db] += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
-                        whole_count[snr_db] += real_samples_count
-
+            print()
+            time.sleep(0.25)
+            for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
                 for snr_db in val_snrs:
-                    val_loss[snr_db] /= whole_count[snr_db]
-                    val_acc[snr_db] = correct_count[snr_db] / whole_count[snr_db]
+                    batch_inputs = all_tensors[snr_db][0].to(device)
+                    mask = all_tensors[snr_db][1].to(device)
+                    batch_targets = all_tensors[snr_db][2].to(device)
+                    real_samples_count = mask.sum()
+
+                    output = mask * model(batch_inputs).squeeze(-1)
+                    val_loss[snr_db] += bce(output, batch_targets)
+                    correct_count[snr_db] += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
+                    whole_count[snr_db] += real_samples_count
+            
+            for snr_db in val_snrs:
+                val_loss[snr_db] /= whole_count[snr_db]
+                val_acc[snr_db] = correct_count[snr_db] / whole_count[snr_db]
 
         for snr in val_snrs:
             if snr is None:
@@ -191,7 +192,7 @@ if __name__ == '__main__':
         loss_history_table.loc[global_epoch] = row_loss_values
         accuracy_history_table.loc[global_epoch] = row_acc_values
 
-        if print_level > 1:
+        if val_every != 0 and print_level > 1 and epoch % val_every == 0:
             print(f"\nLoss history")
             print_as_table(loss_history_table)
             print(f"\nAccuracy history")
@@ -231,4 +232,5 @@ if __name__ == '__main__':
 
             }, model_path)
             last_weights_path = model_path
+            print()
             print(f"Model saved (global epoch: {global_epoch}, checkpoint: {epoch})")

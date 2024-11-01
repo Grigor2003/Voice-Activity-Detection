@@ -13,6 +13,7 @@ model:
   name:
   # Indicates whether the last model from the training results will be used
   use_last: true
+#  use_last: false
   # The path or directory to model weights which will be loaded
   weights:
 
@@ -28,9 +29,9 @@ noise:
 
 train:
   # The learning rate given by power of 10
-  lr: -4
+  lr: -2
   # The number of epochs to train the model in current session
-  epoch: 20
+  epoch: 10
   # The number of workers for data loading during training
   workers: 8
   # The size of the batch for simultaneous usage of samples during training
@@ -38,7 +39,7 @@ train:
 
 result:
   # The count of saves (one save is always done at the end of the run)
-  saves_count: 5
+  saves_count: 0
   # The directory to save train results
   directory: train_results
 
@@ -46,7 +47,7 @@ val:
   # The ratio of validation data taken from clean data
   ratio: 0.2
   # The number of epochs to pass before calculating the validation score
-  every: 4
+  every: 2
   # The number of workers for data loading during validation score calculation
   workers: 8
   # The size of the batch for simultaneous usage of samples during validation score calculation

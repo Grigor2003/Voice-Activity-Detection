@@ -138,9 +138,9 @@ class ValidationCollate:
 
 def print_as_table(dataframe):
     if len(dataframe) > 4:
-        print(tabulate(dataframe.iloc[[0, -3, -2, -1], :].T, headers='keys', tablefmt='grid'))
+        print(tabulate(dataframe.iloc[[0, -3, -2, -1], :].T.fillna("---"), headers='keys'))
     else:
-        print(tabulate(dataframe.T, headers='keys', tablefmt='grid'))
+        print(tabulate(dataframe.T.fillna("---"), headers='keys'))
 
 
 RES_PREFIX = "res"
@@ -226,3 +226,4 @@ def save_history_plot(history_table, index, title, x_label, y_label, path):
         ax.legend()
 
     fig.savefig(path)
+    plt.close(fig)
