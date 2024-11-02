@@ -9,7 +9,7 @@ from tqdm import tqdm
 import torch
 
 from other.audio_utils import AudioWorker, OpenSLRDataset
-from models_handler import MODELS
+from models_handler import MODELS, count_parameters, estimate_vram_usage
 from other.utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, print_as_table, \
     save_history_plot, find_model_in_dir_or_path
@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
     train_dataloader, val_dataloader, seed, mfcc_converter = [None] * 4
     if last_weights_path is not None:
-        checkpoint = torch.load(last_weights_path)
+        checkpoint = torch.load(last_weights_path, weights_only=True)
 
         seed = checkpoint["seed"]
         train_dataloader, val_dataloader, _ = get_train_val_dataloaders(dataset, train_ratio, batch_size,
@@ -64,6 +64,9 @@ if __name__ == '__main__':
     else:
         curr_run_start_global_epoch = 1
         print(f"New model of {str(type(model))} type has been created, will be trained on {device} device")
+
+    print(
+        f"This model has estimated {count_parameters(model)} parameters, and costs {estimate_vram_usage(model)} GB while float32")
 
     try:
         loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
@@ -125,7 +128,8 @@ if __name__ == '__main__':
             mask = mask.to(device)
             real_samples_count = mask.sum()
 
-            output = mask * model(batch_inputs).squeeze(-1)
+            out = model(batch_inputs)
+            output = mask * out.squeeze(-1)
             loss = bce(output, batch_targets) / real_samples_count
 
             running_loss += loss.item() * real_samples_count
@@ -157,28 +161,29 @@ if __name__ == '__main__':
         if val_every != 0 and epoch % val_every == 0:
             model.eval()
 
-            val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
-            val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
-            correct_count = {snr_db: 0 for snr_db in val_snrs}
-            whole_count = {snr_db: 0 for snr_db in val_snrs}
+            with torch.no_grad():
+                val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
+                val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
+                correct_count = {snr_db: 0 for snr_db in val_snrs}
+                whole_count = {snr_db: 0 for snr_db in val_snrs}
 
-            print()
-            time.sleep(0.25)
-            for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
+                print()
+                time.sleep(0.25)
+                for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
+                    for snr_db in val_snrs:
+                        batch_inputs = all_tensors[snr_db][0].to(device)
+                        mask = all_tensors[snr_db][1].to(device)
+                        batch_targets = all_tensors[snr_db][2].to(device)
+                        real_samples_count = mask.sum()
+
+                        output = mask * model(batch_inputs).squeeze(-1)
+                        val_loss[snr_db] += bce(output, batch_targets)
+                        correct_count[snr_db] += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
+                        whole_count[snr_db] += real_samples_count
+
                 for snr_db in val_snrs:
-                    batch_inputs = all_tensors[snr_db][0].to(device)
-                    mask = all_tensors[snr_db][1].to(device)
-                    batch_targets = all_tensors[snr_db][2].to(device)
-                    real_samples_count = mask.sum()
-
-                    output = mask * model(batch_inputs).squeeze(-1)
-                    val_loss[snr_db] += bce(output, batch_targets)
-                    correct_count[snr_db] += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
-                    whole_count[snr_db] += real_samples_count
-            
-            for snr_db in val_snrs:
-                val_loss[snr_db] /= whole_count[snr_db]
-                val_acc[snr_db] = correct_count[snr_db] / whole_count[snr_db]
+                    val_loss[snr_db] /= whole_count[snr_db]
+                    val_acc[snr_db] = correct_count[snr_db] / whole_count[snr_db]
 
         for snr in val_snrs:
             if snr is None:

@@ -8,7 +8,7 @@ data:
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
-  id: 2
+  id: 0
   # The name of the model from models.py one of {NAMES}
   name:
   # Indicates whether the last model from the training results will be used
@@ -29,13 +29,14 @@ noise:
 
 train:
   # The learning rate given by power of 10
-  lr: -2
+  lr: -5
   # The number of epochs to train the model in current session
-  epoch: 10
+  epoch: 20
   # The number of workers for data loading during training
   workers: 8
   # The size of the batch for simultaneous usage of samples during training
-  batch: 512
+  batch: 128
+#  batch: 32
 
 result:
   # The count of saves (one save is always done at the end of the run)
@@ -47,7 +48,7 @@ val:
   # The ratio of validation data taken from clean data
   ratio: 0.2
   # The number of epochs to pass before calculating the validation score
-  every: 2
+  every: 4
   # The number of workers for data loading during validation score calculation
   workers: 8
   # The size of the batch for simultaneous usage of samples during validation score calculation
