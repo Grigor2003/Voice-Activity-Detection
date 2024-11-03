@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
     weights_path = find_model_in_dir_or_path(load_from)
 
-    checkpoint = torch.load(weights_path)
+    checkpoint = torch.load(weights_path, weights_only=True)
 
     seed = checkpoint["seed"]
 
@@ -64,25 +64,21 @@ if __name__ == '__main__':
     fp_to_thold = torch.tensor([0] * len(thresholds), dtype=torch.float32, device=device)
     tn_to_thold = torch.tensor([0] * len(thresholds), dtype=torch.float32, device=device)
 
-    for batch_inputs, batch_targets in tqdm(dataloader):
+    for batch_inputs, mask, batch_targets in tqdm(dataloader):
         batch_inputs = batch_inputs.to(device)
         batch_targets = batch_targets.to(device)
+        mask = mask.to(device)
 
-        output = model(batch_inputs)
-        print(output.shape)
-        print(batch_targets[0].shape)
-        input()
+        out = model(batch_inputs)
+        output = mask * out.squeeze(-1)
 
-
-        temp_count = batch_targets.numel()
-        whole_count += temp_count
         for i, thold in enumerate(thresholds):
             positive = batch_targets.to(torch.bool)
             pred = output > thold
-            tp_to_thold[i] += torch.sum(torch.logical_and(pred, positive))
-            tn_to_thold[i] += torch.sum(torch.logical_and(~pred, ~positive))
-            fn_to_thold[i] += torch.sum(torch.logical_and(~pred, positive))
-            fp_to_thold[i] += torch.sum(torch.logical_and(pred, ~positive))
+            tp_to_thold[i] += torch.sum(torch.logical_and(pred, positive) * mask)
+            tn_to_thold[i] += torch.sum(torch.logical_and(~pred, ~positive) * mask)
+            fn_to_thold[i] += torch.sum(torch.logical_and(~pred, positive) * mask)
+            fp_to_thold[i] += torch.sum(torch.logical_and(pred, ~positive) * mask)
 
     roc_x = (fp_to_thold / (fp_to_thold + tn_to_thold)).cpu()
     roc_y = (tp_to_thold / (tp_to_thold + fn_to_thold)).cpu()

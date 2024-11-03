@@ -29,9 +29,9 @@ noise:
 
 train:
   # The learning rate given by power of 10
-  lr: -5
+  lr: -2
   # The number of epochs to train the model in current session
-  epoch: 20
+  epoch: 4
   # The number of workers for data loading during training
   workers: 8
   # The size of the batch for simultaneous usage of samples during training

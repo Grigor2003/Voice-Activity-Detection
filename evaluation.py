@@ -14,8 +14,10 @@ from other.utils import find_last_model_in_tree
 
 input_dir = r"data/simple_test/input"
 output_dir = r"data/simple_test/output"
-model_name = r"SimpleDGGD_64_32_32_16_8"
+model_name = r"WhisperLike_64"
 train_res_dir = "train_results"
+
+th = 0.72
 
 if __name__ == '__main__':
 
@@ -29,14 +31,13 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
-    checkpoint = torch.load(model_path)
+    checkpoint = torch.load(model_path, weights_only=True)
 
     sample_rate = checkpoint['mfcc_sample_rate']
     win_lenght = checkpoint['mfcc_win_length']
     hop_lenght = checkpoint['mfcc_hop_length']
-    th = 0.5
 
-    model = MODELS[model_name].to(device)
+    model = MODELS[model_name]().to(device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     mfcc_converter = WaveToMFCCConverter(
