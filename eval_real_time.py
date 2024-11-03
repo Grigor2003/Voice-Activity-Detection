@@ -11,7 +11,7 @@ from other.utils import find_last_model_in_tree, WaveToMFCCConverter
 
 model_name = r"WhisperLike_64"
 train_res_dir = "train_results"
-th = 0.55
+th = 0.75
 
 model_trains_tree_dir = os.path.join(train_res_dir, model_name)
 
@@ -68,9 +68,17 @@ with sd.InputStream(samplerate=sample_rate, blocksize=hop_lenght, channels=1, ca
                 frames.append(spectrogram)
                 inp_tensor = torch.cat(frames[-50:]).unsqueeze(0)
                 st = time.time()
-                out = model(inp_tensor).detach().cpu().numpy().flatten()[-2:]
+                out = model(inp_tensor).detach().cpu().numpy().flatten()[-1]
                 en = time.time()
-                print(f"{out}, in {(en - st) * 1000:.2f} ms")
+
+                p = int(out * 100)
+                t = int(th * 100)
+                if p > t:
+                    s = t * '|' + (p - t) * '█'
+                else:
+                    s = p * '|'
+
+                print(f"{out >= th:d} {out:05.2f}, in {(en - st) * 1000:05.2f} ms - {s}")
 
             last_frame = overlap_frame.copy()
 
