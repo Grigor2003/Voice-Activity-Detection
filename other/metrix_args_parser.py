@@ -14,7 +14,7 @@ noise_data_path = is_type_of(ydict['data']['noise'])
 enot_data_path = is_type_of(ydict['data']['enot_data'], req=False)
 
 # Model section
-model_id = with_range(ydict['model']['id'], 0, MODELS_COUNT, int, req=False)
+model_id = is_range(ydict['model']['id'], 0, MODELS_COUNT, int, req=False)
 model_name = is_type_of(ydict['model']['name'], req=False)
 if model_id is not None:
     model_name = NAMES[model_id]
@@ -27,17 +27,17 @@ else:
 load_from = is_type_of(ydict['model']['weights'], req=True)
 
 # Noise section
-epoch_noise_count = with_range(ydict['noise']['pool'], 0, 5000, int)
-snr = with_range(ydict['noise']['snr'], -20, 20)
+epoch_noise_count = is_range(ydict['noise']['pool'], 0, 5000, int)
+snr = is_range(ydict['noise']['snr'], -20, 20)
 augmentation_params = {
-    "noise_count": with_range(ydict['noise']['count'], 0, 10, int),
+    "noise_count": is_range(ydict['noise']['count'], 0, 10, int),
     "noise_duration_range": parse_range(ydict['noise']['duration'], [0, 60], [0, 60]),
     "snr_db": snr
 }
 
 # Train section
-num_workers = with_range(ydict['train']['workers'], 0, 32, int)
-batch_size = with_range(ydict['train']['batch'], 1, 2 ** 15, int)
+num_workers = is_range(ydict['train']['workers'], 0, 32, int)
+batch_size = is_range(ydict['train']['batch'], 1, 2 ** 15, int)
 
 # ROC section
 thresholds = np.linspace(*parse_linspace(ydict['ROC']['thresholds'], [0, 1], [0, 1], [1, 1000, int]))
