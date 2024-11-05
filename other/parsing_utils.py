@@ -62,9 +62,9 @@ def parse_linspace(lst, first_range, second_range, count_range, order=True, req=
     except Exception as err:
         raise TypeError(
             f"Range must be in the form [start, end, count]. The form you specified caused the following error: {str(err)}")
-    is_range(s)
-    is_range(e)
-    is_range(c)
+    is_range(s, *first_range)
+    is_range(e, *second_range)
+    is_range(c, *count_range)
     if order and s > e:
         raise TypeError(
             f"In [start, end, count], start({s}) cannot be greater than end({e})")
