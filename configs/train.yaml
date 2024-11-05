@@ -30,8 +30,11 @@ noise:
     null: 120
     3: 5
     10: 4
-  # The ratio of empty audios that would be added to batch (if negative the count would be absolute)
-  zero_rate: -5
+  # The ratio of empty audios that would be added to batch
+  # if value is negative then the absolute would be taken
+  # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
+  # Example: batch: 100, zero_rate: 1.25 => 100 + 125 = 225
+  zero_rate: 25
 
 train:
   # The learning rate given by power of 10

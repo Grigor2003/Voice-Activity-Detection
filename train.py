@@ -103,7 +103,7 @@ if __name__ == '__main__':
     print(f"Checkpoints(for this run): {save_frames}")
 
     print(f"Training [SNR values: {', '.join(map(str, snr_dict))}, " +
-          f"final batch size: {batch_size}]")
+          f"final batch size: {batch_size + zero_count if zero_count is not None else 0}]")
     print(f"Validation [SNR values: {', '.join(map(str, val_snrs_list))}, " +
           f"Batch size: {len(val_snrs_list) * val_batch_size}]")
 
