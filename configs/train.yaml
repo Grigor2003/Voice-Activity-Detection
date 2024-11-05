@@ -8,7 +8,7 @@ data:
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
-  id: 0
+  id: 4
   # The name of the model from models.py one of {NAMES}
   name:
   # Indicates whether the last model from the training results will be used
@@ -24,19 +24,23 @@ noise:
   count: 2
   # The duration of added noises in seconds separated by f,t
   duration: [5, 10]
-  # The signal-to-noise ratio for audio augmentation
-  snr: 3
+  # Noises SNRs to use for batch augmentation
+  # SNR is signal-to-noise ratio for audio augmentation
+  snr_list: [3]
+  # The ratio of empty audios that would be added to batch (if negative the count would be absolute)
+  zero_rate: -5
 
 train:
   # The learning rate given by power of 10
-  lr: -2
+  lr: -1
   # The number of epochs to train the model in current session
   epoch: 4
   # The number of workers for data loading during training
   workers: 8
   # The size of the batch for simultaneous usage of samples during training
-  batch: 128
-#  batch: 32
+  # The real size of training batch is len(noise_snrs) * mini_batch
+  mini_batch: 128
+#  mini_batch: 32
 
 result:
   # The count of saves (one save is always done at the end of the run)
@@ -48,11 +52,13 @@ val:
   # The ratio of validation data taken from clean data
   ratio: 0.2
   # The number of epochs to pass before calculating the validation score
-  every: 4
+  every: 1
   # The number of workers for data loading during validation score calculation
   workers: 8
   # The size of the batch for simultaneous usage of samples during validation score calculation
-  batch: 128
+  batch: 32
+  # Noises SNRs to use for validation batch augmentation
+  snr_list: [10, 5, 0]
 
 verbose:
   # The threshold for labeling the prediction 0 or 1

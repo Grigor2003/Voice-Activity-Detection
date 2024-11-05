@@ -10,7 +10,7 @@ import torch
 
 from other.audio_utils import AudioWorker, OpenSLRDataset
 from models_handler import MODELS, count_parameters, estimate_vram_usage
-from other.utils import NoiseCollate, ValidationCollate, WaveToMFCCConverter
+from other.utils import NoiseCollate, WaveToMFCCConverter
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, print_as_table, \
     save_history_plot, find_model_in_dir_or_path
 from other.train_args_parser import *
@@ -45,7 +45,7 @@ if __name__ == '__main__':
         checkpoint = torch.load(last_weights_path, weights_only=True)
 
         seed = checkpoint["seed"]
-        train_dataloader, val_dataloader, _ = get_train_val_dataloaders(dataset, train_ratio, batch_size,
+        train_dataloader, val_dataloader, _ = get_train_val_dataloaders(dataset, train_ratio, mini_batch_size,
                                                                         val_batch_size,
                                                                         num_workers, val_num_workers, seed)
 
@@ -74,7 +74,7 @@ if __name__ == '__main__':
                                              index_col="global_epoch")
     except:
 
-        train_dataloader, val_dataloader, seed = get_train_val_dataloaders(dataset, train_ratio, batch_size,
+        train_dataloader, val_dataloader, seed = get_train_val_dataloaders(dataset, train_ratio, mini_batch_size,
                                                                            val_batch_size,
                                                                            num_workers, val_num_workers)
 
@@ -89,7 +89,7 @@ if __name__ == '__main__':
         loss_history_table.set_index('global_epoch', inplace=True)
         accuracy_history_table.set_index('global_epoch', inplace=True)
 
-        for snr in val_snrs:
+        for snr in val_snrs_list:
             if snr is None:
                 loss_history_table['clear_audio_loss'] = []
                 accuracy_history_table['clear_audio_acc'] = []
@@ -97,10 +97,15 @@ if __name__ == '__main__':
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
                 accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
 
-    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, mfcc_converter)
-    val_dataloader.collate_fn = ValidationCollate(dataset.sample_rate, None, val_params, val_snrs, mfcc_converter)
+    noise_collate = NoiseCollate(dataset.sample_rate, None, aug_params, snrs_list, mfcc_converter)
+    train_dataloader.collate_fn = noise_collate
+    val_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, aug_params, val_snrs_list, mfcc_converter)
 
     print(f"Checkpoints(for this run): {save_frames}")
+
+    print(f"Training SNR values: {', '.join(map(str, snrs_list))}")
+    print(f"Validation SNR values: {', '.join(map(str, val_snrs_list))}")
+    print(f"Batch size: {len(snrs_list) * mini_batch_size}")
 
     for epoch in range(1, do_epoches + 1):
 
@@ -120,25 +125,27 @@ if __name__ == '__main__':
         running_whole_count = torch.scalar_tensor(0, device=device)
 
         model.train()
-        for batch_inputs, mask, batch_targets in tqdm(train_dataloader,
-                                                      desc=f"Training epoch: {global_epoch} ({epoch}\\{do_epoches})",
-                                                      disable=0):
-            batch_inputs = batch_inputs.to(device)
-            batch_targets = batch_targets.to(device)
-            mask = mask.to(device)
-            real_samples_count = mask.sum()
+        for train_batches_by_snr_dict in tqdm(train_dataloader,
+                                              desc=f"Training epoch: {global_epoch} ({epoch}\\{do_epoches})" + ' | ',
+                                              disable=0):
+            for snr_db in snrs_list:
+                batch_inputs = train_batches_by_snr_dict[snr_db][0].to(device)
+                mask = train_batches_by_snr_dict[snr_db][1].to(device)
+                batch_targets = train_batches_by_snr_dict[snr_db][2].to(device)
 
-            out = model(batch_inputs)
-            output = mask * out.squeeze(-1)
-            loss = bce(output, batch_targets) / real_samples_count
+                out = model(batch_inputs)
+                output = mask * out.squeeze(-1)
 
-            running_loss += loss.item() * real_samples_count
-            running_whole_count += real_samples_count
-            running_correct_count += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
+                real_samples_count = mask.sum()
+                loss = bce(output, batch_targets) / real_samples_count
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                running_loss += loss.item() * real_samples_count
+                running_whole_count += real_samples_count
+                running_correct_count += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
+
+                optimizer.zero_grad()  # TODO: dzel
+                loss.backward()
+                optimizer.step()
 
         running_loss = (running_loss / running_whole_count).item()
         accuracy = (running_correct_count / running_whole_count).item()
@@ -162,15 +169,15 @@ if __name__ == '__main__':
             model.eval()
 
             with torch.no_grad():
-                val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
-                val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs}
-                correct_count = {snr_db: 0 for snr_db in val_snrs}
-                whole_count = {snr_db: 0 for snr_db in val_snrs}
+                val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
+                val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
+                correct_count = {snr_db: 0 for snr_db in val_snrs_list}
+                whole_count = {snr_db: 0 for snr_db in val_snrs_list}
 
                 print()
                 time.sleep(0.25)
                 for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
-                    for snr_db in val_snrs:
+                    for snr_db in val_snrs_list:
                         batch_inputs = all_tensors[snr_db][0].to(device)
                         mask = all_tensors[snr_db][1].to(device)
                         batch_targets = all_tensors[snr_db][2].to(device)
@@ -181,11 +188,11 @@ if __name__ == '__main__':
                         correct_count[snr_db] += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
                         whole_count[snr_db] += real_samples_count
 
-                for snr_db in val_snrs:
+                for snr_db in val_snrs_list:
                     val_loss[snr_db] /= whole_count[snr_db]
                     val_acc[snr_db] = correct_count[snr_db] / whole_count[snr_db]
 
-        for snr in val_snrs:
+        for snr in val_snrs_list:
             if snr is None:
                 row_loss_values['clear_audio_loss'] = val_loss[snr].item() if val_loss is not None else np.nan
                 row_acc_values['clear_audio_acc'] = val_acc[snr].item() if val_acc is not None else np.nan

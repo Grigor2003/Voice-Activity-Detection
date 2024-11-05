@@ -9,7 +9,8 @@ import torch
 from models_handler import MODELS
 from other.utils import find_last_model_in_tree, WaveToMFCCConverter
 
-model_name = r"WhisperLike_64"
+# model_name = r"WhisperLike_64"
+model_name = r"DGGD_64"
 train_res_dir = "train_results"
 th = 0.75
 
@@ -66,7 +67,7 @@ with sd.InputStream(samplerate=sample_rate, blocksize=hop_lenght, channels=1, ca
                 spectrogram = mfcc_converter(wave).to(device)
 
                 frames.append(spectrogram)
-                inp_tensor = torch.cat(frames[-50:]).unsqueeze(0)
+                inp_tensor = torch.cat(frames[-200:]).unsqueeze(0)
                 st = time.time()
                 out = model(inp_tensor).detach().cpu().numpy().flatten()[-1]
                 en = time.time()

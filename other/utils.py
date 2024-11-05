@@ -77,34 +77,34 @@ def create_batch_tensor(inputs, targets):
     return padded_input, mask, padded_output
 
 
+# class NoiseCollate:
+#     def __init__(self, dataset_sample_rate, noises, params, mfcc_converter):
+#         self.dataset_sample_rate = dataset_sample_rate
+#         self.noises = noises
+#         self.params = params
+#         self.mfcc_converter = mfcc_converter
+#
+#     def __call__(self, batch):
+#         inputs = []
+#         targets = []
+#
+#         for au, label_txt in batch:
+#             au.resample(self.dataset_sample_rate)
+#             if self.params is None:
+#                 augmented_wave, _ = augment_sample(au, self.noises)
+#             else:
+#                 augmented_wave, _ = augment_sample(au, self.noises, **self.params)
+#             inp = self.mfcc_converter(augmented_wave)
+#             tar = torch.tensor([*map(float, label_txt)])
+#             if tar.size(-1) != inp.size(-2):
+#                 print(tar.size(-1), inp.size(-2), au.name, au.wave.size(), augmented_wave.size())
+#             inputs.append(inp.squeeze(0))
+#             targets.append(tar)
+#
+#         return create_batch_tensor(inputs, targets)
+
+
 class NoiseCollate:
-    def __init__(self, dataset_sample_rate, noises, params, mfcc_converter):
-        self.dataset_sample_rate = dataset_sample_rate
-        self.noises = noises
-        self.params = params
-        self.mfcc_converter = mfcc_converter
-
-    def __call__(self, batch):
-        inputs = []
-        targets = []
-
-        for au, label_txt in batch:
-            au.resample(self.dataset_sample_rate)
-            if self.params is None:
-                augmented_wave, _ = augment_sample(au, self.noises)
-            else:
-                augmented_wave, _ = augment_sample(au, self.noises, **self.params)
-            inp = self.mfcc_converter(augmented_wave)
-            tar = torch.tensor([*map(float, label_txt)])
-            if tar.size(-1) != inp.size(-2):
-                print(tar.size(-1), inp.size(-2), au.name, au.wave.size(), augmented_wave.size())
-            inputs.append(inp.squeeze(0))
-            targets.append(tar)
-
-        return create_batch_tensor(inputs, targets)
-
-
-class ValidationCollate:
     def __init__(self, dataset_sample_rate, noises, params, snr_dbs, mfcc_converter):
         self.dataset_sample_rate = dataset_sample_rate
         self.noises = noises
@@ -124,7 +124,7 @@ class ValidationCollate:
                 augmented_wave, _ = augment_sample(au, self.noises, snr_db=snr_db, **self.params)
                 inp = self.mfcc_converter(augmented_wave)
                 if tar.size(-1) != inp.size(-2):
-                    print(tar.size(-1), inp.size(-2), au.name)
+                    print(f"WARNING: mismatch of target {tar.size(-1)} and input {inp.size(-2)} sizes in {au.name}")
                 else:
                     all_inputs[snr_db].append(inp.squeeze(0))
                     all_targets[snr_db].append(tar)
