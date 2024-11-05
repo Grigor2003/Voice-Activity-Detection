@@ -47,7 +47,7 @@ if __name__ == '__main__':
     print(f"Successfully loaded {weights_path}")
     print(f"Metrix will be applied to {global_epoch} epoches trained model on {device} device")
 
-    dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, mfcc_converter)
+    dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, snr, mfcc_converter)
 
     print(f"\n{'=' * 100}\n")
 
