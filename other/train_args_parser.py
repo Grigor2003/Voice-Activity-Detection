@@ -40,13 +40,13 @@ zero_rate = is_type_of(ydict['noise']['zero_rate'], (int, float))
 lr = is_range(ydict['train']['lr'], -10, 10)
 do_epoches = is_range(ydict['train']['epoch'], 0, 1000, int)
 num_workers = is_range(ydict['train']['workers'], 0, 32, int)
-mini_batch_size = is_range(ydict['train']['mini_batch'], 1, 2 ** 15, int)
+batch_size = is_range(ydict['train']['batch'], 1, 2 ** 15, int)
 
 zero_count = None
 if zero_rate < 0:
     zero_count = int(-zero_rate)
 elif zero_rate > 0:
-    zero_count = int(zero_rate * mini_batch_size)
+    zero_count = int(zero_rate * batch_size)
 
 # Result section
 saves_count = is_range(ydict['result']['saves_count'], 0, 100, int)
@@ -62,7 +62,7 @@ train_res_dir = is_type_of(ydict['result']['directory'])
 train_ratio = 1 - is_range(ydict['val']['ratio'], 0, 1)
 val_every = is_range(ydict['val']['every'], 0, 1000, int)
 val_num_workers = is_range(ydict['val']['workers'], 0, 32, int)
-val_batch_size = is_range(ydict['val']['batch'], 1, 2 ** 15, int)
+val_batch_size = is_range(ydict['val']['mini_batch'], 1, 2 ** 15, int)
 val_snrs_list = [None] + parse_list(ydict['val']['snr_list'], 1, 100, -25, 25, int)
 
 # Verbose section

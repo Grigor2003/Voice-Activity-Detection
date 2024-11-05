@@ -1,4 +1,5 @@
 import os
+import random
 from datetime import datetime
 
 from matplotlib import pyplot as plt
@@ -77,37 +78,37 @@ def create_batch_tensor(inputs, targets):
     return padded_input, mask, padded_output
 
 
-# class NoiseCollate:
-#     def __init__(self, dataset_sample_rate, noises, params, mfcc_converter):
-#         self.dataset_sample_rate = dataset_sample_rate
-#         self.noises = noises
-#         self.params = params
-#         self.mfcc_converter = mfcc_converter
-#
-#     def __call__(self, batch):
-#         inputs = []
-#         targets = []
-#
-#         for au, label_txt in batch:
-#             au.resample(self.dataset_sample_rate)
-#             if self.params is None:
-#                 augmented_wave, _ = augment_sample(au, self.noises)
-#             else:
-#                 augmented_wave, _ = augment_sample(au, self.noises, **self.params)
-#             inp = self.mfcc_converter(augmented_wave)
-#             tar = torch.tensor([*map(float, label_txt)])
-#             if tar.size(-1) != inp.size(-2):
-#                 print(tar.size(-1), inp.size(-2), au.name, au.wave.size(), augmented_wave.size())
-#             inputs.append(inp.squeeze(0))
-#             targets.append(tar)
-#
-#         return create_batch_tensor(inputs, targets)
-
-
 class NoiseCollate:
-    def __init__(self, dataset_sample_rate, noises, params, snr_dbs, mfcc_converter):
-        self.dataset_sample_rate = dataset_sample_rate
-        self.noises = noises
+    def __init__(self, sample_rate, params, snr_dbs, mfcc_converter):
+        self.sample_rate = sample_rate
+        self.noises = None
+        self.params = params
+        self.snr_dbs = snr_dbs
+        self.mfcc_converter = mfcc_converter
+
+    def __call__(self, batch):
+        inputs, targets = [], []
+        for au, label_txt in batch:
+            au.resample(self.sample_rate)
+            tar = torch.tensor([*map(float, label_txt)])
+
+            snr_db = random.choice(self.snr_dbs)
+
+            augmented_wave, _ = augment_sample(au, self.noises, snr_db=snr_db, **self.params)
+            inp = self.mfcc_converter(augmented_wave)
+            if tar.size(-1) != inp.size(-2):
+                print(f"WARNING: mismatch of target {tar.size(-1)} and input {inp.size(-2)} sizes in {au.name}")
+            else:
+                inputs.append(inp.squeeze(0))
+                targets.append(tar)
+
+        return create_batch_tensor(inputs, targets)
+
+
+class ValCollate:
+    def __init__(self, sample_rate, params, snr_dbs, mfcc_converter):
+        self.sample_rate = sample_rate
+        self.noises = None
         self.params = params
         self.snr_dbs = snr_dbs
         self.mfcc_converter = mfcc_converter
@@ -117,7 +118,7 @@ class NoiseCollate:
         all_targets = {snr_db: [] for snr_db in self.snr_dbs}
 
         for au, label_txt in batch:
-            au.resample(self.dataset_sample_rate)
+            au.resample(self.sample_rate)
             tar = torch.tensor([*map(float, label_txt)])
 
             for snr_db in self.snr_dbs:
@@ -129,11 +130,7 @@ class NoiseCollate:
                     all_inputs[snr_db].append(inp.squeeze(0))
                     all_targets[snr_db].append(tar)
 
-        all_tensors = {snr_db: None for snr_db in self.snr_dbs}
-        for snr_db in self.snr_dbs:
-            all_tensors[snr_db] = create_batch_tensor(all_inputs[snr_db], all_targets[snr_db])
-
-        return all_tensors
+        return {snr_db: create_batch_tensor(all_inputs[snr_db], all_targets[snr_db]) for snr_db in self.snr_dbs}
 
 
 def print_as_table(dataframe):
