@@ -35,7 +35,7 @@ aug_params = {
 }
 snr_dict = parse_numeric_dict(ydict['noise']['snr_dict'],
                               1, 100,
-                              [-25, 25, True, True],
+                              [-25, 25, True, False],
                               [0, 0, True, True])
 zero_rate = is_type_of(ydict['noise']['zero_rate'], (int, float))
 

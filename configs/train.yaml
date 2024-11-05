@@ -27,8 +27,9 @@ noise:
   # Noises SNRs to use for batch augmentation
   # SNR is signal-to-noise ratio for audio augmentation
   snr_dict:
-    3: 1
-    10: 1
+    null: 120
+    3: 5
+    10: 4
   # The ratio of empty audios that would be added to batch (if negative the count would be absolute)
   zero_rate: -5
 
@@ -36,7 +37,7 @@ train:
   # The learning rate given by power of 10
   lr: -1
   # The number of epochs to train the model in current session
-  epoch: 4
+  epoch: 1
   # The number of workers for data loading during training
   workers: 8
   # The size of training batch (can be not final)
