@@ -13,7 +13,7 @@ model:
   name:
   # Indicates whether the last model from the training results will be used
   use_last: true
-#  use_last: false
+  #  use_last: false
   # The path or directory to model weights which will be loaded
   weights:
 
@@ -23,10 +23,12 @@ noise:
   # The count of noises added on a single audio
   count: 2
   # The duration of added noises in seconds separated by f,t
-  duration: [5, 10]
+  duration: [ 5, 10 ]
   # Noises SNRs to use for batch augmentation
   # SNR is signal-to-noise ratio for audio augmentation
-  snr_list: [3, 10, 3]
+  snr_dict:
+    3: 1
+    10: 1
   # The ratio of empty audios that would be added to batch (if negative the count would be absolute)
   zero_rate: -5
 
@@ -58,7 +60,7 @@ val:
   # The real size of validation batch is len(snr_list) * mini_batch
   mini_batch: 32
   # Noises SNRs to use for validation batch augmentation
-  snr_list: [10, 5, 0]
+  snr_list: [ 10, 5, 0 ]
 
 verbose:
   # The threshold for labeling the prediction 0 or 1

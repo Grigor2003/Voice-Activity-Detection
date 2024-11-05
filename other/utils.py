@@ -79,11 +79,13 @@ def create_batch_tensor(inputs, targets):
 
 
 class NoiseCollate:
-    def __init__(self, sample_rate, params, snr_dbs, mfcc_converter):
+    def __init__(self, sample_rate, params, snr_dbs_dict, mfcc_converter):
         self.sample_rate = sample_rate
         self.noises = None
         self.params = params
-        self.snr_dbs = snr_dbs
+        self.snr_dbs = []
+        for snr, freq in snr_dbs_dict.items():
+            self.snr_dbs.extend([snr] * freq)
         self.mfcc_converter = mfcc_converter
 
     def __call__(self, batch):

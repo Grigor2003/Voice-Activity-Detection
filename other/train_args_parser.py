@@ -33,7 +33,10 @@ aug_params = {
     "noise_count": is_range(ydict['noise']['count'], 0, 10, int),
     "noise_duration_range": parse_range(ydict['noise']['duration'], [0, 60], [0, 60])
 }
-snrs_list = parse_list(ydict['noise']['snr_list'], 1, 100, -25, 25, int)
+snr_dict = parse_numeric_dict(ydict['noise']['snr_dict'],
+                              1, 100,
+                              [-25, 25, True, True],
+                              [0, 0, True, True])
 zero_rate = is_type_of(ydict['noise']['zero_rate'], (int, float))
 
 # Train section
@@ -63,7 +66,7 @@ train_ratio = 1 - is_range(ydict['val']['ratio'], 0, 1)
 val_every = is_range(ydict['val']['every'], 0, 1000, int)
 val_num_workers = is_range(ydict['val']['workers'], 0, 32, int)
 val_batch_size = is_range(ydict['val']['mini_batch'], 1, 2 ** 15, int)
-val_snrs_list = [None] + parse_list(ydict['val']['snr_list'], 1, 100, -25, 25, int)
+val_snrs_list = [None] + parse_numeric_list(ydict['val']['snr_list'], 1, 100, -25, 25, int)
 
 # Verbose section
 threshold = is_range(ydict['verbose']['threshold'], 0, 1)

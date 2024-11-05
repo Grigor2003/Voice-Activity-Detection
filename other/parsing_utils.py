@@ -71,18 +71,46 @@ def parse_linspace(lst, first_range, second_range, count_range, order=True, req=
     return s, e, c
 
 
-def parse_list(lst,
-               len_fr=0, len_to=0,
-               map_fr=0, map_to=0, map_tp=(int, float),
-               req=True):
+def parse_numeric_list(lst, len_fr=0, len_to=0,
+                       map_fr=0, map_to=0, map_int=False,
+                       req=True):
     _check_req(lst, req)
     lenght = len(lst)
     if len_fr < len_to:
-        if len_fr <= lenght <= len_to:
-            return [is_range(i, map_fr, map_to, map_tp) for i in lst]
-        else:
+        if not (len_fr <= lenght <= len_to):
             raise ValueError(f"lenght {lenght} is out of range ({len_fr} to {len_to})")
+    if map_int:
+        [is_range(k, map_fr, map_to, int) for k in lst]
+    else:
+        [is_range(k, map_fr, map_to) for k in lst]
     return lst
+
+
+def parse_numeric_dict(dct,
+                       len_fr=0, len_to=0,
+                       keys_fr_to_int_req=None,
+                       vals_fr_to_int_req=None,
+                       req=True):
+    _check_req(dct, req)
+    lenght = len(dct)
+    if len_fr < len_to:
+        if not (len_fr <= lenght <= len_to):
+            raise ValueError(f"lenght {lenght} is out of range ({len_fr} to {len_to})")
+
+    if keys_fr_to_int_req is not None:
+        keys_fr, keys_to, keys_int, keys_req = keys_fr_to_int_req
+        if keys_int:
+            [is_range(k, keys_fr, keys_to, int, keys_req) for k in dct.keys()]
+        else:
+            [is_range(k, keys_fr, keys_to, req=keys_req) for k in dct.keys()]
+
+    if vals_fr_to_int_req is not None:
+        vals_fr, vals_to, vals_int, vals_req = vals_fr_to_int_req
+        if vals_int:
+            [is_range(v, vals_fr, vals_to, int, vals_req) for v in dct.values()]
+        else:
+            [is_range(v, vals_fr, vals_to, req=vals_req) for v in dct.values()]
+    return dct
 
 
 def at_least_one_of(args):

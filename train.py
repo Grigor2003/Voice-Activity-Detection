@@ -97,12 +97,12 @@ if __name__ == '__main__':
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
                 accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
 
-    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, aug_params, snrs_list, mfcc_converter)
+    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, aug_params, snr_dict, mfcc_converter)
     val_dataloader.collate_fn = ValCollate(dataset.sample_rate, aug_params, val_snrs_list, mfcc_converter)
 
     print(f"Checkpoints(for this run): {save_frames}")
 
-    print(f"Training [SNR values: {', '.join(map(str, snrs_list))}, " +
+    print(f"Training [SNR values: {', '.join(map(str, snr_dict))}, " +
           f"final batch size: {batch_size}]")
     print(f"Validation [SNR values: {', '.join(map(str, val_snrs_list))}, " +
           f"Batch size: {len(val_snrs_list) * val_batch_size}]")
