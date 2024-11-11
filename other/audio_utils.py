@@ -14,6 +14,14 @@ import numpy as np
 
 
 class AudioWorker:
+    @staticmethod
+    def from_wave(wave, sample_rate):
+        au = AudioWorker(None, "from wave")
+        au.wave = wave
+        au.rate = sample_rate
+        au.loaded = True
+        return au
+
     def __init__(self, path, name=None):
 
         self.name = name
@@ -30,6 +38,8 @@ class AudioWorker:
         return self
 
     def resample(self, to_freq):
+        if not self.loaded:
+            return self.__unloaded__
         if self.rate == to_freq:
             return
 
@@ -297,3 +307,11 @@ def augment_sample(aw, noises=None, noise_count=1, noise_duration_range=(2, 5), 
                            "noises_to_use": noises_to_use}
 
     return orig_audio, augmentation_params
+
+
+def generate_white_noise(count, samples_count, noise_db=1, noise_dev=0):
+    dbs = torch.normal(noise_db, noise_dev, size=(count, 1))
+    noise_power_linear = 10 ** (dbs / 10)
+    noise = torch.randn(count, samples_count)
+    noise = noise * noise_power_linear
+    return noise

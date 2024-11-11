@@ -6,12 +6,13 @@ from matplotlib import pyplot as plt
 from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
 
-from other.audio_utils import augment_sample
+from other.audio_utils import augment_sample, generate_white_noise, AudioWorker
 import torch
 from torch.utils.data import DataLoader, random_split
 import torchaudio
 from tabulate import tabulate
 import numpy as np
+import scipy.signal
 
 
 def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers,
@@ -79,7 +80,7 @@ def create_batch_tensor(inputs, targets):
 
 
 class NoiseCollate:
-    def __init__(self, sample_rate, params, snr_dbs_dict, mfcc_converter):
+    def __init__(self, sample_rate, params, snr_dbs_dict, mfcc_converter, zero_sample_count=0):
         self.sample_rate = sample_rate
         self.noises = None
         self.params = params
@@ -87,8 +88,17 @@ class NoiseCollate:
         for snr, freq in snr_dbs_dict.items():
             self.snr_dbs.extend([snr] * freq)
         self.mfcc_converter = mfcc_converter
+        self.zsc = zero_sample_count
 
     def __call__(self, batch):
+        if self.zsc > 0:
+            sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
+
+            for i in range(self.zsc):
+                size, t_size, sr = random.choice(sizes)
+                au = AudioWorker.from_wave(generate_white_noise(1, size, 15, 10), sr)
+                batch.append((au, "0"*t_size))
+
         inputs, targets = [], []
         for au, label_txt in batch:
             au.resample(self.sample_rate)
