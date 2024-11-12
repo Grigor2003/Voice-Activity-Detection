@@ -17,6 +17,9 @@ if __name__ == '__main__':
         save_history_plot, find_model_in_dir_or_path
     from other.train_args_parser import *
 
+    os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+    os.environ['TORCH_USE_CUDA_DSA'] = "1"
+
     print(f"\n{'=' * 100}\n")
     dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
     noise_files_paths = [os.path.join(noise_data_path, p) for p in os.listdir(noise_data_path) if p.endswith(".wav")]
@@ -125,26 +128,42 @@ if __name__ == '__main__':
         running_whole_count = torch.scalar_tensor(0, device=device)
 
         model.train()
-        for batch_inputs, mask, batch_targets in tqdm(train_dataloader,
-                                                      desc=f"Training epoch: {global_epoch} ({epoch}\\{do_epoches})" + ' | ',
-                                                      disable=0):
+        batch_idx = 0
+        for batch_idx, (batch_inputs, mask, batch_targets) in enumerate(
+                tqdm(train_dataloader, desc=f"Training epoch: {global_epoch} ({epoch}\\{do_epoches})" + ' | ',
+                     disable=0)):
+
+            # Move data to the GPU if available
             batch_inputs = batch_inputs.to(device)
             mask = mask.to(device)
             batch_targets = batch_targets.to(device)
 
+            # Forward pass
             out = model(batch_inputs, ~mask)
             output = mask * out.squeeze(-1)
 
+            # Calculate the loss
             real_samples_count = mask.sum()
             loss = bce(output, batch_targets) / real_samples_count
+            loss = loss / accumulation_steps  # Scale loss by the number of accumulation steps
 
-            running_loss += loss.item() * real_samples_count
+            # Accumulate running loss and correct count (for logging/metrics)
+            running_loss += loss.item() * real_samples_count * accumulation_steps  # Rescale back for logging
             running_whole_count += real_samples_count
             running_correct_count += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
 
-            optimizer.zero_grad()
+            # Backward pass (accumulate gradients)
             loss.backward()
+
+            # Perform optimizer step and zero gradients every `accumulation_steps` batches
+            if (batch_idx + 1) % accumulation_steps == 0:
+                optimizer.step()
+                optimizer.zero_grad()
+
+        # After the final batch, check if there are remaining gradients to update
+        if (batch_idx + 1) % accumulation_steps != 0:
             optimizer.step()
+            optimizer.zero_grad()
 
         running_loss = (running_loss / running_whole_count).item()
         accuracy = (running_correct_count / running_whole_count).item()

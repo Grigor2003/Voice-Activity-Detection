@@ -23,7 +23,6 @@ elif model_name is not None:
 else:
     raise ValueError(f"Model name or id has to be declared")
 
-
 load_from = is_type_of(ydict['model']['weights'], req=False)
 load_last = is_type_of(ydict['model']['use_last'], bool)
 
@@ -44,6 +43,7 @@ lr = is_range(ydict['train']['lr'], -10, 10)
 do_epoches = is_range(ydict['train']['epoch'], 0, 1000, int)
 num_workers = is_range(ydict['train']['workers'], 0, 32, int)
 batch_size = is_range(ydict['train']['batch'], 1, 2 ** 15, int)
+accumulation_steps = is_range(ydict['train']['n_accum'], 1, 2 ** 15, int)
 
 zero_count = None
 if zero_rate < 0:
