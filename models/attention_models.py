@@ -37,7 +37,7 @@ class AttentionModel(nn.Module):
         # Output layer
         self.fc_out = nn.Linear(hidden_dim4, 1)
 
-    def forward(self, x):
+    def forward(self, x, padding_mask=None):
         # Initial fully connected layer
         x = self.fc1(x)
         x = self.layernorm1(x)
@@ -95,7 +95,7 @@ class WhisperLikeModel(nn.Module):
         # Projection to vocabulary size for output
         self.fc_out = nn.Linear(encoder_dim, 1)
 
-    def forward(self, x):
+    def forward(self, x, padding_mask=None):
         x = x.transpose(1, 2)
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
@@ -106,7 +106,7 @@ class WhisperLikeModel(nn.Module):
 
         # Encoder pass
         x = self.embedding(x)
-        x = self.encoder(x)
+        x = self.encoder(x, src_key_padding_mask=padding_mask)
 
         x = self.fc_out(x)
         x = F.sigmoid(x)

@@ -9,8 +9,8 @@ import torch
 from models_handler import MODELS
 from other.utils import find_last_model_in_tree, WaveToMFCCConverter
 
-# model_name = r"WhisperLike_64"
-model_name = r"DGGD_64"
+model_name = r"WhisperLike_64"
+# model_name = r"DGGD_64"
 train_res_dir = "train_results"
 th = 0.75
 

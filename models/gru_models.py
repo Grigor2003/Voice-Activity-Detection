@@ -10,7 +10,7 @@ class SimpleG(nn.Module):
 
         self.input_dim = input_dim
 
-    def forward(self, x):
+    def forward(self, x, padding_mask=None):
         out, _ = self.gru(x)
         out = self.fc(out)
         out = F.sigmoid(out)
@@ -30,7 +30,7 @@ class SimpleDGGD(nn.Module):
 
         self.input_dim = input_dim
 
-    def forward(self, x):
+    def forward(self, x, padding_mask=None):
         out = self.fc1(x)
         out = F.relu(out)
         out, _ = self.gru1(out)
@@ -58,7 +58,7 @@ class DGGD(nn.Module):
 
         self.input_dim = input_dim
 
-    def forward(self, x):
+    def forward(self, x, padding_mask=None):
         out = self.fc1(x)
         out = F.relu(out)
         out = self.layernorm1(out)

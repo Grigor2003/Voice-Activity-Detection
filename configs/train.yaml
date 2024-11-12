@@ -8,12 +8,12 @@ data:
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
-  id: 4
+  id: 0
   # The name of the model from models.py one of {NAMES}
   name:
   # Indicates whether the last model from the training results will be used
-  use_last: true
-  #  use_last: false
+#  use_last: true
+  use_last: false
   # The path or directory to model weights which will be loaded
   weights:
 
@@ -28,26 +28,27 @@ noise:
   # SNR is signal-to-noise ratio for audio augmentation
   snr_dict:
     null: 50
-    3: 35
-    10: 15
+    0: 10
+    3: 30
+    10: 10
   # The ratio of empty audios that would be added to batch
   # if value is negative then the absolute would be taken
   # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
   # Example: batch: 100, zero_rate: 1.25 => 100 + 125 = 225
   zero_rate: 0.25
   # The probability of adding white noise
-  white_prob: 0.5
+  white_prob: 0.5  # TODO: nenc anel vor ashxati
 
 train:
   # The learning rate given by power of 10
   lr: -1
   # The number of epochs to train the model in current session
-  epoch: 1
+  epoch: 10
   # The number of workers for data loading during training
   workers: 8
   # The size of training batch (can be not final)
-  batch: 128
-#  batch: 32
+#  batch: 128
+  batch: 64
 
 result:
   # The count of saves (one save is always done at the end of the run)
@@ -59,7 +60,7 @@ val:
   # The ratio of validation data taken from clean data
   ratio: 0.2
   # The number of epochs to pass before calculating the validation score
-  every: 1
+  every: 5
   # The number of workers for data loading during validation score calculation
   workers: 8
   # The size of the batch for simultaneous usage of samples during validation score calculation

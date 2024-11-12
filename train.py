@@ -132,7 +132,7 @@ if __name__ == '__main__':
             mask = mask.to(device)
             batch_targets = batch_targets.to(device)
 
-            out = model(batch_inputs)
+            out = model(batch_inputs, ~mask)
             output = mask * out.squeeze(-1)
 
             real_samples_count = mask.sum()
