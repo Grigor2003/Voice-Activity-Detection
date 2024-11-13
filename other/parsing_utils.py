@@ -72,7 +72,7 @@ def parse_linspace(lst, first_range, second_range, count_range, order=True, req=
 
 
 def parse_numeric_list(lst, len_fr=0, len_to=0,
-                       map_fr=0, map_to=0, map_int=False,
+                       map_fr=0, map_to=0, map_int=False, map_req=True,
                        req=True):
     _check_req(lst, req)
     lenght = len(lst)
@@ -80,9 +80,9 @@ def parse_numeric_list(lst, len_fr=0, len_to=0,
         if not (len_fr <= lenght <= len_to):
             raise ValueError(f"lenght {lenght} is out of range ({len_fr} to {len_to})")
     if map_int:
-        [is_range(k, map_fr, map_to, int) for k in lst]
+        [is_range(k, map_fr, map_to, int, map_req) for k in lst]
     else:
-        [is_range(k, map_fr, map_to) for k in lst]
+        [is_range(k, map_fr, map_to, req=map_req) for k in lst]
     return lst
 
 

@@ -14,6 +14,11 @@ from tabulate import tabulate
 import numpy as np
 import scipy.signal
 
+RES_PREFIX = "res"
+DATE_FORMAT = "%Y-%m-%d"
+MODEL_NAME = "weights.pt"
+EXAMPLE_FOLDER = "examples"
+
 
 def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers,
                               seed=None):
@@ -96,11 +101,12 @@ class NoiseCollate:
 
             for i in range(self.zsc):
                 size, t_size, sr = random.choice(sizes)
-                au = AudioWorker.from_wave(generate_white_noise(1, size, 15, 10), sr)
-                batch.append((au, "0"*t_size))
+                au = AudioWorker.from_wave(generate_white_noise(1, size, 0.15, 0.1), sr)
+                batch.append((au, "0" * t_size))
 
-        inputs, targets = [], []
-        for au, label_txt in batch:
+        inputs, targets, examples = [], [], []
+        ex_id = random.randint(1, len(batch) - 2) if len(batch) > 2 else None
+        for i, (au, label_txt) in enumerate(batch):
             au.resample(self.sample_rate)
             tar = torch.tensor([*map(float, label_txt)])
 
@@ -113,8 +119,9 @@ class NoiseCollate:
             else:
                 inputs.append(inp.squeeze(0))
                 targets.append(tar)
-
-        return create_batch_tensor(inputs, targets)
+            if i == ex_id or i == 0 or i == len(batch) - 1:
+                examples.append((i, augmented_wave.clone(), f"noise_snr_{snr_db}"))
+        return create_batch_tensor(inputs, targets), examples
 
 
 class ValCollate:
@@ -150,11 +157,6 @@ def print_as_table(dataframe):
         print(tabulate(dataframe.iloc[[0, -3, -2, -1], :].T.fillna("---"), headers='keys'))
     else:
         print(tabulate(dataframe.T.fillna("---"), headers='keys'))
-
-
-RES_PREFIX = "res"
-DATE_FORMAT = "%Y-%m-%d"
-MODEL_NAME = "weights.pt"
 
 
 def find_model_in_dir_or_path(dp: str):

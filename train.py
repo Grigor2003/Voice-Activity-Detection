@@ -1,3 +1,5 @@
+import torchaudio
+
 if __name__ == '__main__':
     import os
     import random
@@ -11,7 +13,7 @@ if __name__ == '__main__':
 
     from other.audio_utils import AudioWorker, OpenSLRDataset
     from models_handler import MODELS, count_parameters, estimate_vram_usage
-    from other.utils import NoiseCollate, ValCollate, WaveToMFCCConverter
+    from other.utils import NoiseCollate, ValCollate, WaveToMFCCConverter, EXAMPLE_FOLDER
     from other.utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, \
         print_as_table, \
         save_history_plot, find_model_in_dir_or_path
@@ -110,6 +112,7 @@ if __name__ == '__main__':
     print(f"Validation [SNR values: {', '.join(map(str, val_snrs_list))}, " +
           f"Batch size: {len(val_snrs_list) * val_batch_size}]")
 
+    working_examples = {}
     for epoch in range(1, do_epoches + 1):
 
         global_epoch = curr_run_start_global_epoch + epoch - 1
@@ -128,8 +131,11 @@ if __name__ == '__main__':
         running_whole_count = torch.scalar_tensor(0, device=device)
 
         model.train()
-        batch_idx = 0
-        for batch_idx, (batch_inputs, mask, batch_targets) in enumerate(
+        batch_idx, batch_count = 0, len(train_dataloader)
+        example_batch_indexes = np.linspace(0, batch_count - 1, n_examples, dtype=int)
+        working_examples[global_epoch] = []
+
+        for batch_idx, ((batch_inputs, mask, batch_targets), examples) in enumerate(
                 tqdm(train_dataloader, desc=f"Training epoch: {global_epoch} ({epoch}\\{do_epoches})" + ' | ',
                      disable=0)):
 
@@ -141,6 +147,9 @@ if __name__ == '__main__':
             # Forward pass
             out = model(batch_inputs, ~mask)
             output = mask * out.squeeze(-1)
+
+            if batch_idx in example_batch_indexes:
+                working_examples[global_epoch].extend([(wave, out[i][mask[i]].detach().cpu(), info, batch_idx) for i, wave, info in examples])
 
             # Calculate the loss
             real_samples_count = mask.sum()
@@ -195,14 +204,14 @@ if __name__ == '__main__':
                 print()
                 time.sleep(0.25)
                 for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
-                    for snr_db in val_snrs_list:
-                        batch_inputs = all_tensors[snr_db][0].to(device)
-                        mask = all_tensors[snr_db][1].to(device)
-                        batch_targets = all_tensors[snr_db][2].to(device)
+                    for snr_db, (batch_inputs, mask, batch_targets) in all_tensors.items():
+                        batch_inputs = batch_inputs.to(device)
+                        mask = mask.to(device)
+                        batch_targets = batch_targets.to(device)
                         real_samples_count = mask.sum()
 
-                        output = mask * model(batch_inputs).squeeze(-1)
-                        val_loss[snr_db] += bce(output, batch_targets)
+                        output = mask * model(batch_inputs, ~mask).squeeze(-1)
+                        val_loss[snr_db] += bce(output, batch_targets).item()
                         correct_count[snr_db] += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
                         whole_count[snr_db] += real_samples_count
 
@@ -248,6 +257,24 @@ if __name__ == '__main__':
                 save_history_plot(accuracy_history_table, 'global_epoch', 'Accuracy history', 'Epoch', 'Accuracy',
                                   os.path.join(model_dir, 'accuracy.png'))
 
+            for global_epoch_id, examples in working_examples.items():
+                folder = os.path.join(model_dir, EXAMPLE_FOLDER, str(global_epoch_id))
+                os.makedirs(folder, exist_ok=True)
+
+                for ex_id, example in enumerate(examples):
+                    wave, pred, info, bi = example
+                    win_length, hop_length, sample_rate = mfcc_converter.win_length, mfcc_converter.hop_length, mfcc_converter.sample_rate
+
+                    speech_mask = pred.squeeze(-1).numpy()
+                    item_wise_mask = np.full(wave.size(1), False, dtype=bool)
+                    for i, speech_lh in enumerate(speech_mask.T):
+                        item_wise_mask[hop_length * i:hop_length * i + win_length] = (
+                                (speech_lh > threshold) or item_wise_mask[hop_length * i:hop_length * i + win_length])
+
+                    p = os.path.join(folder, f"b{bi}_{ex_id}_{info}".replace(".", ","))
+                    torchaudio.save(p + '_res.wav', wave[:, item_wise_mask], sample_rate)
+                    torchaudio.save(p + '.wav', wave, sample_rate)
+
             torch.save({
                 'seed': seed,
                 'epoch': global_epoch,
@@ -261,6 +288,6 @@ if __name__ == '__main__':
                 'mfcc_hop_length': mfcc_converter.hop_length,
 
             }, model_path)
+            print(f"\nModel saved (global epoch: {global_epoch}, checkpoint: {epoch})")
+
             last_weights_path = model_path
-            print()
-            print(f"Model saved (global epoch: {global_epoch}, checkpoint: {epoch})")

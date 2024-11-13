@@ -66,9 +66,10 @@ train_ratio = 1 - is_range(ydict['val']['ratio'], 0, 1)
 val_every = is_range(ydict['val']['every'], 0, 1000, int)
 val_num_workers = is_range(ydict['val']['workers'], 0, 32, int)
 val_batch_size = is_range(ydict['val']['mini_batch'], 1, 2 ** 15, int)
-val_snrs_list = [None] + parse_numeric_list(ydict['val']['snr_list'], 1, 100, -25, 25, int)
+val_snrs_list = parse_numeric_list(ydict['val']['snr_list'], 1, 100, -25, 25, int, False)
 
 # Verbose section
 threshold = is_range(ydict['verbose']['threshold'], 0, 1)
 plot = is_type_of(ydict['verbose']['plot'], bool)
 print_level = is_range(ydict['verbose']['print'], 0, 2, int)
+n_examples = is_range(ydict['verbose']['n_examples'], 0, 1000, int)
