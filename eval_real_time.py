@@ -20,6 +20,7 @@ model_new_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
 
 if model_path is None:
     raise Exception(f"No model was found at {model_trains_tree_dir}")
+print(f"Model was found at {model_path}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {device}")
