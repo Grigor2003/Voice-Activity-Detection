@@ -4,3 +4,4 @@ data/
 train_results/
 buffer/
 __pycache__/
+other/fast_tests.ipynb
