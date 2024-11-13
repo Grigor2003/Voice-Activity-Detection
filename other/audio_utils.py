@@ -39,6 +39,7 @@ class AudioWorker:
 
     def resample(self, to_freq):
         if not self.loaded:
+            print("WARNING: attempted to resample AudioWorker before loading")
             return self.__unloaded__
         if self.rate == to_freq:
             return
@@ -260,7 +261,7 @@ def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=800
     temp = audio.clone()
     temp[:, start:end] = noised
     if torch.sum(torch.isnan(temp)):
-        print("nan after chnaging temp slice ", torch.sum(torch.isnan(temp)))
+        print("nan after changing temp slice ", torch.sum(torch.isnan(temp)))
     return temp
 
 

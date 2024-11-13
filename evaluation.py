@@ -34,8 +34,8 @@ if __name__ == '__main__':
     checkpoint = torch.load(model_path, weights_only=True)
 
     sample_rate = checkpoint['mfcc_sample_rate']
-    win_lenght = checkpoint['mfcc_win_length']
-    hop_lenght = checkpoint['mfcc_hop_length']
+    win_length = checkpoint['mfcc_win_length']
+    hop_length = checkpoint['mfcc_hop_length']
 
     model = MODELS[model_name]().to(device)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -43,8 +43,8 @@ if __name__ == '__main__':
     mfcc_converter = WaveToMFCCConverter(
         n_mfcc=checkpoint['mfcc_n_mfcc'],
         sample_rate=sample_rate,
-        win_length=win_lenght,
-        hop_length=hop_lenght)
+        win_length=win_length,
+        hop_length=hop_length)
 
     model.eval()
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
         item_wise_mask = np.full(au.wave.size(1), False, dtype=bool)
 
         for i, speech_lh in enumerate(speech_mask.T):
-            item_wise_mask[hop_lenght * i:hop_lenght * i + win_lenght] = (
-                    (speech_lh > th) or item_wise_mask[hop_lenght * i:hop_lenght * i + win_lenght])
+            item_wise_mask[hop_length * i:hop_length * i + win_length] = (
+                    (speech_lh > th) or item_wise_mask[hop_length * i:hop_length * i + win_length])
 
         torchaudio.save(os.path.join(output_dir, au.name), au.wave[:, item_wise_mask], au.rate)
