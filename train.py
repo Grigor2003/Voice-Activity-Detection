@@ -32,14 +32,16 @@ if __name__ == '__main__':
     model_dir, model_path = None, None
     last_weights_path = None
 
-    if load_from is not None:
-        last_weights_path = find_model_in_dir_or_path(load_from)
-    elif load_last:
-        model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
-        if model_path is None:
-            print(f"Couldn't find any model in {model_trains_tree_dir} so new model will be created")
-        else:
+    if weights_load_from is not None:
+        last_weights_path = find_model_in_dir_or_path(weights_load_from)
+    else:
+        if create_new_model is None:
+            model_dir, last_weights_path = find_last_model_in_tree(model_trains_tree_dir)
+        elif not create_new_model:
+            model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
             last_weights_path = model_path
+            if model_path is None:
+                print(f"Couldn't find any model in {model_trains_tree_dir} so new model will be created")
 
     train_dataloader, val_dataloader, seed, mfcc_converter = [None] * 4
     if last_weights_path is not None:
@@ -67,8 +69,7 @@ if __name__ == '__main__':
         curr_run_start_global_epoch = 1
         print(f"New model of {str(type(model))} type has been created, will be trained on {device} device")
 
-    print(
-        f"This model has estimated {count_parameters(model)} parameters, and costs {estimate_vram_usage(model)} GB while float32")
+    print(f"Estimated [parameters: {count_parameters(model)}, vram: {estimate_vram_usage(model):.4f} GB (if float32)]")
 
     try:
         loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
@@ -245,7 +246,7 @@ if __name__ == '__main__':
             print_as_table(accuracy_history_table)
 
         if epoch in save_frames:
-            if model_dir is None:
+            if model_path is None:
                 model_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
                 print(f"\nCreated {model_dir}")
 
@@ -304,3 +305,4 @@ if __name__ == '__main__':
             print(f"\nModel saved (global epoch: {global_epoch}, checkpoint: {epoch})")
 
             last_weights_path = model_path
+            model_has_been_saved()

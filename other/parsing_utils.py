@@ -7,6 +7,10 @@ def _check_req(value, required):
 
 def _typecheck(v, tp):
     if isinstance(tp, (list, tuple)):
+        try:
+            v = v * 1
+        except:
+            pass
         return type(v) in tp
     return type(v) is tp
 
