@@ -39,7 +39,7 @@ snr_dict = parse_numeric_dict(ydict['noise']['snr_dict'],
 zero_rate = is_type_of(ydict['noise']['zero_rate'], (int, float))
 
 # Train section
-lr = is_range(ydict['train']['lr'], -10, 10)
+lr = 10 ** is_range(ydict['train']['lr'], -10, 10)
 do_epoches = is_range(ydict['train']['epoch'], 0, 1000, int)
 num_workers = is_range(ydict['train']['workers'], 0, 32, int)
 batch_size = is_range(ydict['train']['batch'], 1, 2 ** 15, int)

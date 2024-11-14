@@ -28,11 +28,10 @@ load_from = is_type_of(ydict['model']['weights'], req=True)
 
 # Noise section
 epoch_noise_count = is_range(ydict['noise']['pool'], 0, 5000, int)
-snr = is_range(ydict['noise']['snr'], -20, 20)
+snr = {is_range(ydict['noise']['snr'], -20, 20, int): 1}
 augmentation_params = {
     "noise_count": is_range(ydict['noise']['count'], 0, 10, int),
     "noise_duration_range": parse_range(ydict['noise']['duration'], [0, 60], [0, 60]),
-    "snr_db": snr
 }
 
 # Train section

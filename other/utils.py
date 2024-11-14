@@ -152,6 +152,26 @@ class ValCollate:
         return {snr_db: create_batch_tensor(all_inputs[snr_db], all_targets[snr_db]) for snr_db in self.snr_dbs}
 
 
+def focal_loss(pred, target, gamma=2., alpha=0.25, reduction="sum"):
+    p_t = pred * target + (1 - pred) * (1 - target)
+    ce_loss = torch.nn.functional.binary_cross_entropy(pred, target, reduction='none')
+    loss = ce_loss * ((1 - p_t) ** gamma)
+    if alpha >= 0:
+        alpha_t = alpha * target + (1 - alpha) * (1 - target)
+        loss = alpha_t * loss
+    if reduction == "none":
+        pass
+    elif reduction == "mean":
+        loss = loss.mean()
+    elif reduction == "sum":
+        loss = loss.sum()
+    else:
+        raise ValueError(
+            f"Invalid Value for arg 'reduction': '{reduction} \n Supported reduction modes: 'none', 'mean', 'sum'"
+        )
+    return loss
+
+
 def print_as_table(dataframe):
     if len(dataframe) > 4:
         print(tabulate(dataframe.iloc[[0, -3, -2, -1], :].T.fillna("---"), headers='keys'))

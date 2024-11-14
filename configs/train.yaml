@@ -3,6 +3,7 @@ data:
   clean: data\train-clean-100
   # Path to labels
   labels: data\8000_30_50_100_50_max.csv
+#  labels: data\8000_30_50_100_50_max_lite.csv
   # Path to noises data
   noise: data\noise-16k
 
@@ -12,8 +13,8 @@ model:
   # The name of the model from models.py one of {NAMES}
   name:
   # Indicates whether the last model from the training results will be used
-#  use_last: true
-  use_last: false
+  use_last: true
+#  use_last: false
   # The path or directory to model weights which will be loaded
   weights:
 
@@ -27,9 +28,9 @@ noise:
   # Noises SNRs to use for batch augmentation
   # SNR is signal-to-noise ratio for audio augmentation
   snr_dict:
-    null: 50
-    0: 10
-    3: 30
+    null: 90
+    0: 0
+    3: 0
     10: 10
   # The ratio of empty audios that would be added to batch
   # if value is negative then the absolute would be taken
@@ -41,16 +42,16 @@ noise:
 
 train:
   # The learning rate given by power of 10
-  lr: -3
+  lr: 2
   # The number of epochs to train the model in current session
-  epoch: 10
+  epoch: 1
   # The number of workers for data loading during training
-  workers: 8
+  workers: 4
   # The size of training batch (can be not final)
-#  batch: 128
+  #  batch: 128
   batch: 64
   # Accumulation steps
-  n_accum: 10
+  n_accum: 4
 
 result:
   # The count of saves (one save is always done at the end of the run)
@@ -64,12 +65,12 @@ val:
   # The number of epochs to pass before calculating the validation score
   every: 5
   # The number of workers for data loading during validation score calculation
-  workers: 8
+  workers: 4
   # The size of the batch for simultaneous usage of samples during validation score calculation
   # The real size of validation batch is len(snr_list) * mini_batch
   mini_batch: 32
   # Noises SNRs to use for validation batch augmentation
-  snr_list: [ 10, 5, 0 ]
+  snr_list: [ null, 10, 5, 0 ]
 
 verbose:
   # The threshold for labeling the prediction 0 or 1
@@ -78,3 +79,6 @@ verbose:
   plot: true
   # The level of detail of printing
   print: 2
+  # Count of examples to save per epoch
+  # 0 or bigger then 2
+  n_examples: 3

@@ -47,7 +47,7 @@ if __name__ == '__main__':
     print(f"Successfully loaded {weights_path}")
     print(f"Metrix will be applied to {global_epoch} epoches trained model on {device} device")
 
-    dataloader.collate_fn = NoiseCollate(dataset.sample_rate, None, augmentation_params, snr, mfcc_converter)
+    dataloader.collate_fn = NoiseCollate(dataset.sample_rate, augmentation_params, snr, mfcc_converter)
 
     print(f"\n{'=' * 100}\n")
 
@@ -64,12 +64,12 @@ if __name__ == '__main__':
     fp_to_thold = torch.tensor([0] * len(thresholds), dtype=torch.float32, device=device)
     tn_to_thold = torch.tensor([0] * len(thresholds), dtype=torch.float32, device=device)
 
-    for batch_inputs, mask, batch_targets in tqdm(dataloader):
+    for (batch_inputs, mask, batch_targets), _ in tqdm(dataloader):
         batch_inputs = batch_inputs.to(device)
         batch_targets = batch_targets.to(device)
         mask = mask.to(device)
 
-        out = model(batch_inputs)
+        out = model(batch_inputs, ~mask)
         output = mask * out.squeeze(-1)
 
         for i, thold in enumerate(thresholds):

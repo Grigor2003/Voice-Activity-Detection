@@ -13,7 +13,7 @@ if __name__ == '__main__':
 
     from other.audio_utils import AudioWorker, OpenSLRDataset
     from models_handler import MODELS, count_parameters, estimate_vram_usage
-    from other.utils import NoiseCollate, ValCollate, WaveToMFCCConverter, EXAMPLE_FOLDER
+    from other.utils import NoiseCollate, ValCollate, WaveToMFCCConverter, EXAMPLE_FOLDER, focal_loss
     from other.utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, \
         print_as_table, \
         save_history_plot, find_model_in_dir_or_path
@@ -29,8 +29,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = MODELS[model_name]().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=10 ** lr)
-    bce = torch.nn.BCELoss(reduction="sum")
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
     model_dir, model_path = None, None
@@ -56,6 +55,7 @@ if __name__ == '__main__':
 
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        optimizer.lr = lr
         curr_run_start_global_epoch = checkpoint['epoch'] + 1
 
         mfcc_converter = WaveToMFCCConverter(
@@ -126,6 +126,9 @@ if __name__ == '__main__':
         train_dataloader.collate_fn.noises = noises
         val_dataloader.collate_fn.noises = noises
 
+        stats = {"target_positive": 0, "output_positive": 0, "whole_mask": 0}
+        working_examples[-global_epoch] = stats
+
         running_loss = torch.scalar_tensor(0, device=device)
         running_correct_count = torch.scalar_tensor(0, device=device)
         running_whole_count = torch.scalar_tensor(0, device=device)
@@ -148,12 +151,19 @@ if __name__ == '__main__':
             out = model(batch_inputs, ~mask)
             output = mask * out.squeeze(-1)
 
+            # Save some stats for logging
+            with torch.no_grad():
+                stats["target_positive"] += torch.sum(batch_targets).item()
+                stats["output_positive"] += torch.sum(output > threshold).item()
+                stats["whole_mask"] += torch.sum(mask).item()
+
             if batch_idx in example_batch_indexes:
-                working_examples[global_epoch].extend([(wave, out[i][mask[i]].detach().cpu(), info, batch_idx) for i, wave, info in examples])
+                working_examples[global_epoch].extend(
+                    [(wave, out[i][mask[i]].detach().cpu(), info, batch_idx) for i, wave, info in examples])
 
             # Calculate the loss
             real_samples_count = mask.sum()
-            loss = bce(output, batch_targets) / real_samples_count
+            loss = focal_loss(output, batch_targets) / real_samples_count
             loss = loss / accumulation_steps  # Scale loss by the number of accumulation steps
 
             # Accumulate running loss and correct count (for logging/metrics)
@@ -211,7 +221,7 @@ if __name__ == '__main__':
                         real_samples_count = mask.sum()
 
                         output = mask * model(batch_inputs, ~mask).squeeze(-1)
-                        val_loss[snr_db] += bce(output, batch_targets).item()
+                        val_loss[snr_db] += focal_loss(output, batch_targets).item()
                         correct_count[snr_db] += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
                         whole_count[snr_db] += real_samples_count
 
@@ -258,22 +268,27 @@ if __name__ == '__main__':
                                   os.path.join(model_dir, 'accuracy.png'))
 
             for global_epoch_id, examples in working_examples.items():
-                folder = os.path.join(model_dir, EXAMPLE_FOLDER, str(global_epoch_id))
-                os.makedirs(folder, exist_ok=True)
+                epoch_folder = os.path.join(model_dir, EXAMPLE_FOLDER, str(abs(global_epoch_id)))
+                os.makedirs(epoch_folder, exist_ok=True)
+                if global_epoch_id > 0:
+                    for ex_id, example in enumerate(examples):
+                        wave, pred, info, bi = example
+                        win_length, hop_length, sample_rate = mfcc_converter.win_length, mfcc_converter.hop_length, mfcc_converter.sample_rate
 
-                for ex_id, example in enumerate(examples):
-                    wave, pred, info, bi = example
-                    win_length, hop_length, sample_rate = mfcc_converter.win_length, mfcc_converter.hop_length, mfcc_converter.sample_rate
+                        speech_mask = pred.squeeze(-1).numpy()
+                        item_wise_mask = np.full(wave.size(1), False, dtype=bool)
+                        for i, speech_lh in enumerate(speech_mask.T):
+                            item_wise_mask[hop_length * i:hop_length * i + win_length] = (
+                                    (speech_lh > threshold) or item_wise_mask[hop_length * i:hop_length * i + win_length])
 
-                    speech_mask = pred.squeeze(-1).numpy()
-                    item_wise_mask = np.full(wave.size(1), False, dtype=bool)
-                    for i, speech_lh in enumerate(speech_mask.T):
-                        item_wise_mask[hop_length * i:hop_length * i + win_length] = (
-                                (speech_lh > threshold) or item_wise_mask[hop_length * i:hop_length * i + win_length])
-
-                    p = os.path.join(folder, f"b{bi}_{ex_id}_{info}".replace(".", ","))
-                    torchaudio.save(p + '_res.wav', wave[:, item_wise_mask], sample_rate)
-                    torchaudio.save(p + '.wav', wave, sample_rate)
+                        p = os.path.join(epoch_folder, f"b{bi}_{ex_id}_{info}".replace(".", ","))
+                        torchaudio.save(p + '_res.wav', wave[:, item_wise_mask], sample_rate)
+                        torchaudio.save(p + '.wav', wave, sample_rate)
+                else:
+                    examples["target_pos_rate"] = stats["target_positive"] / stats["whole_mask"]
+                    examples["output_pos_rate"] = stats["output_positive"] / stats["whole_mask"]
+                    with open(os.path.join(epoch_folder, 'stats.txt'), 'a') as f:
+                        f.write(str(examples).replace(',', '\n'))
 
             torch.save({
                 'seed': seed,
