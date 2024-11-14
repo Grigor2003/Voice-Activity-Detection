@@ -152,7 +152,7 @@ class ValCollate:
         return {snr_db: create_batch_tensor(all_inputs[snr_db], all_targets[snr_db]) for snr_db in self.snr_dbs}
 
 
-def focal_loss(pred, target, gamma=2., alpha=0.25, reduction="sum"):
+def focal_loss(pred, target, gamma=2., alpha=0.5, reduction="sum"):
     p_t = pred * target + (1 - pred) * (1 - target)
     ce_loss = torch.nn.functional.binary_cross_entropy(pred, target, reduction='none')
     loss = ce_loss * ((1 - p_t) ** gamma)

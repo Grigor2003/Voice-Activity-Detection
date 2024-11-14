@@ -13,8 +13,8 @@ model:
   # The name of the model from models.py one of {NAMES}
   name:
   # Indicates whether the last model from the training results will be used
-  use_last: true
-#  use_last: false
+#  use_last: true
+  use_last: false
   # The path or directory to model weights which will be loaded
   weights:
 
@@ -28,10 +28,10 @@ noise:
   # Noises SNRs to use for batch augmentation
   # SNR is signal-to-noise ratio for audio augmentation
   snr_dict:
-    null: 90
-    0: 0
-    3: 0
-    10: 10
+    null: 30
+    0: 10
+    3: 20
+    10: 40
   # The ratio of empty audios that would be added to batch
   # if value is negative then the absolute would be taken
   # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
@@ -42,16 +42,16 @@ noise:
 
 train:
   # The learning rate given by power of 10
-  lr: 2
+  lr: -7
   # The number of epochs to train the model in current session
-  epoch: 1
+  epoch: 10
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)
   #  batch: 128
   batch: 64
   # Accumulation steps
-  n_accum: 4
+  n_accum: 8
 
 result:
   # The count of saves (one save is always done at the end of the run)

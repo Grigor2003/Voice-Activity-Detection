@@ -1,26 +1,23 @@
+import torch
 import torchaudio
+import os
+import random
+import time
+import shutil
+import pandas as pd
+from tqdm import tqdm
+
+from other.audio_utils import AudioWorker, OpenSLRDataset
+from models_handler import MODELS, count_parameters, estimate_vram_usage
+from other.utils import NoiseCollate, ValCollate, WaveToMFCCConverter, EXAMPLE_FOLDER, focal_loss
+from other.utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders
+from other.utils import print_as_table, save_history_plot, find_model_in_dir_or_path
 
 if __name__ == '__main__':
-    import os
-    import random
-    import time
-    import shutil
-
-    import pandas as pd
-    from tqdm import tqdm
-
-    import torch
-
-    from other.audio_utils import AudioWorker, OpenSLRDataset
-    from models_handler import MODELS, count_parameters, estimate_vram_usage
-    from other.utils import NoiseCollate, ValCollate, WaveToMFCCConverter, EXAMPLE_FOLDER, focal_loss
-    from other.utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders, \
-        print_as_table, \
-        save_history_plot, find_model_in_dir_or_path
     from other.train_args_parser import *
 
-    os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-    os.environ['TORCH_USE_CUDA_DSA'] = "1"
+    # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+    # os.environ['TORCH_USE_CUDA_DSA'] = "1"
 
     print(f"\n{'=' * 100}\n")
     dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
@@ -163,7 +160,7 @@ if __name__ == '__main__':
 
             # Calculate the loss
             real_samples_count = mask.sum()
-            loss = focal_loss(output, batch_targets) / real_samples_count
+            loss = focal_loss(output, batch_targets, alpha=0.2) / real_samples_count
             loss = loss / accumulation_steps  # Scale loss by the number of accumulation steps
 
             # Accumulate running loss and correct count (for logging/metrics)
@@ -279,7 +276,8 @@ if __name__ == '__main__':
                         item_wise_mask = np.full(wave.size(1), False, dtype=bool)
                         for i, speech_lh in enumerate(speech_mask.T):
                             item_wise_mask[hop_length * i:hop_length * i + win_length] = (
-                                    (speech_lh > threshold) or item_wise_mask[hop_length * i:hop_length * i + win_length])
+                                    (speech_lh > threshold) or item_wise_mask[
+                                                               hop_length * i:hop_length * i + win_length])
 
                         p = os.path.join(epoch_folder, f"b{bi}_{ex_id}_{info}".replace(".", ","))
                         torchaudio.save(p + '_res.wav', wave[:, item_wise_mask], sample_rate)

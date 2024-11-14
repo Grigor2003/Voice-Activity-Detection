@@ -12,7 +12,7 @@ from other.utils import find_last_model_in_tree, WaveToMFCCConverter
 model_name = r"WhisperLike_64"
 # model_name = r"DGGD_64"
 train_res_dir = "train_results"
-th = 0.75
+th = 0.6
 
 model_trains_tree_dir = os.path.join(train_res_dir, model_name)
 
@@ -70,7 +70,7 @@ with sd.InputStream(samplerate=sample_rate, blocksize=hop_lenght, channels=1, ca
                 frames.append(spectrogram)
                 inp_tensor = torch.cat(frames[-200:]).unsqueeze(0)
                 st = time.time()
-                out = model(inp_tensor).detach().cpu().numpy().flatten()[-1]
+                out = model(inp_tensor, torch.zeros(inp_tensor.size(1)).unsqueeze(0).to(device)).detach().cpu().numpy().flatten()[-1]
                 en = time.time()
 
                 p = int(out * 100)
