@@ -10,8 +10,8 @@ from tqdm import tqdm
 from other.audio_utils import AudioWorker, OpenSLRDataset
 from models_handler import MODELS, count_parameters, estimate_vram_usage
 from other.utils import NoiseCollate, ValCollate, WaveToMFCCConverter, EXAMPLE_FOLDER, focal_loss
-from other.utils import find_last_model_in_tree, create_new_model_trains_dir, get_train_val_dataloaders
-from other.utils import print_as_table, save_history_plot, find_model_in_dir_or_path
+from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
+from other.utils import get_train_val_dataloaders, print_as_table, save_history_plot
 
 if __name__ == '__main__':
     from other.train_args_parser import *

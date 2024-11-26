@@ -94,15 +94,6 @@ class AudioWorker:
 
 
 class OpenSLRDataset(Dataset):
-    @staticmethod
-    def get_files_by_extension(directory, ext='txt'):
-        pattern = os.path.join(directory, '**', f'*.{ext}')
-        return [os.path.relpath(path, directory) for path in glob.glob(pattern, recursive=True)]
-
-    @staticmethod
-    def change_file_extension(file_path, new_extension):
-        ext = new_extension.strip('.')
-        return os.path.splitext(file_path)[0] + "." + ext
 
     def __init__(self, openslr_path, labels_path):
         # def init(self, openslr_path, labels_path, blacklist_names=[], blacklist_readers=[]):
@@ -123,6 +114,49 @@ class OpenSLRDataset(Dataset):
 
     def __len__(self):
         return len(self.labels)
+
+    def __getitem__(self, idx) -> AudioWorker:
+        filename = self.labels.filename[idx]
+        reader, chapter, _ = filename.split('-')
+        audio_file_path = os.path.join(self.openslr_path, reader, chapter, filename)
+
+        # name = os.path.splitext(audio_file_path)[0].replace("\\", "-")
+        # au = AudioWorker(os.path.join(self.openslr_path, audio_file_path), name)
+        au = AudioWorker(audio_file_path, os.path.basename(filename))
+        au.load()
+
+        return au, self.labels.labels[idx]
+
+
+class MSDWildDataset(Dataset):
+    def __init__(self, wild_path, window, overlap_percent, load_here=False):
+        # def init(self, openslr_path, labels_path, blacklist_names=[], blacklist_readers=[]):
+        self.wild_path = wild_path
+        self.labels_path = os.path.join(wild_path, "rttm_label/all.rttm")
+        self.wavs_path = os.path.join(wild_path, "raw_wav")
+
+        self.sample_rate = 16000
+        self.vad_window = window
+        self.vad_overlap_percent = overlap_percent
+        self.label_region_sec = window
+        self.label_overlap_percent = overlap_percent
+        # self.decision_function_name = args[5]
+        self.label_window = int(self.sample_rate * self.label_region_sec)
+        self.label_hop = int(self.label_window * (1 - self.label_overlap_percent))
+
+        self._loaded = False
+        self.labels = []
+        if load_here:
+            self.load()
+
+    def load(self):
+        with open(self.labels_path) as file:
+            content = file.read()
+
+        self._loaded = True
+
+    def __len__(self):
+        return len(os.listdir(self.wavs_path))
 
     def __getitem__(self, idx) -> AudioWorker:
         filename = self.labels.filename[idx]
@@ -202,117 +236,51 @@ class EnotDataset:
         return labeled_samples, region_labels
 
 
-def calculate_rms(tensor):
-    return torch.sqrt(torch.mean(tensor ** 2))
+def get_files_by_extension(directory, ext='txt', rel=False):
+    pattern = os.path.join(directory, '**', f'*.{ext}')
+    files = glob.glob(pattern, recursive=True)
+    if rel:
+        return [os.path.relpath(path, directory) for path in files]
+    return files
 
 
-def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=8000):
-    if start < 0:
-        start = 0
-    if end is not None:
-        if end < 0:
-            end = start - end
-    if in_seconds:
-        start = int(start * sample_rate)
-        if start >= audio.size(-1):
-            return audio
-        if end is None:
-            end = audio.size(-1)
-        else:
-            end = min(audio.size(-1), int(end * sample_rate))
-    if end is None:
-        end = audio.size(-1)
-    audio_part = audio[:, start:end]
-    orig_noise = noise.clone()
-    if torch.sum(torch.isnan(orig_noise)):
-        print("orig noise has nan")
-    while end - start > noise.size(-1):
-        noise = torch.cat([noise, orig_noise], dim=1)
-    noise = noise[:, : end - start]
-    if torch.sum(torch.isnan(noise)):
-        print("nan after repeating nosie ", torch.sum(torch.isnan(orig_noise)), torch.sum(torch.isnan(noise)))
-    #     noised = tf.add_noise(audio_part, noise, torch.Tensor([snr_db]))
-
-    signal_rms = calculate_rms(audio_part)
-
-    # Calculate RMS of the noise
-    noise_rms = calculate_rms(noise)
-
-    # Calculate desired noise RMS based on SNR
-    snr = 10 ** (snr_db / 20)
-    desired_noise_rms = signal_rms / snr
-
-    # Scale noise to match the desired RMS
-    scaled_noise = noise * (desired_noise_rms / (noise_rms + 1e-10))  # Adding small value to avoid division by zero
-
-    # Add the scaled noise to the original signal
-    noised = audio_part + scaled_noise
-
-    # Debugging: Check for NaNs or Infs
-    if torch.isnan(noised).any() or torch.isinf(noised).any():
-        print("Noisy waveform contains NaNs or Infs")
-
-    if torch.sum(torch.isnan(noised)):
-        print("nan after applying noise ",
-              audio[:, start:end].size(),
-              noise.size(),
-              torch.Tensor([snr_db]),
-              torch.sum(torch.isnan(noised)))
-    temp = audio.clone()
-    temp[:, start:end] = noised
-    if torch.sum(torch.isnan(temp)):
-        print("nan after changing temp slice ", torch.sum(torch.isnan(temp)))
-    return temp
+def change_file_extension(file_path, new_extension):
+    ext = new_extension.strip('.')
+    return os.path.splitext(file_path)[0] + "." + ext
 
 
-def augment_sample(aw, noises=None, noise_count=1, noise_duration_range=(2, 5), snr_db=3):
-    if None in [noises, noise_count, noise_duration_range, snr_db]:
-        return aw.wave, None
-
-    audio = aw.wave
-    sample_rate = aw.rate
-    orig_audio = audio.clone()
-    augmentation_params = None
-
-    resampled_noises = []
-    for noise in noises:
-        if noise.rate != sample_rate:
-            temp = noise.deepcopy()
-            temp.resample(sample_rate)
-            resampled_noises.append(temp.wave)
-        else:
-            resampled_noises.append(noise.wave)
-    noises = resampled_noises
-
-    sec = audio.size(-1) / sample_rate
-
-    if noise_count <= 0:
-        return orig_audio, augmentation_params
-
-    noises_starts, _ = torch.sort(torch.rand(noise_count) * sec)
-    noise_durations = torch.rand(noise_count) * (noise_duration_range[1] - noise_duration_range[0]) + \
-                      noise_duration_range[0]
-
-    noises_to_use = torch.randint(len(noises), (noise_count,))
-
-    for i, noise_ind in enumerate(noises_to_use):
-        orig_audio = add_noise(orig_audio,
-                               noises[noise_ind],
-                               snr_db=snr_db,
-                               start=noises_starts[i],
-                               end=-noise_durations[i],
-                               sample_rate=sample_rate)
-
-    augmentation_params = {"noises_starts": noises_starts,
-                           "noise_durations": noise_durations,
-                           "noises_to_use": noises_to_use}
-
-    return orig_audio, augmentation_params
+def parse_rttm(file_path):
+    columns = ['Type', 'ID', 'Channel', 'Start', 'Duration', 'End', 'NA', 'NA_2', 'Speaker']
+    df = pd.read_csv(file_path, sep=" ", names=columns, comment=';', engine='python')
+    df = df[df['Type'] == 'SPEAKER']  # Filter for speaker segments
+    df['Start'] = df['Start'].astype(float)
+    df['End'] = df['End'].astype(float)
+    return df
 
 
-def generate_white_noise(count, samples_count, noise_db=1, noise_dev=0):
-    dbs = torch.normal(noise_db, noise_dev, size=(count, 1))
-    noise_power_linear = 10 ** (dbs / 10)
-    noise = torch.randn(count, samples_count)
-    noise = noise * noise_power_linear
-    return noise
+# Function to create binary sequence based on window and hop length
+def rttm_to_binary(df, window_length, hop_length, total_duration, p):
+    # Create an array with time bins based on window and hop lengths
+    num_windows = int(np.floor((total_duration - window_length) / hop_length) + 1)
+    binary_sequence = np.full(num_windows, False)
+
+    # Loop through each window to check for speaker activity
+    for win_idx in range(num_windows):
+        # Calculate the start and end time for the window
+        window_start = win_idx * hop_length
+        window_end = window_start + window_length
+
+        # Calculate total time speaker is active in this window
+        active_time = 0.0
+
+        for _, row in df.iterrows():
+            # If speaker's segment overlaps with the window, calculate overlap
+            if row['End'] > window_start and row['Start'] < window_end:
+                overlap_start = max(row['Start'], window_start)
+                overlap_end = min(row['End'], window_end)
+                active_time += max(0, overlap_end - overlap_start)
+
+        # If the active time is greater than p times the window length, mark as active (1)
+        binary_sequence[win_idx] = active_time / window_length >= p
+
+    return binary_sequence

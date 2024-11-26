@@ -2,14 +2,14 @@ data:
   # Path to clean data
   clean: data\train-clean-100
   # Path to labels
-  #  labels: data\8000_30_50_100_50_max.csv
-  labels: data\8000_30_50_100_50_max_lite.csv
+  labels: data\8000_30_50_100_50_max.csv
+#  labels: data\8000_30_50_100_50_max_lite.csv
   # Path to noises data
   noise: data\noise-16k
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
-  id: 0
+  id: 4
   # The name of the model from models.py one of {NAMES}
   name:
   # Loads the specified weights to continue training,
@@ -36,9 +36,9 @@ noise:
   # Noises SNRs to use for batch augmentation
   # SNR is signal-to-noise ratio for audio augmentation
   snr_dict:
-    null: 30
-    0: 10
-    3: 20
+    null: 10
+    0: 20
+    3: 30
     10: 40
   # The ratio of empty audios that would be added to batch
   # if value is negative then the absolute would be taken
@@ -50,9 +50,9 @@ noise:
 
 train:
   # The learning rate given by power of 10
-  lr: -7
+  lr: -8
   # The number of epochs to train the model in current session
-  epoch: 2
+  epoch: 15
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)

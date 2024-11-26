@@ -58,13 +58,23 @@ class DGGD(nn.Module):
 
         self.input_dim = input_dim
 
-    def forward(self, x, padding_mask=None):
+        self.hidden_states = None
+
+    def forward(self, x, padding_mask=None, hidden_state=None):
         out = self.fc1(x)
         out = F.relu(out)
         out = self.layernorm1(out)
         out = self.dropout1(out)
-        out, _ = self.gru1(out)
-        out, _ = self.gru2(out)
+
+        # region GRU block
+        h1, h2 = None, None
+        if hidden_state is not None:
+            h1, h2 = hidden_state
+        out, h1 = self.gru1(out, h1)
+        out, h2 = self.gru2(out, h2)
+        self.hidden_states = h1, h2
+        # endregion
+
         out = self.fc2(out)
         out = F.relu(out)
         out = self.layernorm2(out)

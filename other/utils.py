@@ -4,7 +4,6 @@ from datetime import datetime
 
 from matplotlib import pyplot as plt
 from torch.nn.utils.rnn import pad_sequence
-from tqdm import tqdm
 
 from other.audio_utils import augment_sample, generate_white_noise, AudioWorker
 import torch
@@ -12,7 +11,6 @@ from torch.utils.data import DataLoader, random_split
 import torchaudio
 from tabulate import tabulate
 import numpy as np
-import scipy.signal
 
 RES_PREFIX = "res"
 DATE_FORMAT = "%Y-%m-%d"

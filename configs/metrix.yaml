@@ -15,7 +15,7 @@ model:
   # The name of the model from models.py one of {NAMES}
   name:
   # The path or directory to model weights which will be loaded
-  weights: train_results/WhisperLike_64/2024-11-14/res_2/weights.pt
+  weights: train_results/WhisperLike_64/2024-11-14/res_3/weights.pt
 
 noise:
   # The size of the noise pool for audio augmentation

@@ -14,7 +14,10 @@ from other.utils import find_last_model_in_tree
 
 input_dir = r"data/simple_test/input"
 output_dir = r"data/simple_test/output"
-model_name = r"WhisperLike_64"
+# model_name = r"WhisperLike_64"
+model_name = r"DGGD_64"
+
+
 train_res_dir = "train_results"
 
 th = 0.72
