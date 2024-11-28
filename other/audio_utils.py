@@ -95,7 +95,6 @@ class AudioWorker:
 class OpenSLRDataset(Dataset):
 
     def __init__(self, openslr_path, labels_path):
-        # def init(self, openslr_path, labels_path, blacklist_names=[], blacklist_readers=[]):
         self.openslr_path = openslr_path
         self.labels_path = labels_path
 
@@ -105,11 +104,6 @@ class OpenSLRDataset(Dataset):
         self.sample_rate = int(args[0])
         self.vad_window = int(args[1])
         self.vad_overlap_percent = int(args[2]) / 100.0
-        self.label_region_sec = int(args[3]) / 1000.0
-        self.label_overlap_percent = int(args[4]) / 100.0
-        self.decision_function_name = args[5]
-        self.label_window = int(self.sample_rate * self.label_region_sec)
-        self.label_hop = int(self.label_window * (1 - self.label_overlap_percent))
 
     def __len__(self):
         return len(self.labels)
@@ -124,12 +118,11 @@ class OpenSLRDataset(Dataset):
         au = AudioWorker(audio_file_path, os.path.basename(filename))
         au.load()
 
-        return au, self.labels.labels[idx]
+        return au, self.labels.at[idx, 'labels']
 
 
 class MSDWildDataset(Dataset):
     def __init__(self, wild_path, load_here=False):
-        # def init(self, openslr_path, labels_path, blacklist_names=[], blacklist_readers=[]):
         self.wild_path = wild_path
         self.labels_path = os.path.join(wild_path, "rttm_label/all.rttm")
         self.wavs_path = os.path.join(wild_path, "raw_wav")
@@ -145,8 +138,7 @@ class MSDWildDataset(Dataset):
             self.load()
 
     def load(self):
-        with open(self.labels_path) as file:
-            content = file.read()
+        rttm = parse_rttm(self.labels_path)
 
         self._loaded = True
 
