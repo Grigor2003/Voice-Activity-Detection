@@ -9,7 +9,6 @@ import torchaudio
 import torchaudio.functional as tf
 from IPython.display import Audio as PyAudio, display
 from torch.utils.data import Dataset
-import textgrids
 import numpy as np
 
 
@@ -129,20 +128,16 @@ class OpenSLRDataset(Dataset):
 
 
 class MSDWildDataset(Dataset):
-    def __init__(self, wild_path, window, overlap_percent, load_here=False):
+    def __init__(self, wild_path, load_here=False):
         # def init(self, openslr_path, labels_path, blacklist_names=[], blacklist_readers=[]):
         self.wild_path = wild_path
         self.labels_path = os.path.join(wild_path, "rttm_label/all.rttm")
         self.wavs_path = os.path.join(wild_path, "raw_wav")
 
-        self.sample_rate = 16000
-        self.vad_window = window
-        self.vad_overlap_percent = overlap_percent
-        self.label_region_sec = window
-        self.label_overlap_percent = overlap_percent
-        # self.decision_function_name = args[5]
-        self.label_window = int(self.sample_rate * self.label_region_sec)
-        self.label_hop = int(self.label_window * (1 - self.label_overlap_percent))
+        args = os.path.basename(self.labels_path).split("_")
+        self.sample_rate = int(args[0])
+        self.vad_window = int(args[1])
+        self.vad_overlap_percent = int(args[2]) / 100.0
 
         self._loaded = False
         self.labels = []
@@ -169,71 +164,6 @@ class MSDWildDataset(Dataset):
         au.load()
 
         return au, self.labels.labels[idx]
-
-
-class EnotDataset:
-
-    def __init__(self, pack_path, openslr_dataset):
-        self.audio_path = os.path.join(pack_path, "audio")
-        self.label_path = os.path.join(pack_path, "annotations")
-
-        self.txt_files = [p for p in OpenSLRDataset.get_files_by_extension(self.label_path, ext='TextGrid')
-                          if os.path.splitext(os.path.basename(p))[0] not in self.blacklist]
-
-        self.sample_rate = openslr_dataset.sample_rate
-        self.vad_window = openslr_dataset.vad_window
-        self.vad_overlap_percent = openslr_dataset.vad_overlap_percent
-        self.label_region_sec = openslr_dataset.label_region_sec
-        self.label_overlap_percent = openslr_dataset.label_overlap_percent
-        self.decision_function_name = openslr_dataset.decision_function_name
-        self.label_window = openslr_dataset.label_window
-        self.label_hop = openslr_dataset.label_hop
-
-    def __getitem__(self, idx):
-
-        audio_file_path = OpenSLRDataset.change_file_extension(self.txt_files[idx], ".wav")
-        name = os.path.splitext(audio_file_path)[0]
-        au = AudioWorker(os.path.join(self.audio_path, audio_file_path), name)
-        au.load()
-        au.resample(self.sample_rate)
-
-        file_path = os.path.join(self.label_path, self.txt_files[idx])
-
-        label_grid = textgrids.TextGrid(file_path)
-        sample_labels, region_labels = self.convert_textgrid(label_grid, au.wave.size(-1))
-
-        return au, sample_labels, region_labels
-
-    @staticmethod
-    def max_count_deciding(items) -> bool:
-        counts = np.bincount(items)
-        return bool(np.argmax(counts))
-
-    def convert_textgrid(self, grid, sample_count):
-
-        labeled_samples = np.zeros(sample_count, dtype='int64')
-
-        for interval in grid['silences']:
-            label = int(interval.text)
-            if label == 0:
-                continue
-
-            start = int(interval.xmin * self.sample_rate)
-            end = int(interval.xmax * self.sample_rate)
-            if end > len(labeled_samples):
-                end = len(labeled_samples)
-            labeled_samples[start:end] = 1
-
-        count = int(np.floor((len(labeled_samples) - self.label_window) / self.label_hop) + 1)
-        region_labels = []
-        for i in range(count):
-            start = i * self.label_hop
-            end = min((i + 1) * self.label_hop, len(labeled_samples))
-            part = labeled_samples[start:end]
-            reg_is_speech = self.max_count_deciding(part)
-            region_labels.append(reg_is_speech)
-
-        return labeled_samples, region_labels
 
 
 def get_files_by_extension(directory, ext='txt', rel=False):
