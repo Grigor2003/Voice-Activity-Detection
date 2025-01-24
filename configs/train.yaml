@@ -2,8 +2,8 @@ data:
   # Path to clean data
   clean: data\train-clean-100
   # Path to labels
-  labels: data\8000_30_50_100_50_max.csv
-#  labels: data\8000_30_50_100_50_max_lite.csv
+  labels: data\8000_10_50_webrtc_labels_lite.csv
+#  labels: data\8000_10_50_webrtc_labels.csv
   # Path to noises data
   noise: data\noise-16k
 

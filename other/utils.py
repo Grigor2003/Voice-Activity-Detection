@@ -5,7 +5,8 @@ from datetime import datetime
 from matplotlib import pyplot as plt
 from torch.nn.utils.rnn import pad_sequence
 
-from other.audio_utils import augment_sample, generate_white_noise, AudioWorker
+from other.audio_utils import AudioWorker
+from other.augmentation_utils import augment_sample, generate_white_noise
 import torch
 from torch.utils.data import DataLoader, random_split
 import torchaudio

@@ -9,7 +9,7 @@ import torch
 import numpy as np
 
 from models_handler import MODELS
-from other.utils import find_last_model_in_tree, WaveToMFCCConverter
+from other import find_last_model_in_tree, WaveToMFCCConverter
 
 # model_name = r"WhisperLike_64"
 model_name = r"DGGD_64"
@@ -64,8 +64,13 @@ last_frame = None
 orig_file = sf.SoundFile(orig_filename, mode='w', samplerate=sample_rate, channels=1)
 cropped_file = sf.SoundFile(cropped_filename, mode='w', samplerate=sample_rate, channels=1)
 
+print(sd.query_devices())
+au_device = sd.query_devices(device=28)
+print(*au_device.items(), sep='\n')
+print(*[i for i in checkpoint.items() if len(str(i)) < 100], sep='\n')
+
 try:
-    with sd.InputStream(samplerate=sample_rate, blocksize=hop_lenght, channels=1, callback=callback):
+    with sd.InputStream(device=28, samplerate=sample_rate, blocksize=hop_lenght, channels=1, callback=callback):
 
         last_state = None
 

@@ -1,6 +1,5 @@
 import numpy as np
 import yaml
-from other.parsing_utils import *
 from models_handler import MODELS_COUNT, NAMES
 
 # Load YAML file

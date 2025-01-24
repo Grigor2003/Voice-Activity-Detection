@@ -93,7 +93,6 @@ class AudioWorker:
 
 
 class OpenSLRDataset(Dataset):
-
     def __init__(self, openslr_path, labels_path):
         self.openslr_path = openslr_path
         self.labels_path = labels_path
@@ -118,44 +117,40 @@ class OpenSLRDataset(Dataset):
         au = AudioWorker(audio_file_path, os.path.basename(filename))
         au.load()
 
-        return au, self.labels.at[idx, 'labels']
+        stamps_flatten = self.labels.at[idx, 'labels'].split('-')
+        stamps = list(zip(stamps_flatten[::2], stamps_flatten[1::2]))
+
+        return au, stamps
 
 
 class MSDWildDataset(Dataset):
-    def __init__(self, wild_path, load_here=False):
-        self.wild_path = wild_path
-        self.labels_path = os.path.join(wild_path, "rttm_label/all.rttm")
-        self.wavs_path = os.path.join(wild_path, "raw_wav")
+    def __init__(self, wavs_path, rttm_path, target_rate):
+        self.wavs_path = wavs_path
+        self.rttm_path = rttm_path
 
-        args = os.path.basename(self.labels_path).split("_")
-        self.sample_rate = int(args[0])
-        self.vad_window = int(args[1])
-        self.vad_overlap_percent = int(args[2]) / 100.0
+        self.labels_df = parse_rttm(rttm_path, target_rate)
+        # args = os.path.basename(self.labels_path).split("_")
+        # self.sample_rate = int(args[0])
+        # self.vad_window = int(args[1])
+        # self.vad_overlap_percent = int(args[2]) / 100.0
 
-        self._loaded = False
-        self.labels = []
-        if load_here:
-            self.load()
+    # def __len__(self):
+    #     return len(self.labels)
 
-    def load(self):
-        rttm = parse_rttm(self.labels_path)
-
-        self._loaded = True
-
-    def __len__(self):
-        return len(os.listdir(self.wavs_path))
-
-    def __getitem__(self, idx) -> AudioWorker:
-        filename = self.labels.filename[idx]
-        reader, chapter, _ = filename.split('-')
-        audio_file_path = os.path.join(self.openslr_path, reader, chapter, filename)
-
-        # name = os.path.splitext(audio_file_path)[0].replace("\\", "-")
-        # au = AudioWorker(os.path.join(self.openslr_path, audio_file_path), name)
-        au = AudioWorker(audio_file_path, os.path.basename(filename))
-        au.load()
-
-        return au, self.labels.labels[idx]
+    # def __getitem__(self, idx) -> AudioWorker:
+    #     filename = self.labels.filename[idx]
+    #     reader, chapter, _ = filename.split('-')
+    #     audio_file_path = os.path.join(self.openslr_path, reader, chapter, filename)
+    #
+    #     # name = os.path.splitext(audio_file_path)[0].replace("\\", "-")
+    #     # au = AudioWorker(os.path.join(self.openslr_path, audio_file_path), name)
+    #     au = AudioWorker(audio_file_path, os.path.basename(filename))
+    #     au.load()
+    #
+    #     stamps_flatten = self.labels.at[idx, 'labels'].split('-')
+    #     stamps = list(zip(stamps_flatten[::2], stamps_flatten[1::2]))
+    #
+    #     return au, stamps
 
 
 def get_files_by_extension(directory, ext='txt', rel=False):
@@ -171,38 +166,21 @@ def change_file_extension(file_path, new_extension):
     return os.path.splitext(file_path)[0] + "." + ext
 
 
-def parse_rttm(file_path):
-    columns = ['Type', 'ID', 'Channel', 'Start', 'Duration', 'End', 'NA', 'NA_2', 'Speaker']
-    df = pd.read_csv(file_path, sep=" ", names=columns, comment=';', engine='python')
-    df = df[df['Type'] == 'SPEAKER']  # Filter for speaker segments
-    df['Start'] = df['Start'].astype(float)
-    df['End'] = df['End'].astype(float)
-    return df
+def parse_rttm(labels_path, sr):
+    data = {}
+    with open(labels_path, 'r') as f:
+        for line in f:
+            splitted = line.split(' ')
+            if len(splitted) < 4:
+                continue
+            filename = splitted[1]
+            time_begin = int(float(splitted[3]) * sr)
+            time_duration = int(float(splitted[4]) * sr)
 
+            file_path = filename + '.wav'
+            if file_path in data.keys():
+                data[file_path].append((time_begin, time_begin + time_duration))
+            else:
+                data[file_path] = [(time_begin, time_begin + time_duration)]
 
-# Function to create binary sequence based on window and hop length
-def rttm_to_binary(df, window_length, hop_length, total_duration, p):
-    # Create an array with time bins based on window and hop lengths
-    num_windows = int(np.floor((total_duration - window_length) / hop_length) + 1)
-    binary_sequence = np.full(num_windows, False)
-
-    # Loop through each window to check for speaker activity
-    for win_idx in range(num_windows):
-        # Calculate the start and end time for the window
-        window_start = win_idx * hop_length
-        window_end = window_start + window_length
-
-        # Calculate total time speaker is active in this window
-        active_time = 0.0
-
-        for _, row in df.iterrows():
-            # If speaker's segment overlaps with the window, calculate overlap
-            if row['End'] > window_start and row['Start'] < window_end:
-                overlap_start = max(row['Start'], window_start)
-                overlap_end = min(row['End'], window_end)
-                active_time += max(0, overlap_end - overlap_start)
-
-        # If the active time is greater than p times the window length, mark as active (1)
-        binary_sequence[win_idx] = active_time / window_length >= p
-
-    return binary_sequence
+    return data

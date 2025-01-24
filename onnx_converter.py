@@ -1,8 +1,7 @@
 import os
 import torch
 
-from models_handler import MODELS
-from other.utils import find_last_model_in_tree
+from other import find_last_model_in_tree
 
 train_res_dir = "train_results"
 model_name = r"DGGD_64"
