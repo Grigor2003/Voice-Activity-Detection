@@ -9,7 +9,7 @@ import torch
 import numpy as np
 
 from models_handler import MODELS
-from other import find_last_model_in_tree, WaveToMFCCConverter
+from other.utils import find_last_model_in_tree, WaveToMFCCConverter
 
 # model_name = r"WhisperLike_64"
 model_name = r"DGGD_64"

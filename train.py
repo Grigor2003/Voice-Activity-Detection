@@ -84,8 +84,8 @@ if __name__ == '__main__':
         mfcc_converter = WaveToMFCCConverter(
             n_mfcc=model.input_dim,
             sample_rate=dataset.sample_rate,
-            win_length=dataset.label_window,
-            hop_length=dataset.label_hop)
+            win_length=default_win_length,
+            hop_length=default_win_length//2)
 
         loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
         accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])

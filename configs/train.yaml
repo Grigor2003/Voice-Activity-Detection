@@ -3,7 +3,7 @@ data:
   clean: data\train-clean-100
   # Path to labels
   labels: data\8000_10_50_webrtc_labels_lite.csv
-#  labels: data\8000_10_50_webrtc_labels.csv
+  #  labels: data\8000_10_50_webrtc_labels.csv
   # Path to noises data
   noise: data\noise-16k
 
@@ -32,7 +32,7 @@ noise:
   # The count of noises added on a single audio
   count: 2
   # The duration of added noises in seconds separated by f,t
-  duration: [5, 10]
+  duration: [ 5, 10 ]
   # Noises SNRs to use for batch augmentation
   # SNR is signal-to-noise ratio for audio augmentation
   snr_dict:
@@ -44,15 +44,15 @@ noise:
   # if value is negative then the absolute would be taken
   # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
   # Example: batch: 100, zero_rate: 1.25 => 100 + 125 = 225
-  zero_rate: 0.05
+  zero_rate: -5
   # The probability of adding white noise
   white_prob: 0.5  # TODO: nenc anel vor ashxati
 
 train:
   # The learning rate given by power of 10
-  lr: -8
+  lr: -4
   # The number of epochs to train the model in current session
-  epoch: 15
+  epoch: 5
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)
@@ -60,6 +60,8 @@ train:
   batch: 64
   # Accumulation steps
   n_accum: 8
+  # Default window lenght (hop lenght would be half of window)
+  win_length: 400
 
 val:
   # The ratio of validation data taken from clean data
@@ -70,9 +72,9 @@ val:
   workers: 4
   # The size of the batch for simultaneous usage of samples during validation score calculation
   # The real size of validation batch is len(snr_list) * mini_batch
-  mini_batch: 32
+  mini_batch: 8
   # Noises SNRs to use for validation batch augmentation
-  snr_list: [null, 10, 5, 0]
+  snr_list: [ null, 10, 5, 0 ]
 
 verbose:
   # The threshold for labeling the prediction 0 or 1

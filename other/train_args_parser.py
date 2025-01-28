@@ -5,7 +5,7 @@ from models_handler import MODELS_COUNT, NAMES
 
 y_path = 'configs/train.yaml'
 
-yaml = ruamel.yaml.YAML(typ='rt')
+yaml = ruamel.yaml.YAML(typ='unsafe')
 # Load YAML file
 with open(y_path) as f:
     ydict = yaml.load(f)
@@ -62,6 +62,8 @@ if zero_rate < 0:
     zero_count = int(-zero_rate)
 elif zero_rate > 0:
     zero_count = int(zero_rate * batch_size)
+default_win_length = is_range(ydict['train']['win_length'], 1, 2 ** 15, int)
+
 
 # Validation section
 train_ratio = 1 - is_range(ydict['val']['ratio'], 0, 1)
