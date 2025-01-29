@@ -20,7 +20,7 @@ model:
   # creates a new run folder for storing results
   # If empty, continue training on last model, but in new run folder
   # Always sets create_new_model to false as soon as saved
-  create_new_model: false
+  create_new_model:
   # The count of saves (one save is always done at the end of the run)
   saves_count: 0
   # The directory to save train results

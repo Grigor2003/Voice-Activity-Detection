@@ -82,6 +82,16 @@ def create_batch_tensor(inputs, targets):
 
     return padded_input, mask, padded_output
 
+def stamps_to_binary(stamps, needed_len=None):
+    e_ = 0
+    binary = []
+    for s, e in stamps:
+        binary.extend([0.]*(s - e_))
+        binary.extend([1.]*(e - s))
+        e_ = e
+    if needed_len is not None and len(binary) < needed_len:
+        binary.extend([0.]*(needed_len - len(binary)))
+    return binary
 
 class NoiseCollate:
     def __init__(self, sample_rate, params, snr_dbs_dict, mfcc_converter, zero_sample_count=0):
@@ -95,24 +105,26 @@ class NoiseCollate:
         self.zsc = zero_sample_count
 
     def __call__(self, batch):
-        if self.zsc > 0:
-            sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
-
-            for i in range(self.zsc):
-                size, t_size, sr = random.choice(sizes)
-                au = AudioWorker.from_wave(generate_white_noise(1, size, 0.15, 0.1), sr)
-                batch.append((au, "0" * t_size))
+        # TODO:
+        # if self.zsc > 0:
+        #     sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
+        #
+        #     for i in range(self.zsc):
+        #         size, t_size, sr = random.choice(sizes)
+        #         au = AudioWorker.from_wave(generate_white_noise(1, size, 0.15, 0.1), sr)
+        #         batch.append((au, "0" * t_size))
 
         inputs, targets, examples = [], [], []
         ex_id = random.randint(1, len(batch) - 2) if len(batch) > 2 else None
-        for i, (au, label_txt) in enumerate(batch):
+        for i, (au, label_stamps) in enumerate(batch):
             au.resample(self.sample_rate)
-            tar = torch.tensor([*map(float, label_txt)])
+            tar = torch.tensor(stamps_to_binary(label_stamps, au.wave.size(-1)))
 
             snr_db = random.choice(self.snr_dbs)
 
             augmented_wave, _ = augment_sample(au, self.noises, snr_db=snr_db, **self.params)
             inp = self.mfcc_converter(augmented_wave)
+
             if tar.size(-1) != inp.size(-2):
                 print(f"WARNING: mismatch of target {tar.size(-1)} and input {inp.size(-2)} sizes in {au.name}")
             else:

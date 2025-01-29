@@ -117,7 +117,7 @@ class OpenSLRDataset(Dataset):
         au = AudioWorker(audio_file_path, os.path.basename(filename))
         au.load()
 
-        stamps_flatten = self.labels.at[idx, 'labels'].split('-')
+        stamps_flatten = [*map(int, self.labels.at[idx, 'labels'].split('-'))]
         stamps = list(zip(stamps_flatten[::2], stamps_flatten[1::2]))
 
         return au, stamps
