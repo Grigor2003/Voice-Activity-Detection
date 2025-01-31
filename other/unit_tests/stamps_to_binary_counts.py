@@ -46,7 +46,6 @@ def binary_counts_to_windows_alt(binary_counts, w):
     for i in range(frames):
         counts.append(sum(binary[q * i:q * (i + 1)]))
 
-
     return counts
 
 
@@ -84,26 +83,31 @@ def binary_counts_to_windows_np(binary, w, total=None):
     s, mek = 0, 0
     if total is None:
         total = sum(binary)
-    ones = np.zeros(total // q, dtype=int)
+    count = total // q - 1
+    ones = np.zeros(count, dtype=int)
 
     count_of_zeros = True
-    curr = 0
-
+    i = 0
     for val in binary:
         s += val
         if count_of_zeros:
             if s >= q:
-                ones[curr] = mek
+                if i == 0:
+                    ones[i] += mek
+                ones[i - 1:i + 1] += mek
                 skip, s = divmod(s, q)
-                curr += skip
+                i += skip
 
                 mek = 0
         else:
             if s >= q:
-                ones[curr] = mek + q + val - s
+                if i == 0:
+                    ones[i] += mek + q + val - s
+                ones[i - 1:i + 1] += mek + q + val - s
                 skip, s = divmod(s, q)
-                ones[curr + 1:curr + skip] = q
-                curr += skip
+                ones[i:i + skip - 1] += q
+                ones[i + 1:i + skip] += q
+                i += skip
 
                 mek = s
             else:
@@ -142,12 +146,13 @@ def binary_counts_to_windows_ai(binary, w):
 
     return ones
 
+
 import time
 from tqdm import tqdm
 
 window = 20
 errors = 0
-attempts = 500
+attempts = 100
 
 times_windows = []
 times_windows_np = []
@@ -157,7 +162,7 @@ times_windows_numpy_sum = []
 times_windows_lists_sum = []
 
 for _ in tqdm(range(attempts), disable=0):
-    stamps = random_stamps_list(s=200, ones=(1, 550), zeros=(1, 200))
+    stamps = random_stamps_list(s=200, ones=(1, 10000), zeros=(1, 5000))
 
     binary_counts = stamps_to_binary_counts(stamps, 10)
     total = sum(binary_counts)
@@ -169,51 +174,46 @@ for _ in tqdm(range(attempts), disable=0):
     t2 = time.perf_counter()
     times_windows_alt.append(t2 - t1)
 
-###########################
+    ###########################
 
     t1 = time.perf_counter()
     ones_np = binary_counts_to_windows_np(binary_counts, window)
     t2 = time.perf_counter()
     times_windows_np.append(t2 - t1)
 
-    t1 = time.perf_counter()
-    ones_ai = binary_counts_to_windows_ai(binary_counts, window)
-    ones_ai = np.array(ones_ai)
-    ones_ai = ones_ai[:-1] + ones_ai[1:]
-    t2 = time.perf_counter()
-    times_windows_ai.append(t2 - t1)
-
-    t1 = time.perf_counter()
-    ones = binary_counts_to_windows(binary_counts, window)
-    ones = np.array(ones)
-    ones = ones[:-1] + ones[1:]
-    t2 = time.perf_counter()
-    times_windows.append(t2 - t1)
-
-
-
-
+    # t1 = time.perf_counter()
+    # ones_ai = binary_counts_to_windows_ai(binary_counts, window)
+    # ones_ai = np.array(ones_ai)
+    # ones_ai = ones_ai[:-1] + ones_ai[1:]
+    # t2 = time.perf_counter()
+    # times_windows_ai.append(t2 - t1)
+    #
+    # t1 = time.perf_counter()
+    # ones = binary_counts_to_windows(binary_counts, window)
+    # ones = np.array(ones)
+    # ones = ones[:-1] + ones[1:]
+    # t2 = time.perf_counter()
+    # times_windows.append(t2 - t1)
 
     test = ones_np
 
     t1 = time.perf_counter()
-    test = test[:-1] + test[1:]
+    # test = test[:-1] + test[1:]
     t2 = time.perf_counter()
     times_windows_numpy_sum.append(t2 - t1)
 
     e = np.sum(np.abs(test - ones_alt))
     if e > 0:
         print(binary_counts)
-        print(sum(binary_counts))
-        print(np.argwhere(test != ones_alt))
-        print(*test[np.argwhere(test != ones_alt)])
-        print(*ones_alt[np.argwhere(test != ones_alt)])
+        print(*np.argwhere(test != ones_alt))
+        print(*test)
+        print(*ones_alt)
     errors += e
 
 # Compute and print mean execution times
 print(f"Mean Execution Times:")
-print(f"binary_counts_to_windows       : {1000 * np.mean(times_windows):.6f}ms")
-print(f"binary_counts_to_windows_ai    : {1000 * np.mean(times_windows_ai):.6f}ms")
+# print(f"binary_counts_to_windows       : {1000 * np.mean(times_windows):.6f}ms")
+# print(f"binary_counts_to_windows_ai    : {1000 * np.mean(times_windows_ai):.6f}ms")
 print(f"binary_counts_to_windows_np    : {1000 * np.mean(times_windows_np):.6f}ms")
 print(f"binary_counts_to_windows_alt   : {1000 * np.mean(times_windows_alt):.6f}ms")
 print()
