@@ -13,7 +13,7 @@ import torchaudio
 from tabulate import tabulate
 import numpy as np
 
-from other.work_with_stamps_utils import stamps_to_binary_counts
+from other.work_with_stamps_utils import stamps_to_binary_counts, binary_counts_to_windows_np
 
 RES_PREFIX = "res"
 DATE_FORMAT = "%Y-%m-%d"
@@ -108,9 +108,13 @@ class NoiseCollate:
 
         inputs, targets, examples = [], [], []
         ex_id = random.randint(1, len(batch) - 2) if len(batch) > 2 else None
-        for i, (au, label_stamps) in enumerate(batch):
-            # au.resample(self.sample_rate)
-            tar = torch.tensor(stamps_to_binary_counts(label_stamps, au.wave.size(-1)))
+        for i, (au, one_stamps) in enumerate(batch):
+            total = au.wave.size(-1)
+            window = self.mfcc_converter.win_length
+            binary_counts = stamps_to_binary_counts(one_stamps, total)
+            one_counts = binary_counts_to_windows_np(binary_counts, window, total)
+            labels = one_counts > (window // 2)
+            tar = torch.tensor(labels).float()
 
             snr_db = random.choice(self.snr_dbs)
 
@@ -139,9 +143,14 @@ class ValCollate:
         all_inputs = {snr_db: [] for snr_db in self.snr_dbs}
         all_targets = {snr_db: [] for snr_db in self.snr_dbs}
 
-        for au, label_txt in batch:
+        for au, one_stamps in batch:
             au.resample(self.sample_rate)
-            tar = torch.tensor([*map(float, label_txt)])
+            total = au.wave.size(-1)
+            window = self.mfcc_converter.win_length
+            binary_counts = stamps_to_binary_counts(one_stamps, total)
+            one_counts = binary_counts_to_windows_np(binary_counts, window, total)
+            labels = one_counts > (window // 2)
+            tar = torch.tensor(labels).float()
 
             for snr_db in self.snr_dbs:
                 augmented_wave, _ = augment_sample(au, self.noises, snr_db=snr_db, **self.params)

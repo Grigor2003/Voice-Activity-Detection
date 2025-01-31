@@ -22,6 +22,7 @@ model:
   # Always sets create_new_model to false as soon as saved
   create_new_model:
   # The count of saves (one save is always done at the end of the run)
+  # When 0 will be saved every epoch
   saves_count: 0
   # The directory to save train results
   directory: train_results
