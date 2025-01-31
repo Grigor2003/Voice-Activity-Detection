@@ -83,7 +83,7 @@ def binary_counts_to_windows_np(binary, w, total=None):
     q = w // 2
     s, mek = 0, 0
     if total is None:
-        total = len(binary)
+        total = sum(binary)
     ones = np.zeros(total // q, dtype=int)
 
     count_of_zeros = True
@@ -172,7 +172,7 @@ for _ in tqdm(range(attempts), disable=0):
 ###########################
 
     t1 = time.perf_counter()
-    ones_np = binary_counts_to_windows_np(binary_counts, window, total)
+    ones_np = binary_counts_to_windows_np(binary_counts, window)
     t2 = time.perf_counter()
     times_windows_np.append(t2 - t1)
 
