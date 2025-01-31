@@ -5,7 +5,7 @@ from models_handler import MODELS_COUNT, NAMES
 
 y_path = 'configs/train.yaml'
 
-yaml = ruamel.yaml.YAML(typ='safe', pure=True)
+yaml = ruamel.yaml.YAML(typ='rt')
 # Load YAML file
 with open(y_path) as f:
     ydict = yaml.load(f)

@@ -11,8 +11,8 @@ def _typecheck(v, tp):
             v = v * 1
         except:
             pass
-        return type(v) in tp
-    return type(v) is tp
+        return any([isinstance(v, t) for t in tp])
+    return isinstance(v, tp)
 
 
 def is_type_of(value, tp=str, req=True):
