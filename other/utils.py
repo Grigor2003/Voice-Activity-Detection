@@ -46,7 +46,7 @@ class WaveToMFCCConverter:
             sample_count = torch.tensor(sample_rate * frame_duration_in_ms / 1000, dtype=torch.int)
             win_length = torch.pow(2, torch.ceil(torch.log2(sample_count)).to(torch.int)).to(torch.int).item()
         elif win_length is None:
-            return
+            win_length = sample_rate // 20
         win_length = int(win_length)
 
         if hop_length is None:
@@ -117,7 +117,7 @@ class NoiseCollate:
         inputs, targets, examples = [], [], []
         ex_id = random.randint(1, len(batch) - 2) if len(batch) > 2 else None
         for i, (au, label_stamps) in enumerate(batch):
-            au.resample(self.sample_rate)
+            # au.resample(self.sample_rate)
             tar = torch.tensor(stamps_to_binary(label_stamps, au.wave.size(-1)))
 
             snr_db = random.choice(self.snr_dbs)

@@ -1,6 +1,6 @@
 data:
   # Path to clean data
-  clean: data\train-clean-100
+  clean: data\train-clean-100(converted to 8000 sr)
   # Path to labels
   labels: data\8000_10_50_webrtc_labels_lite.csv
   #  labels: data\8000_10_50_webrtc_labels.csv
