@@ -13,6 +13,8 @@ import torchaudio
 from tabulate import tabulate
 import numpy as np
 
+from other.work_with_stamps_utils import stamps_to_binary_counts
+
 RES_PREFIX = "res"
 DATE_FORMAT = "%Y-%m-%d"
 MODEL_NAME = "weights.pt"
@@ -82,16 +84,6 @@ def create_batch_tensor(inputs, targets):
 
     return padded_input, mask, padded_output
 
-def stamps_to_binary(stamps, needed_len=None):
-    e_ = 0
-    binary = []
-    for s, e in stamps:
-        binary.extend([0.]*(s - e_))
-        binary.extend([1.]*(e - s))
-        e_ = e
-    if needed_len is not None and len(binary) < needed_len:
-        binary.extend([0.]*(needed_len - len(binary)))
-    return binary
 
 class NoiseCollate:
     def __init__(self, sample_rate, params, snr_dbs_dict, mfcc_converter, zero_sample_count=0):
@@ -118,7 +110,7 @@ class NoiseCollate:
         ex_id = random.randint(1, len(batch) - 2) if len(batch) > 2 else None
         for i, (au, label_stamps) in enumerate(batch):
             # au.resample(self.sample_rate)
-            tar = torch.tensor(stamps_to_binary(label_stamps, au.wave.size(-1)))
+            tar = torch.tensor(stamps_to_binary_counts(label_stamps, au.wave.size(-1)))
 
             snr_db = random.choice(self.snr_dbs)
 
@@ -239,8 +231,8 @@ def create_new_model_trains_dir(model_trains_tree_dir):
     return dir, os.path.join(dir, MODEL_NAME)
 
 
-def get_model_param_count(model):
-    return sum(p.numel() for p in model.parameters()).item()
+def get_model_params_count(model):
+    return sum(p.numel() for p in model.parameters())
 
 
 def save_history_plot(history_table, index, title, x_label, y_label, path):
