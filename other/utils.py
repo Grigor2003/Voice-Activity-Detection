@@ -97,14 +97,13 @@ class NoiseCollate:
         self.zsc = zero_sample_count
 
     def __call__(self, batch):
-        # TODO:
-        # if self.zsc > 0:
-        #     sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
-        #
-        #     for i in range(self.zsc):
-        #         size, t_size, sr = random.choice(sizes)
-        #         au = AudioWorker.from_wave(generate_white_noise(1, size, 0.15, 0.1), sr)
-        #         batch.append((au, "0" * t_size))
+        if self.zsc > 0:
+            sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
+
+            for i in range(self.zsc):
+                size, t_size, sr = random.choice(sizes)
+                au = AudioWorker.from_wave(generate_white_noise(1, size, 0.15, 0.1), sr)
+                batch.append((au, []))
 
         inputs, targets, examples = [], [], []
         ex_id = random.randint(1, len(batch) - 2) if len(batch) > 2 else None
@@ -128,6 +127,7 @@ class NoiseCollate:
                 targets.append(tar)
             if i == ex_id or i == 0 or i == len(batch) - 1:
                 examples.append((i, augmented_wave.clone(), f"noise_snr_{snr_db}"))
+
         return create_batch_tensor(inputs, targets), examples
 
 
