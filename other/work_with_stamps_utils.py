@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 def stamps_to_binary_counts(stamps, target_len):
@@ -53,3 +54,32 @@ def binary_counts_to_windows_np(binary, window, total=None):
         stepping_on_zeros = not stepping_on_zeros
 
     return ones
+
+def top_k_indices(lst, k):
+    return [idx for idx, _ in sorted(enumerate(lst), key=lambda x: x[1], reverse=True)[:k]]
+
+def balance_regions(wave, counts, k=3):
+    """
+    balances ones and zeros counts by evenly distributing the deficit of zeros in the largest k zero regions
+    """
+    zeros = counts[::2]
+    ones = counts[1::2]
+    zeros_sum = sum(zeros)
+    ones_sum = sum(ones)
+    if zeros_sum >= ones_sum:
+        return wave, counts
+
+    diff = ones_sum - zeros_sum
+    largest_zero_regions_indices = top_k_indices(zeros, k)
+    add = diff // k
+    for idx in largest_zero_regions_indices:
+        count = zeros[idx]
+        counts_before = sum(counts[:idx*2])
+        fill_coord = counts_before + count // 2
+        first_half = wave[:, :fill_coord]
+        second_half = wave[:, fill_coord:]
+        wave = torch.cat([first_half, torch.zeros(wave.size(0), add), second_half], dim=-1)
+        zeros[idx] += add
+        counts[idx*2] += add
+    
+    return wave, counts

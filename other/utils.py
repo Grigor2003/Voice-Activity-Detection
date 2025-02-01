@@ -13,7 +13,7 @@ import torchaudio
 from tabulate import tabulate
 import numpy as np
 
-from other.work_with_stamps_utils import stamps_to_binary_counts, binary_counts_to_windows_np
+from other.work_with_stamps_utils import balance_regions, stamps_to_binary_counts, binary_counts_to_windows_np
 
 RES_PREFIX = "res"
 DATE_FORMAT = "%Y-%m-%d"
@@ -111,6 +111,10 @@ class NoiseCollate:
             total = au.wave.size(-1)
             window = self.mfcc_converter.win_length
             binary_counts = stamps_to_binary_counts(one_stamps, total)
+            
+            au.wave, binary_counts = balance_regions(au.wave, binary_counts)
+            total = au.wave.size(-1)
+            
             one_counts = binary_counts_to_windows_np(binary_counts, window, total)
             labels = one_counts > (window // 2)
             tar = torch.tensor(labels).float()
