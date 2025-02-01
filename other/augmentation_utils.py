@@ -111,7 +111,7 @@ def augment_sample(aw, noises=None, noise_count=1, noise_duration_range=(2, 5), 
 
 def generate_white_noise(count, samples_count, noise_db=1, noise_dev=0):
     dbs = torch.normal(noise_db, noise_dev, size=(count, 1))
-    noise_power_linear = 10 ** (dbs / 10)
+    noise_power_linear = 10 ** (dbs / 20)
     noise = torch.randn(count, samples_count)
     noise = noise * noise_power_linear
     return noise

@@ -97,12 +97,13 @@ class NoiseCollate:
         self.zsc = zero_sample_count
 
     def __call__(self, batch):
+        # Adding empty tracks with labels 0
         if self.zsc > 0:
             sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
 
             for i in range(self.zsc):
                 size, t_size, sr = random.choice(sizes)
-                au = AudioWorker.from_wave(generate_white_noise(1, size, 0.15, 0.1), sr)
+                au = AudioWorker.from_wave(generate_white_noise(1, size, -45, 2.5), sr)
                 batch.append((au, []))
 
         inputs, targets, examples = [], [], []
@@ -112,6 +113,7 @@ class NoiseCollate:
             window = self.mfcc_converter.win_length
             binary_counts = stamps_to_binary_counts(one_stamps, total)
             
+            # Augmenting audio and balancing zero and one counts in labels
             au.wave, binary_counts = balance_regions(au.wave, binary_counts)
             total = au.wave.size(-1)
             
@@ -121,7 +123,9 @@ class NoiseCollate:
 
             snr_db = random.choice(self.snr_dbs)
 
+            # Augmenting audio by adding real noise and white noise
             augmented_wave, _ = augment_sample(au, self.noises, snr_db=snr_db, **self.params)
+            augmented_wave += generate_white_noise(1, augmented_wave.size(-1), -45, 2.5)
             inp = self.mfcc_converter(augmented_wave)
 
             if tar.size(-1) != inp.size(-2):
