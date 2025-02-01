@@ -1,7 +1,7 @@
-from other.audio_utils import MSDWildDataset
+from other.data.audio_utils import MSDWildDataset
 
-msd_wavs_dir = "../data/MSDWild/raw_wav"
-msd_labs_dir = "../data/MSDWild/rttm_label/few.val.rttm"
+msd_wavs_dir = "../datasets/MSDWild/raw_wav"
+msd_labs_dir = "../datasets/MSDWild/rttm_label/few.val.rttm"
 
 model_id = 0
 target_rate = 8000

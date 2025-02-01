@@ -7,14 +7,17 @@ import shutil
 import pandas as pd
 from tqdm import tqdm
 
-from other.audio_utils import AudioWorker, OpenSLRDataset
+from other.data.audio_utils import AudioWorker
 from models_handler import MODELS, count_parameters, estimate_vram_usage
-from other.utils import NoiseCollate, ValCollate, WaveToMFCCConverter, EXAMPLE_FOLDER, focal_loss
+from other.data.collates import NoiseCollate, ValCollate
+from other.data.datasets import OpenSLRDataset
+from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter
+from other.utils import EXAMPLE_FOLDER, focal_loss
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
-from other.utils import get_train_val_dataloaders, print_as_table, save_history_plot
+from other.utils import print_as_table, save_history_plot
 
 if __name__ == '__main__':
-    from other.train_args_parser import *
+    from other.parsing.train_args_parser import *
 
     # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
     # os.environ['TORCH_USE_CUDA_DSA'] = "1"
@@ -85,7 +88,7 @@ if __name__ == '__main__':
             n_mfcc=model.input_dim,
             sample_rate=dataset.sample_rate,
             win_length=default_win_length,
-            hop_length=default_win_length//2)
+            hop_length=default_win_length // 2)
 
         loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
         accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])

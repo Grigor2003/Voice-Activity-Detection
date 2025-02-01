@@ -1,6 +1,6 @@
 import numpy as np
 import ruamel.yaml
-from other.parsing_utils import *
+from other.parsing.parsing_utils import *
 from models_handler import MODELS_COUNT, NAMES
 
 y_path = 'configs/train.yaml'

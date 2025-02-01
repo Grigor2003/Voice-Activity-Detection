@@ -12,8 +12,8 @@ from models_handler import MODELS
 from other import WaveToMFCCConverter
 from other import find_last_model_in_tree
 
-input_dir = r"data/simple_test/input"
-output_dir = r"data/simple_test/output"
+input_dir = r"datasets/simple_test/input"
+output_dir = r"datasets/simple_test/output"
 # model_name = r"WhisperLike_64"
 model_name = r"DGGD_64"
 
