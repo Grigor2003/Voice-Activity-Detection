@@ -3,13 +3,15 @@ import numpy as np
 
 def stamps_to_binary_counts(stamps, target_len):
     e_ = 0
+    summa = 0
     binary = []
     for s, e in stamps:
         binary.append(s - e_)
         binary.append(e - s)
+        summa += e - e_
         e_ = e
-    if target_len is not None and len(binary) < target_len:
-        binary.append(target_len - len(binary))
+    if target_len is not None and summa < target_len:
+        binary.append(target_len - summa)
     return binary
 
 
