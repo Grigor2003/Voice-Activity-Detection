@@ -12,7 +12,7 @@ from models_handler import MODELS, count_parameters, estimate_vram_usage
 from other.data.collates import NoiseCollate, ValCollate
 from other.data.datasets import OpenSLRDataset
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter
-from other.utils import EXAMPLE_FOLDER, focal_loss
+from other.utils import EXAMPLE_FOLDER, loss_function
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
 from other.utils import print_as_table, save_history_plot
 
@@ -163,14 +163,15 @@ if __name__ == '__main__':
                     [(wave, out[i][mask[i]].detach().cpu(), info, batch_idx) for i, wave, info in examples])
 
             # Calculate the loss
-            real_samples_count = mask.sum()
-            loss = focal_loss(output, batch_targets, alpha=0.2) / real_samples_count
+            loss = loss_function(output, batch_targets, mask)
             loss = loss / accumulation_steps  # Scale loss by the number of accumulation steps
 
             # Accumulate running loss and correct count (for logging/metrics)
-            running_loss += loss.item() * real_samples_count * accumulation_steps  # Rescale back for logging
-            running_whole_count += real_samples_count
-            running_correct_count += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
+            batch_samples_count = mask.size(0)
+            running_loss += loss.item() * batch_samples_count * accumulation_steps  # Rescale back for logging
+            running_whole_count += batch_samples_count
+            pred_correct_count = ((output > threshold) == (batch_targets > threshold)) * mask
+            running_correct_count += torch.sum(torch.sum(pred_correct_count, dim=-1) / mask.sum(dim=-1))
 
             # Backward pass (accumulate gradients)
             loss.backward()
@@ -222,7 +223,7 @@ if __name__ == '__main__':
                         real_samples_count = mask.sum()
 
                         output = mask * model(batch_inputs, ~mask).squeeze(-1)
-                        val_loss[snr_db] += focal_loss(output, batch_targets).item()
+                        val_loss[snr_db] += loss_function(output, batch_targets, mask, val=True).item()
                         correct_count[snr_db] += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
                         whole_count[snr_db] += real_samples_count
 

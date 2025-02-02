@@ -2,8 +2,8 @@ data:
   # Path to clean data
   clean: datasets\train-clean-100(converted to 8000 sr)
   # Path to labels
-  labels: datasets\8000_10_50_webrtc_labels_lite.csv
 #  labels: datasets\8000_10_50_webrtc_labels.csv
+  labels: datasets\8000_10_50_webrtc_labels_lite.csv
   # Path to noises data
   noise: datasets\noise-16k
 
@@ -31,9 +31,9 @@ noise:
   # The size of the noise pool for audio augmentation
   pool: 100
   # The count of noises added on a single audio
-  count: 2
+  count: 3
   # The duration of added noises in seconds separated by f,t
-  duration: [1, 3]
+  duration: [1, 5]
   # Noises SNRs to use for batch augmentation
   # SNR is signal-to-noise ratio for audio augmentation
   snr_dict:
@@ -45,17 +45,17 @@ noise:
   # if value is negative then the absolute would be taken
   # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
   # Example: batch: 100, zero_rate: 1.25 => 100 + 125 = 225
-  zero_rate: -5
+  zero_rate: -2
 
 train:
   # The learning rate given by power of 10
   lr: -3
   # The number of epochs to train the model in current session
-  epoch: 3
+  epoch: 20
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)
-  #  batch: 128
+#  batch: 128
   batch: 64
   # Accumulation steps
   n_accum: 4
@@ -66,7 +66,7 @@ val:
   # The ratio of validation data taken from clean data
   ratio: 0.2
   # The number of epochs to pass before calculating the validation score
-  every: 2
+  every: 5
   # The number of workers for data loading during validation score calculation
   workers: 4
   # The size of the batch for simultaneous usage of samples during validation score calculation

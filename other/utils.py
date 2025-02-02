@@ -12,19 +12,20 @@ MODEL_NAME = "weights.pt"
 EXAMPLE_FOLDER = "examples"
 
 
-def focal_loss(pred, target, gamma=2., alpha=0.5, reduction="sum"):
-    p_t = pred * target + (1 - pred) * (1 - target)
+def loss_function(pred, target, mask, reduction="auto", val=False):
     ce_loss = torch.nn.functional.binary_cross_entropy(pred, target, reduction='none')
-    loss = ce_loss * ((1 - p_t) ** gamma)
-    if alpha >= 0:
-        alpha_t = alpha * target + (1 - alpha) * (1 - target)
-        loss = alpha_t * loss
+    masked_loss = ce_loss * mask
+    loss = torch.sum(masked_loss, dim=-1) / mask.sum(dim=-1).float()
+    loss = loss ** 2
+
     if reduction == "none":
         pass
     elif reduction == "mean":
         loss = loss.mean()
     elif reduction == "sum":
         loss = loss.sum()
+    elif reduction == "auto":
+        loss = loss.sum() if val else loss.mean()
     else:
         raise ValueError(
             f"Invalid Value for arg 'reduction': '{reduction} \n Supported reduction modes: 'none', 'mean', 'sum'"

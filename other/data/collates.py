@@ -26,7 +26,7 @@ class NoiseCollate:
 
             for i in range(self.zsc):
                 size, t_size, sr = random.choice(sizes)
-                au = AudioWorker.from_wave(generate_white_noise(1, size, -45, 2.5), sr)
+                au = AudioWorker.from_wave(generate_white_noise(1, size, -50, 5), sr)
                 batch.append((au, []))
 
         inputs, targets, examples = [], [], []
@@ -48,7 +48,7 @@ class NoiseCollate:
 
             # Augmenting audio by adding real noise and white noise
             augmented_wave, _ = augment_sample(au, self.noises, snr_db=snr_db, **self.params)
-            augmented_wave += generate_white_noise(1, augmented_wave.size(-1), -45, 2.5)
+            augmented_wave += generate_white_noise(1, augmented_wave.size(-1), -50, 5)
             inp = self.mfcc_converter(augmented_wave)
 
             if tar.size(-1) != inp.size(-2):
