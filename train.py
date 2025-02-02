@@ -170,8 +170,8 @@ if __name__ == '__main__':
             batch_samples_count = mask.size(0)
             running_loss += loss.item() * batch_samples_count * accumulation_steps  # Rescale back for logging
             running_whole_count += batch_samples_count
-            pred_correct_count = ((output > threshold) == (batch_targets > threshold)) * mask
-            running_correct_count += torch.sum(torch.sum(pred_correct_count, dim=-1) / mask.sum(dim=-1))
+            pred_correct = ((output > threshold) == (batch_targets > threshold)) * mask
+            running_correct_count += torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
 
             # Backward pass (accumulate gradients)
             loss.backward()
@@ -220,11 +220,13 @@ if __name__ == '__main__':
                         batch_inputs = batch_inputs.to(device)
                         mask = mask.to(device)
                         batch_targets = batch_targets.to(device)
-                        real_samples_count = mask.sum()
+                        real_samples_count = mask.size(0)
 
                         output = mask * model(batch_inputs, ~mask).squeeze(-1)
                         val_loss[snr_db] += loss_function(output, batch_targets, mask, val=True).item()
-                        correct_count[snr_db] += torch.sum(((output > threshold) == (batch_targets > threshold)) * mask)
+                        
+                        pred_correct = ((output > threshold) == (batch_targets > threshold)) * mask
+                        correct_count[snr_db] += torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
                         whole_count[snr_db] += real_samples_count
 
                 for snr_db in val_snrs_list:
