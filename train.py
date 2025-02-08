@@ -8,7 +8,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from other.data.audio_utils import AudioWorker
-from models_handler import MODELS, count_parameters, estimate_vram_usage
+from other.models.models_handler import MODELS, count_parameters, estimate_vram_usage
 from other.data.collates import NoiseCollate, ValCollate
 from other.data.datasets import OpenSLRDataset
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter

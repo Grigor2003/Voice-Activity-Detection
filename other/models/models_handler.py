@@ -1,5 +1,5 @@
-from models.gru_models import SimpleG, SimpleDGGD, DGGD
-from models.attention_models import AttentionModel, WhisperLikeModel
+from other.models.gru_models import SimpleG, SimpleDGGD, DGGD
+from other.models.attention_models import AttentionModel, WhisperLikeModel
 
 whisper_like = lambda: WhisperLikeModel(input_dim=64)
 attention = lambda: AttentionModel(input_dim=64, attention_dim=128, hidden_dim2=64, hidden_dim3=32, hidden_dim4=16,

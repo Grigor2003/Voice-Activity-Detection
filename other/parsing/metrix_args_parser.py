@@ -1,6 +1,6 @@
 import numpy as np
 import yaml
-from models_handler import MODELS_COUNT, NAMES
+from other.models.models_handler import MODELS_COUNT, NAMES
 
 # Load YAML file
 with open('configs/metrix.yaml', 'r') as file:

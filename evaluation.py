@@ -8,7 +8,7 @@ from tqdm import tqdm
 import torch
 
 from other import AudioWorker
-from models_handler import MODELS
+from other.models.models_handler import MODELS
 from other import WaveToMFCCConverter
 from other import find_last_model_in_tree
 

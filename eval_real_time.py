@@ -8,8 +8,9 @@ import soundfile as sf
 import torch
 import numpy as np
 
-from models_handler import MODELS
-from other.utils import find_last_model_in_tree, WaveToMFCCConverter
+from other.models.models_handler import MODELS
+from other.data.processing import WaveToMFCCConverter
+from other.utils import find_last_model_in_tree
 
 # model_name = r"WhisperLike_64"
 model_name = r"DGGD_64"
@@ -70,7 +71,7 @@ print(*au_device.items(), sep='\n')
 print(*[i for i in checkpoint.items() if len(str(i)) < 100], sep='\n')
 
 try:
-    with sd.InputStream(device=28, samplerate=sample_rate, blocksize=hop_lenght, channels=1, callback=callback):
+    with sd.InputStream(samplerate=sample_rate, blocksize=hop_lenght, channels=1, callback=callback):
 
         last_state = None
 

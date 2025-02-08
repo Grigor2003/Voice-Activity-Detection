@@ -7,10 +7,8 @@ from sklearn.metrics import auc
 import torch
 from torch.utils.data import DataLoader
 
-from other import AudioWorker, OpenSLRDataset, EnotDataset
-from models_handler import MODELS
-from other import NoiseCollate, WaveToMFCCConverter
-from other import find_model_in_dir_or_path
+from other.models.models_handler import MODELS
+from other.data.datasets import OpenSLRDataset
 
 if __name__ == '__main__':
 

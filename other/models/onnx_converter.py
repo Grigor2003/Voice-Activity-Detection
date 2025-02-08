@@ -3,7 +3,7 @@ import torch
 
 from other import find_last_model_in_tree
 
-train_res_dir = "train_results"
+train_res_dir = "../../train_results"
 model_name = r"DGGD_64"
 
 model_trains_tree_dir = os.path.join(train_res_dir, model_name)
