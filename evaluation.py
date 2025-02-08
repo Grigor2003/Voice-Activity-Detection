@@ -7,14 +7,17 @@ from tqdm import tqdm
 
 import torch
 
-from other.audio_utils import AudioWorker
-from models_handler import MODELS, NAMES
-from other.utils import WaveToMFCCConverter
-from other.utils import find_last_model_in_tree
+from other import AudioWorker
+from other.models.models_handler import MODELS
+from other import WaveToMFCCConverter
+from other import find_last_model_in_tree
 
-input_dir = r"data/simple_test/input"
-output_dir = r"data/simple_test/output"
-model_name = r"WhisperLike_64"
+input_dir = r"datasets/simple_test/input"
+output_dir = r"datasets/simple_test/output"
+# model_name = r"WhisperLike_64"
+model_name = r"DGGD_64"
+
+
 train_res_dir = "train_results"
 
 th = 0.72

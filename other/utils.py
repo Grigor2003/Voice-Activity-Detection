@@ -1,18 +1,10 @@
 import os
-import random
 from datetime import datetime
 
-from matplotlib import pyplot as plt
-from torch.nn.utils.rnn import pad_sequence
-from tqdm import tqdm
-
-from other.audio_utils import augment_sample, generate_white_noise, AudioWorker
-import torch
-from torch.utils.data import DataLoader, random_split
-import torchaudio
-from tabulate import tabulate
 import numpy as np
-import scipy.signal
+import torch
+from matplotlib import pyplot as plt
+from tabulate import tabulate
 
 RES_PREFIX = "res"
 DATE_FORMAT = "%Y-%m-%d"
@@ -20,151 +12,20 @@ MODEL_NAME = "weights.pt"
 EXAMPLE_FOLDER = "examples"
 
 
-def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers,
-                              seed=None):
-    train_size = int(train_ratio * len(dataset))
-    val_size = len(dataset) - train_size
-
-    if seed is None:
-        seed = torch.randint(low=0, high=2 ** 32, size=(1,)).item()
-    generator = torch.Generator()
-    generator.manual_seed(seed)
-
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=generator)
-
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    val_dataloader = DataLoader(val_dataset, batch_size=val_batch_size, shuffle=True, num_workers=val_num_workers)
-    return train_dataloader, val_dataloader, seed
-
-
-class WaveToMFCCConverter:
-    def __init__(self, n_mfcc, sample_rate=8000, frame_duration_in_ms=None, win_length=None, hop_length=None):
-        self.n_mfcc = n_mfcc
-        self.sample_rate = sample_rate
-        self.frame_duration_in_ms = frame_duration_in_ms
-
-        if frame_duration_in_ms is not None:
-            sample_count = torch.tensor(sample_rate * frame_duration_in_ms / 1000, dtype=torch.int)
-            win_length = torch.pow(2, torch.ceil(torch.log2(sample_count)).to(torch.int)).to(torch.int).item()
-        elif win_length is None:
-            return
-        win_length = int(win_length)
-
-        if hop_length is None:
-            hop_length = int(win_length // 2)
-        hop_length = int(hop_length)
-
-        self.win_length = win_length
-        self.hop_length = hop_length
-
-        mfcc_params = {
-            "n_mfcc": n_mfcc,
-            "sample_rate": sample_rate
-        }
-        mel_params = {
-            "n_fft": win_length,
-            "win_length": win_length,
-            "hop_length": hop_length,
-            "center": False
-        }
-
-        self.converter = torchaudio.transforms.MFCC(**mfcc_params, melkwargs=mel_params)
-
-    def __call__(self, waveform):
-        return self.converter(waveform).transpose(-1, -2)
-
-
-def create_batch_tensor(inputs, targets):
-    lengths = [t.size(0) for t in inputs]
-    max_len = max(lengths)
-    mask = torch.arange(max_len).expand(len(lengths), max_len) < torch.tensor(lengths).unsqueeze(1)
-    padded_input = pad_sequence(inputs, batch_first=True)
-    padded_output = pad_sequence(targets, batch_first=True)
-
-    return padded_input, mask, padded_output
-
-
-class NoiseCollate:
-    def __init__(self, sample_rate, params, snr_dbs_dict, mfcc_converter, zero_sample_count=0):
-        self.sample_rate = sample_rate
-        self.noises = None
-        self.params = params
-        self.snr_dbs = []
-        for snr, freq in snr_dbs_dict.items():
-            self.snr_dbs.extend([snr] * freq)
-        self.mfcc_converter = mfcc_converter
-        self.zsc = zero_sample_count
-
-    def __call__(self, batch):
-        if self.zsc > 0:
-            sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
-
-            for i in range(self.zsc):
-                size, t_size, sr = random.choice(sizes)
-                au = AudioWorker.from_wave(generate_white_noise(1, size, 0.15, 0.1), sr)
-                batch.append((au, "0" * t_size))
-
-        inputs, targets, examples = [], [], []
-        ex_id = random.randint(1, len(batch) - 2) if len(batch) > 2 else None
-        for i, (au, label_txt) in enumerate(batch):
-            au.resample(self.sample_rate)
-            tar = torch.tensor([*map(float, label_txt)])
-
-            snr_db = random.choice(self.snr_dbs)
-
-            augmented_wave, _ = augment_sample(au, self.noises, snr_db=snr_db, **self.params)
-            inp = self.mfcc_converter(augmented_wave)
-            if tar.size(-1) != inp.size(-2):
-                print(f"WARNING: mismatch of target {tar.size(-1)} and input {inp.size(-2)} sizes in {au.name}")
-            else:
-                inputs.append(inp.squeeze(0))
-                targets.append(tar)
-            if i == ex_id or i == 0 or i == len(batch) - 1:
-                examples.append((i, augmented_wave.clone(), f"noise_snr_{snr_db}"))
-        return create_batch_tensor(inputs, targets), examples
-
-
-class ValCollate:
-    def __init__(self, sample_rate, params, snr_dbs, mfcc_converter):
-        self.sample_rate = sample_rate
-        self.noises = None
-        self.params = params
-        self.snr_dbs = snr_dbs
-        self.mfcc_converter = mfcc_converter
-
-    def __call__(self, batch):
-        all_inputs = {snr_db: [] for snr_db in self.snr_dbs}
-        all_targets = {snr_db: [] for snr_db in self.snr_dbs}
-
-        for au, label_txt in batch:
-            au.resample(self.sample_rate)
-            tar = torch.tensor([*map(float, label_txt)])
-
-            for snr_db in self.snr_dbs:
-                augmented_wave, _ = augment_sample(au, self.noises, snr_db=snr_db, **self.params)
-                inp = self.mfcc_converter(augmented_wave)
-                if tar.size(-1) != inp.size(-2):
-                    print(f"WARNING: mismatch of target {tar.size(-1)} and input {inp.size(-2)} sizes in {au.name}")
-                else:
-                    all_inputs[snr_db].append(inp.squeeze(0))
-                    all_targets[snr_db].append(tar)
-
-        return {snr_db: create_batch_tensor(all_inputs[snr_db], all_targets[snr_db]) for snr_db in self.snr_dbs}
-
-
-def focal_loss(pred, target, gamma=2., alpha=0.5, reduction="sum"):
-    p_t = pred * target + (1 - pred) * (1 - target)
+def loss_function(pred, target, mask, reduction="auto", val=False):
     ce_loss = torch.nn.functional.binary_cross_entropy(pred, target, reduction='none')
-    loss = ce_loss * ((1 - p_t) ** gamma)
-    if alpha >= 0:
-        alpha_t = alpha * target + (1 - alpha) * (1 - target)
-        loss = alpha_t * loss
+    masked_loss = ce_loss * mask
+    loss = torch.sum(masked_loss, dim=-1) / mask.sum(dim=-1).float()
+    loss = loss ** 2
+
     if reduction == "none":
         pass
     elif reduction == "mean":
         loss = loss.mean()
     elif reduction == "sum":
         loss = loss.sum()
+    elif reduction == "auto":
+        loss = loss.sum() if val else loss.mean()
     else:
         raise ValueError(
             f"Invalid Value for arg 'reduction': '{reduction} \n Supported reduction modes: 'none', 'mean', 'sum'"
@@ -228,8 +89,8 @@ def create_new_model_trains_dir(model_trains_tree_dir):
     return dir, os.path.join(dir, MODEL_NAME)
 
 
-def get_model_param_count(model):
-    return sum(p.numel() for p in model.parameters()).item()
+def get_model_params_count(model):
+    return sum(p.numel() for p in model.parameters())
 
 
 def save_history_plot(history_table, index, title, x_label, y_label, path):

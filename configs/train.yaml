@@ -1,15 +1,15 @@
 data:
   # Path to clean data
-  clean: data\train-clean-100
+  clean: datasets\train-clean-100(converted to 8000 sr)
   # Path to labels
-  #  labels: data\8000_30_50_100_50_max.csv
-  labels: data\8000_30_50_100_50_max_lite.csv
+  labels: datasets\8000_10_50_webrtc_labels.csv
+#  labels: datasets\8000_10_50_webrtc_labels_lite.csv
   # Path to noises data
-  noise: data\noise-16k
+  noise: datasets\noise-16k
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
-  id: 0
+  id: 1
   # The name of the model from models.py one of {NAMES}
   name:
   # Loads the specified weights to continue training,
@@ -22,6 +22,7 @@ model:
   # Always sets create_new_model to false as soon as saved
   create_new_model: false
   # The count of saves (one save is always done at the end of the run)
+  # When 0 will be saved every epoch
   saves_count: 0
   # The directory to save train results
   directory: train_results
@@ -30,47 +31,47 @@ noise:
   # The size of the noise pool for audio augmentation
   pool: 100
   # The count of noises added on a single audio
-  count: 2
+  count: 3
   # The duration of added noises in seconds separated by f,t
-  duration: [5, 10]
+  duration: [1, 10]
   # Noises SNRs to use for batch augmentation
   # SNR is signal-to-noise ratio for audio augmentation
   snr_dict:
-    null: 30
-    0: 10
-    3: 20
-    10: 40
+    null: 10
+    0: 50
+    3: 30
+    10: 10
   # The ratio of empty audios that would be added to batch
   # if value is negative then the absolute would be taken
   # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
   # Example: batch: 100, zero_rate: 1.25 => 100 + 125 = 225
-  zero_rate: 0.05
-  # The probability of adding white noise
-  white_prob: 0.5  # TODO: nenc anel vor ashxati
+  zero_rate: -2
 
 train:
   # The learning rate given by power of 10
-  lr: -7
+  lr: -5
   # The number of epochs to train the model in current session
-  epoch: 2
+  epoch: 10
   # The number of workers for data loading during training
-  workers: 4
+  workers: 8
   # The size of training batch (can be not final)
-  #  batch: 128
-  batch: 64
+#  batch: 128
+  batch: 12
   # Accumulation steps
   n_accum: 8
+  # Default window lenght (hop lenght would be half of window)
+  win_length: 400
 
 val:
   # The ratio of validation data taken from clean data
   ratio: 0.2
   # The number of epochs to pass before calculating the validation score
-  every: 5
+  every: 3
   # The number of workers for data loading during validation score calculation
   workers: 4
   # The size of the batch for simultaneous usage of samples during validation score calculation
   # The real size of validation batch is len(snr_list) * mini_batch
-  mini_batch: 32
+  mini_batch: 8
   # Noises SNRs to use for validation batch augmentation
   snr_list: [null, 10, 5, 0]
 

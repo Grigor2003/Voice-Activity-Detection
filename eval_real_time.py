@@ -2,17 +2,22 @@ import os
 import queue
 import time
 
-import numpy as np
 import sounddevice as sd
+import soundfile as sf
+
 import torch
+import numpy as np
 
-from models_handler import MODELS
-from other.utils import find_last_model_in_tree, WaveToMFCCConverter
+from other.models.models_handler import MODELS
+from other.data.processing import WaveToMFCCConverter
+from other.utils import find_last_model_in_tree
 
-model_name = r"WhisperLike_64"
-# model_name = r"DGGD_64"
+# model_name = r"WhisperLike_64"
+model_name = r"DGGD_64"
 train_res_dir = "train_results"
 th = 0.6
+orig_filename = "buffer/original_recording.wav"
+cropped_filename = "buffer/cropped_recording.wav"
 
 model_trains_tree_dir = os.path.join(train_res_dir, model_name)
 
@@ -49,44 +54,74 @@ model.eval()
 q = queue.Queue()
 
 
-def callback(overlap_frame, frame_len, time_info, status):
+def callback(frame, frame_len, time_info, status):
     """This is called (from a separate thread) for each audio block."""
-    q.put(overlap_frame.copy())
+    q.put(frame.copy())
 
 
 frames = []
 last_frame = None
 
-with sd.InputStream(samplerate=sample_rate, blocksize=hop_lenght, channels=1, callback=callback):
-    while True:
-        try:
-            overlap_frame = q.get(block=False)
+orig_file = sf.SoundFile(orig_filename, mode='w', samplerate=sample_rate, channels=1)
+cropped_file = sf.SoundFile(cropped_filename, mode='w', samplerate=sample_rate, channels=1)
 
-            if last_frame is not None:
-                frame = np.concatenate([last_frame, overlap_frame], axis=0)
-                wave = torch.from_numpy(frame).squeeze(-1)
-                spectrogram = mfcc_converter(wave).to(device)
+print(sd.query_devices())
+au_device = sd.query_devices(device=28)
+print(*au_device.items(), sep='\n')
+print(*[i for i in checkpoint.items() if len(str(i)) < 100], sep='\n')
 
-                frames.append(spectrogram)
-                inp_tensor = torch.cat(frames[-200:]).unsqueeze(0)
-                st = time.time()
-                out = model(inp_tensor, torch.zeros(inp_tensor.size(1)).unsqueeze(0).to(device)).detach().cpu().numpy().flatten()[-1]
-                en = time.time()
+try:
+    with sd.InputStream(samplerate=sample_rate, blocksize=hop_lenght, channels=1, callback=callback):
 
-                p = int(out * 100)
-                t = int(th * 100)
-                if p > t:
-                    s = t * '|' + (p - t) * '█'
-                else:
-                    s = p * '|'
+        last_state = None
 
-                print(f"{out >= th:d} {out:05.2f}, in {(en - st) * 1000:05.2f} ms - {s}")
+        while True:
+            try:
+                half_frame = q.get(block=False)
+                orig_file.write(half_frame)
 
-            last_frame = overlap_frame.copy()
+                if last_frame is not None:
+                    frame = np.concatenate([last_frame, half_frame], axis=0)
+                    wave = torch.from_numpy(frame).squeeze(-1)
+                    spectrogram = mfcc_converter(wave).to(device)
 
-            size = q.qsize()
-            if size > 1:
-                print(f"Queued {size} frames")
+                    frames.append(spectrogram)
+                    inp_tensor = torch.cat(frames[-200:]).unsqueeze(0)
+                    mask = torch.zeros(inp_tensor.size(1)).unsqueeze(0).to(device)
+                    st = time.time()
+                    out = model(inp_tensor, mask, hidden_state=last_state)
+                    pred = out.detach().cpu().numpy().flatten()[-1]
 
-        except queue.Empty:
-            pass
+                    try:
+                        last_state = model.hidden_states
+                    except AttributeError:
+                        pass
+
+                    en = time.time()
+
+                    p = int(pred * 100)
+                    t = int(th * 100)
+                    if p > t:
+                        s = t * '|' + (p - t) * '█'
+                    else:
+                        s = p * '|'
+
+                    print(f"{pred >= th:d} {pred:05.2f}, in {(en - st) * 1000:05.2f} ms - {s}")
+
+                    if pred >= th:
+                        cropped_file.write(half_frame)
+
+                last_frame = half_frame.copy()
+
+                size = q.qsize()
+                if size > 1:
+                    print(f"Queued {size} frames")
+
+            except queue.Empty:
+                pass
+except KeyboardInterrupt:
+    orig_file.close()
+    cropped_file.close()
+    print('\nRecordings saved')
+except Exception as e:
+    print(type(e).__name__ + ': ' + str(e))

@@ -1,6 +1,6 @@
 .idea/
 .ipynb_checkpoints/
-data/
+datasets/
 train_results/
 buffer/
 __pycache__/

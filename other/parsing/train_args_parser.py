@@ -1,7 +1,7 @@
 import numpy as np
 import ruamel.yaml
-from other.parsing_utils import *
-from models_handler import MODELS_COUNT, NAMES
+from other.parsing.parsing_utils import *
+from other.models.models_handler import MODELS_COUNT, NAMES
 
 y_path = 'configs/train.yaml'
 
@@ -41,7 +41,7 @@ aug_params = {
 snr_dict = parse_numeric_dict(ydict['noise']['snr_dict'],
                               1, 100,
                               [-25, 25, True, False],
-                              [0, 0, True, True])
+                              [0, 2**16, True, True])
 zero_rate = is_type_of(ydict['noise']['zero_rate'], (int, float))
 
 # Train section
@@ -62,6 +62,8 @@ if zero_rate < 0:
     zero_count = int(-zero_rate)
 elif zero_rate > 0:
     zero_count = int(zero_rate * batch_size)
+default_win_length = is_range(ydict['train']['win_length'], 1, 2 ** 15, int)
+
 
 # Validation section
 train_ratio = 1 - is_range(ydict['val']['ratio'], 0, 1)
