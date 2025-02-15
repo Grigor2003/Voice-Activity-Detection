@@ -1,18 +1,44 @@
-import os
+from time import time
 import torch
-
-from other import find_last_model_in_tree
-
-train_res_dir = "../../train_results"
-model_name = r"DGGD_64"
-
-model_trains_tree_dir = os.path.join(train_res_dir, model_name)
-model_new_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
-if model_path is None:
-    raise Exception(f"No model was found at {model_trains_tree_dir}")
-print(f"Model was found at {model_path}")
-
-checkpoint = torch.load(model_path, weights_only=True)
+import onnxruntime as ort
+from tqdm import tqdm
+from other.data.processing import WaveToMFCCConverter
+import other.models.models_handler as models_handler
 
 
-onnx_program = torch.onnx.dynamo_export(torch_model, torch_input)
+class ModelWithMFCC(torch.nn.Module):
+    def __init__(self, mfcc_converter: WaveToMFCCConverter, model):
+        super().__init__()
+        self.mfcc_converter = mfcc_converter
+        self.hop_length = self.mfcc_converter.hop_length
+        self.model = model
+
+    def forward(self, waveform):
+        mfcc_features = self.mfcc_converter(waveform)[0].unsqueeze(0)
+        model_output = self.model(mfcc_features)
+        return model_output.squeeze((0, -1))
+
+
+batch_size = 1
+seq_len = 10000
+n_mfcc = 64
+example_inp = torch.rand(batch_size, seq_len)
+ckp_path = ''
+model = models_handler.gru_with_denses()
+ckp = torch.load(ckp_path)
+model.load_state_dict(ckp['model_state_dict'])
+mfcc_converter = WaveToMFCCConverter(64, win_length=400, hop_length=200)
+full_model = ModelWithMFCC(mfcc_converter=mfcc_converter, model=model)
+
+torch.onnx.export(
+    full_model,
+    (example_inp,),
+    'model.onnx',
+    input_names=['waveform'],
+    output_names=['output'],
+    dynamic_axes={
+        'waveform': {0: 'batch_size', 1: 'seq_len'},
+        'output': {0: 'batch_size', 1: 'seq_len'}
+    },
+    dynamo=True
+)

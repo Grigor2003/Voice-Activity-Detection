@@ -20,8 +20,9 @@ def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, 
     return train_dataloader, val_dataloader, seed
 
 
-class WaveToMFCCConverter:
+class WaveToMFCCConverter(torch.nn.Module):
     def __init__(self, n_mfcc, sample_rate=8000, frame_duration_in_ms=None, win_length=None, hop_length=None):
+        super().__init__()
         self.n_mfcc = n_mfcc
         self.sample_rate = sample_rate
         self.frame_duration_in_ms = frame_duration_in_ms
@@ -53,5 +54,5 @@ class WaveToMFCCConverter:
 
         self.converter = torchaudio.transforms.MFCC(**mfcc_params, melkwargs=mel_params)
 
-    def __call__(self, waveform):
+    def forward(self, waveform):
         return self.converter(waveform).transpose(-1, -2)
