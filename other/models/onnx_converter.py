@@ -1,39 +1,28 @@
-from time import time
+import os
+
 import torch
-import onnxruntime as ort
-from tqdm import tqdm
+
 from other.data.processing import WaveToMFCCConverter
-import other.models.models_handler as models_handler
+from other.models.models_handler import MODELS
+from other.models.onnx_utils import ModelWithMFCC
 
-
-class ModelWithMFCC(torch.nn.Module):
-    def __init__(self, mfcc_converter: WaveToMFCCConverter, model):
-        super().__init__()
-        self.mfcc_converter = mfcc_converter
-        self.hop_length = self.mfcc_converter.hop_length
-        self.model = model
-
-    def forward(self, waveform):
-        mfcc_features = self.mfcc_converter(waveform)[0].unsqueeze(0)
-        model_output = self.model(mfcc_features)
-        return model_output.squeeze((0, -1))
-
-
-batch_size = 1
-seq_len = 10000
-n_mfcc = 64
-example_inp = torch.rand(batch_size, seq_len)
-ckp_path = ''
-model = models_handler.gru_with_denses()
-ckp = torch.load(ckp_path)
-model.load_state_dict(ckp['model_state_dict'])
-mfcc_converter = WaveToMFCCConverter(64, win_length=400, hop_length=200)
+example_inp = torch.rand(1, 10000)
+ckp_path = r"C:\Users\gg\Projects\Voice-Activity-Detection\train_results\DGGD_64\2025-02-15\res_1\weights.pt"
+save_path = os.path.join(os.path.dirname(ckp_path), 'model.onnx')
+model = MODELS['DGGD_64']()
+checkpoint = torch.load(ckp_path, weights_only=True)
+model.load_state_dict(checkpoint['model_state_dict'])
+mfcc_converter = WaveToMFCCConverter(
+            n_mfcc=checkpoint['mfcc_n_mfcc'],
+            sample_rate=checkpoint['mfcc_sample_rate'],
+            win_length=checkpoint['mfcc_win_length'],
+            hop_length=checkpoint['mfcc_hop_length'])
 full_model = ModelWithMFCC(mfcc_converter=mfcc_converter, model=model)
 
 torch.onnx.export(
     full_model,
     (example_inp,),
-    'model.onnx',
+    save_path,
     input_names=['waveform'],
     output_names=['output'],
     dynamic_axes={

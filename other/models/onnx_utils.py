@@ -1,6 +1,16 @@
-import onnxruntime as ort
+import torch
+
+from other.data.processing import WaveToMFCCConverter
 
 
-def load_model(model_path):
-    session = ort.InferenceSession(model_path)
-    return session
+class ModelWithMFCC(torch.nn.Module):
+    def __init__(self, mfcc_converter: WaveToMFCCConverter, model):
+        super().__init__()
+        self.mfcc_converter = mfcc_converter
+        self.model = model
+
+    def forward(self, waveform):
+        mfcc_features = self.mfcc_converter(waveform)[0].unsqueeze(0)
+        model_output = self.model(mfcc_features)
+        return model_output.squeeze((0, -1))
+
