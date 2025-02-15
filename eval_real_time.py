@@ -16,6 +16,7 @@ from other.utils import find_last_model_in_tree
 model_name = r"DGGD_64"
 train_res_dir = "train_results"
 th = 0.6
+frames_to_pass = 200
 orig_filename = "buffer/original_recording.wav"
 cropped_filename = "buffer/cropped_recording.wav"
 
@@ -59,21 +60,22 @@ def callback(frame, frame_len, time_info, status):
     q.put(frame.copy())
 
 
-frames = []
-last_frame = None
 
 orig_file = sf.SoundFile(orig_filename, mode='w', samplerate=sample_rate, channels=1)
 cropped_file = sf.SoundFile(cropped_filename, mode='w', samplerate=sample_rate, channels=1)
-
-print(sd.query_devices())
-au_device = sd.query_devices(device=28)
-print(*au_device.items(), sep='\n')
-print(*[i for i in checkpoint.items() if len(str(i)) < 100], sep='\n')
+#
+# print(sd.query_devices())
+# au_device = sd.query_devices(device=28)
+# print(*au_device.items(), sep='\n')
+# print(*[i for i in checkpoint.items() if len(str(i)) < 100], sep='\n')
 
 try:
     with sd.InputStream(samplerate=sample_rate, blocksize=hop_lenght, channels=1, callback=callback):
 
+        frames = []
+        last_frame = None
         last_state = None
+        last_frame_pred = None
 
         while True:
             try:
@@ -86,30 +88,35 @@ try:
                     spectrogram = mfcc_converter(wave).to(device)
 
                     frames.append(spectrogram)
-                    inp_tensor = torch.cat(frames[-200:]).unsqueeze(0)
+                    inp_tensor = torch.cat(frames[-frames_to_pass:]).unsqueeze(0)
                     mask = torch.zeros(inp_tensor.size(1)).unsqueeze(0).to(device)
                     st = time.time()
                     out = model(inp_tensor, mask, hidden_state=last_state)
-                    pred = out.detach().cpu().numpy().flatten()[-1]
+                    pred = out.detach().cpu().numpy().flatten()
+                    curr_frame_pred = pred[-1]
+                    if len(pred) > 1:
+                        last_frame_pred = pred[-2:].mean()
 
                     try:
-                        last_state = model.hidden_states
+                        if len(frames) >= frames_to_pass:
+                            last_state = [hs[:, 0, None, :] for hs in model.hidden_states]
                     except AttributeError:
                         pass
 
                     en = time.time()
 
-                    p = int(pred * 100)
-                    t = int(th * 100)
-                    if p > t:
-                        s = t * '|' + (p - t) * '█'
-                    else:
-                        s = p * '|'
+                    if last_frame_pred:
+                        p = int(last_frame_pred * 100)
+                        t = int(th * 100)
+                        if p > t:
+                            s = t * '|' + (p - t) * '█'
+                        else:
+                            s = p * '|'
 
-                    print(f"{pred >= th:d} {pred:05.2f}, in {(en - st) * 1000:05.2f} ms - {s}")
+                        print(f"{last_frame_pred >= th:d} {last_frame_pred:.2f}, in {(en - st) * 1000:05.1f} ms - {s}")
 
-                    if pred >= th:
-                        cropped_file.write(half_frame)
+                        if last_frame_pred >= th:
+                            cropped_file.write(last_frame)
 
                 last_frame = half_frame.copy()
 

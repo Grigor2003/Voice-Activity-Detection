@@ -70,12 +70,12 @@ class DGGD(nn.Module):
         h1, h2 = None, None
         if hidden_state is not None:
             h1, h2 = hidden_state
-        out, h1 = self.gru1(out, h1)
-        out, h2 = self.gru2(out, h2)
-        self.hidden_states = h1, h2
+        hiddens1, _ = self.gru1(out, h1)
+        hiddens2, _ = self.gru2(hiddens1, h2)
+        self.hidden_states = [hiddens1, hiddens2]
         # endregion
 
-        out = self.fc2(out)
+        out = self.fc2(hiddens2)
         out = F.relu(out)
         out = self.layernorm2(out)
         out = self.dropout2(out)
