@@ -5,6 +5,7 @@ import random
 import time
 import shutil
 import pandas as pd
+from sympy import catalan
 from tqdm import tqdm
 
 from other.data.audio_utils import AudioWorker
@@ -55,9 +56,14 @@ if __name__ == '__main__':
                                                                         val_batch_size,
                                                                         num_workers, val_num_workers, seed)
 
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        optimizer.lr = lr
+        try:
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            optimizer.lr = lr
+            print(f"Successfully loaded {last_weights_path} with optimizer {checkpoint['optimizer']}")
+        except:
+            print(f"Couldn't load optimizer from {last_weights_path}")
+
         curr_run_start_global_epoch = checkpoint['epoch'] + 1
 
         mfcc_converter = WaveToMFCCConverter(
@@ -66,7 +72,6 @@ if __name__ == '__main__':
             win_length=checkpoint['mfcc_win_length'],
             hop_length=checkpoint['mfcc_hop_length'])
 
-        print(f"Successfully loaded {last_weights_path} with optimizer {checkpoint['optimizer']}")
         print(f"Continuing training from epoch {curr_run_start_global_epoch} on {device} device")
     else:
         curr_run_start_global_epoch = 1
