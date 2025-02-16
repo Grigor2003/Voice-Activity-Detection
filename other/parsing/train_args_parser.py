@@ -11,6 +11,7 @@ with open(y_path) as f:
     ydict = yaml.load(f)
 
 # Data section
+seed = is_type_of(ydict['data']['seed'], int, req=False)
 clean_audios_path = is_type_of(ydict['data']['clean'])
 clean_labels_path = is_type_of(ydict['data']['labels'])
 noise_data_path = is_type_of(ydict['data']['noise'])
@@ -81,6 +82,9 @@ n_examples = is_range(ydict['verbose']['n_examples'], 0, 1000, int)
 
 def model_has_been_saved():
     global ydict
+
+    if weights_load_from is None and not create_new_model:
+        return
 
     ydict['model']['weights'] = None
     ydict['model']['create_new_model'] = False

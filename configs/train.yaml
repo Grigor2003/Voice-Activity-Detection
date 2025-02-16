@@ -1,4 +1,7 @@
 data:
+  # Would be used only if generates a new model
+  # Leave blank if you want random seed
+  seed: 42
   # Path to clean data
   clean: datasets\train-clean-100(converted to 8000 sr)
   # Path to labels
@@ -11,8 +14,8 @@ model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
   id:
   # The name of the model from models.py one of {NAMES}
-  name: DGGD_64
-#  name: DNGGND_64
+#  name: DGGD_64
+  name: DNGGND_64
   # Loads the specified weights to continue training,
   # creates a new run folder for storing results
   # Clears the weights and sets create_new_model to false as soon as saved
@@ -21,7 +24,7 @@ model:
   # creates a new run folder for storing results
   # If empty, continue training on last model, but in new run folder
   # Always sets create_new_model to false as soon as saved
-  create_new_model: false
+  create_new_model: true
   # The count of saves (one save is always done at the end of the run)
   # When 0 will be saved every epoch
   saves_count: 0
@@ -52,11 +55,11 @@ train:
   # The learning rate given by power of 10
   lr: -3
   # The number of epochs to train the model in current session
-  epoch: 3
+  epoch: 9
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)
-  batch: 128
+  batch: 256
 #  batch: 12
   # Accumulation steps
   n_accum: 8

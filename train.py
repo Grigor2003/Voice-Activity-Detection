@@ -84,10 +84,14 @@ if __name__ == '__main__':
         accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'),
                                              index_col="global_epoch")
     except:
+        loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
+        accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
+        loss_history_table.set_index('global_epoch', inplace=True)
+        accuracy_history_table.set_index('global_epoch', inplace=True)
 
         train_dataloader, val_dataloader, seed = get_train_val_dataloaders(dataset, train_ratio, batch_size,
                                                                            val_batch_size,
-                                                                           num_workers, val_num_workers)
+                                                                           num_workers, val_num_workers, seed)
 
         mfcc_converter = WaveToMFCCConverter(
             n_mfcc=model.input_dim,
@@ -95,10 +99,7 @@ if __name__ == '__main__':
             win_length=default_win_length,
             hop_length=default_win_length // 2)
 
-        loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
-        accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
-        loss_history_table.set_index('global_epoch', inplace=True)
-        accuracy_history_table.set_index('global_epoch', inplace=True)
+
 
         for snr in val_snrs_list:
             if snr is None:
@@ -111,13 +112,16 @@ if __name__ == '__main__':
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, aug_params, snr_dict, mfcc_converter, zero_count)
     val_dataloader.collate_fn = ValCollate(dataset.sample_rate, aug_params, val_snrs_list, mfcc_converter)
 
-    print(f"Checkpoints(for this run): {save_frames}")
+    print(f"Checkpoints(for this run) : {save_frames}")
+    print(f"Seed : {seed}")
 
-    print(f"Training [SNR values: {', '.join(map(str, snr_dict))}, " +
-          f"final batch size: {batch_size + zero_count if zero_count is not None else 0}]")
-    print(f"Validation [SNR values: {', '.join(map(str, val_snrs_list))}, " +
-          f"Batch size: {len(val_snrs_list) * val_batch_size}]")
-
+    print(f"Training SNR values : [{', '.join(map(str, snr_dict))}]".replace('None', '_'))
+    print(f"Training final batch size : {batch_size + zero_count if zero_count is not None else 0}")
+    if val_every != 0:
+        print(f"Validation SNR values : [{', '.join(map(str, val_snrs_list))}]".replace('None', '_'))
+        print(f"Validation batch size : {len(val_snrs_list) * val_batch_size}")
+    else:
+        print("No validation is expecting for this run")
     working_examples = {}
     for epoch in range(1, do_epoches + 1):
 
@@ -229,7 +233,7 @@ if __name__ == '__main__':
 
                         output = mask * model(batch_inputs, ~mask).squeeze(-1)
                         val_loss[snr_db] += loss_function(output, batch_targets, mask, val=True).item()
-                        
+
                         pred_correct = ((output > threshold) == (batch_targets > threshold)) * mask
                         correct_count[snr_db] += torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
                         whole_count[snr_db] += real_samples_count
