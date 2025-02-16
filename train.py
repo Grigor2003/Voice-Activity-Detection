@@ -47,7 +47,6 @@ if __name__ == '__main__':
             if model_path is None:
                 print(f"Couldn't find any model in {model_trains_tree_dir} so new model will be created")
 
-    train_dataloader, val_dataloader, seed, mfcc_converter = [None] * 4
     if last_weights_path is not None:
         checkpoint = torch.load(last_weights_path, weights_only=True)
 
@@ -75,6 +74,16 @@ if __name__ == '__main__':
         print(f"Continuing training from epoch {curr_run_start_global_epoch} on {device} device")
     else:
         curr_run_start_global_epoch = 1
+        _info = get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size,
+                                          num_workers, val_num_workers, seed)
+        train_dataloader, val_dataloader, seed = _info
+
+        mfcc_converter = WaveToMFCCConverter(
+            n_mfcc=model.input_dim,
+            sample_rate=dataset.sample_rate,
+            win_length=default_win_length,
+            hop_length=default_win_length // 2)
+
         print(f"New model of {str(type(model))} type has been created, will be trained on {device} device")
 
     print(f"Estimated [parameters: {count_parameters(model)}, vram: {estimate_vram_usage(model):.4f} GB (if float32)]")
@@ -88,18 +97,6 @@ if __name__ == '__main__':
         accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
         loss_history_table.set_index('global_epoch', inplace=True)
         accuracy_history_table.set_index('global_epoch', inplace=True)
-
-        train_dataloader, val_dataloader, seed = get_train_val_dataloaders(dataset, train_ratio, batch_size,
-                                                                           val_batch_size,
-                                                                           num_workers, val_num_workers, seed)
-
-        mfcc_converter = WaveToMFCCConverter(
-            n_mfcc=model.input_dim,
-            sample_rate=dataset.sample_rate,
-            win_length=default_win_length,
-            hop_length=default_win_length // 2)
-
-
 
         for snr in val_snrs_list:
             if snr is None:
