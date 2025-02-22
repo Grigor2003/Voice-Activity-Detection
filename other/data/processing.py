@@ -3,16 +3,16 @@ import torchaudio
 from torch.utils.data import random_split, DataLoader
 
 
-def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers):
+def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers, generator):
     train_size = int(train_ratio * len(dataset))
     val_size = len(dataset) - train_size
 
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
-                                  shuffle=True, num_workers=num_workers)
+                                  shuffle=True, num_workers=num_workers, generator=generator)
     val_dataloader = DataLoader(val_dataset, batch_size=val_batch_size,
-                                shuffle=True, num_workers=val_num_workers)
+                                shuffle=True, num_workers=val_num_workers, generator=generator)
     return train_dataloader, val_dataloader
 
 
@@ -45,7 +45,7 @@ class WaveToMFCCConverter:
             "win_length": win_length,
             "hop_length": hop_length,
             "center": False,
-            "norm": 'slaney'
+            # "norm": 'slaney'
         }
 
         self.converter = torchaudio.transforms.MFCC(**mfcc_params, melkwargs=mel_params)

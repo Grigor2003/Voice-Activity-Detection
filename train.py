@@ -63,6 +63,8 @@ if __name__ == '__main__':
             # noinspection PyRedundantParentheses
             info_txt += '\n' + (f"WARNING : Last train seed couldn't be found in the checkpoint")
     torch.manual_seed(seed)
+    generator = torch.Generator()
+    generator.manual_seed(seed)
     # noinspection PyRedundantParentheses
     info_txt += '\n' + (f"Global seed : {seed}")
 
@@ -98,7 +100,7 @@ if __name__ == '__main__':
                         f"\n\t- path: '{noise_data_path}'")
 
     train_dataloader, val_dataloader = get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size,
-                                                                 num_workers, val_num_workers)
+                                                                 num_workers, val_num_workers, generator)
 
     if checkpoint is not None:
         mfcc_converter = WaveToMFCCConverter(
@@ -157,7 +159,7 @@ if __name__ == '__main__':
             loc = path.split(os.sep)[-3:-1]
             async_message_box(f"{model_name} training in {loc}", info_txt, 0)
         else:
-            async_message_box(f"New {model_name} training", info_txt, 1)
+            async_message_box(f"New {model_name} training", info_txt, 0)
 
     print(f"\n{'=' * 100}\n")
     print("Training")
