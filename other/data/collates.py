@@ -1,5 +1,3 @@
-import random
-
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
@@ -13,9 +11,12 @@ class NoiseCollate:
         self.sample_rate = sample_rate
         self.noises = None
         self.params = params
-        self.snr_dbs = []
+        self.snr_dbs, self.snr_dbs_freqs = [], []
         for snr, freq in snr_dbs_dict.items():
-            self.snr_dbs.extend([snr] * freq)
+            self.snr_dbs.append(snr)
+            self.snr_dbs_freqs.append(freq)
+        self.snr_dbs_freqs = torch.tensor(self.snr_dbs_freqs, dtype=float)
+
         self.mfcc_converter = mfcc_converter
         self.zsc = zero_sample_count
 
@@ -24,13 +25,14 @@ class NoiseCollate:
         if self.zsc > 0:
             sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
 
-            for i in range(self.zsc):
-                size, t_size, sr = random.choice(sizes)
+            inds = torch.randint(0, len(sizes), (self.zsc, ))
+            for i in inds:
+                size, t_size, sr = sizes[i]
                 au = AudioWorker.from_wave(generate_white_noise(1, size, -50, 5), sr)
                 batch.append((au, []))
 
         inputs, targets, examples = [], [], []
-        ex_id = random.randint(1, len(batch) - 2) if len(batch) > 2 else None
+        ex_id = torch.randint(1, len(batch) - 1, (1,)).item() if len(batch) > 2 else None
         for i, (au, one_stamps) in enumerate(batch):
             total = au.wave.size(-1)
             window = self.mfcc_converter.win_length
@@ -44,7 +46,8 @@ class NoiseCollate:
             labels = one_counts > (window // 2)
             tar = torch.tensor(labels).float()
 
-            snr_db = random.choice(self.snr_dbs)
+            snr_db_ind = torch.multinomial(self.snr_dbs_freqs, 1)
+            snr_db = self.snr_dbs[snr_db_ind]
 
             # Augmenting audio by adding real noise and white noise
             augmented_wave, _ = augment_sample(au, self.noises, snr_db=snr_db, **self.params)

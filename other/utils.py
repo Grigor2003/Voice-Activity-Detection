@@ -5,6 +5,9 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from tabulate import tabulate
+import ctypes
+import threading
+
 
 RES_PREFIX = "res"
 DATE_FORMAT = "%Y-%m-%d"
@@ -119,3 +122,10 @@ def save_history_plot(history_table, index, title, x_label, y_label, path):
 
     fig.savefig(path)
     plt.close(fig)
+
+
+# An included library with Python install.
+def async_message_box(title, text, style):
+    thread = threading.Thread(target=ctypes.windll.user32.MessageBoxW,
+                              args=(0, text, title, style), daemon=True)
+    thread.start()

@@ -1,7 +1,6 @@
 import torch
 import torchaudio
 import os
-import random
 import time
 import shutil
 import pandas as pd
@@ -12,7 +11,7 @@ from other.models.models_handler import MODELS, count_parameters, estimate_vram_
 from other.data.collates import NoiseCollate, ValCollate
 from other.data.datasets import OpenSLRDataset
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter
-from other.utils import EXAMPLE_FOLDER, loss_function
+from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
 from other.utils import print_as_table, save_history_plot
 
@@ -21,15 +20,8 @@ if __name__ == '__main__':
 
     # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
     # os.environ['TORCH_USE_CUDA_DSA'] = "1"
-
-    print(f"\n{'=' * 100}\n")
-    dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
-    noise_files_paths = [os.path.join(noise_data_path, p) for p in os.listdir(noise_data_path) if p.endswith(".wav")]
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    model = MODELS[model_name]().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    info_txt = ""
+    info_txt += '\n' + f"Create new model: {create_new_model}"
 
     model_trains_tree_dir = os.path.join(train_res_dir, model_name)
     model_dir, model_path = None, None
@@ -44,48 +36,86 @@ if __name__ == '__main__':
             model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
             last_weights_path = model_path
             if model_path is None:
-                print(f"Couldn't find any model in {model_trains_tree_dir} so new model will be created")
+                # noinspection PyRedundantParentheses
+                info_txt += '\n' + (
+                    f"WARNING : Couldn't find weights in {model_trains_tree_dir} so brand new model will be created")
 
+    checkpoint = None
     if last_weights_path is not None:
         checkpoint = torch.load(last_weights_path, weights_only=True)
 
-        seed = checkpoint["seed"]
-        train_dataloader, val_dataloader, _ = get_train_val_dataloaders(dataset, train_ratio, batch_size,
-                                                                        val_batch_size,
-                                                                        num_workers, val_num_workers, seed)
-
+    curr_run_start_global_epoch = 1
+    if checkpoint is not None:
         try:
-            model.load_state_dict(checkpoint['model_state_dict'])
+            curr_run_start_global_epoch = checkpoint['epoch'] + 1
+        except:
+            curr_run_start_global_epoch = torch.nan
+            # noinspection PyRedundantParentheses
+            info_txt += '\n' + (f"WARNING : Last train epochs count couldn't be found in the checkpoint")
+    # noinspection PyRedundantParentheses
+    info_txt += '\n' + (f"Global epoch : {curr_run_start_global_epoch}")
+
+    seed = seed  # Needs for PyCharm's satisfaction
+    if checkpoint is not None:
+        try:
+            seed = checkpoint["seed"]
+        except:
+            # noinspection PyRedundantParentheses
+            info_txt += '\n' + (f"WARNING : Last train seed couldn't be found in the checkpoint")
+    torch.manual_seed(seed)
+    # noinspection PyRedundantParentheses
+    info_txt += '\n' + (f"Global seed : {seed}")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # noinspection PyRedundantParentheses
+    info_txt += '\n' + (f"Device : {device}")
+
+    model = MODELS[model_name]().to(device)
+    if checkpoint is not None:
+        model.load_state_dict(checkpoint['model_state_dict'])
+    # noinspection PyRedundantParentheses
+    info_txt += '\n' + (f"Model : {model_name}")
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    if checkpoint is not None:
+        try:
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             optimizer.lr = lr
-            print(f"Successfully loaded {last_weights_path} with optimizer {checkpoint['optimizer']}")
         except:
-            print(f"Couldn't load optimizer from {last_weights_path}")
+            # noinspection PyRedundantParentheses
+            info_txt += '\n' + (f"WARNING : Couldn't load optimizer states from the checkpoint")
+    # noinspection PyRedundantParentheses
+    info_txt += '\n' + (f"Optimizer : {type(optimizer)}")
 
-        curr_run_start_global_epoch = checkpoint['epoch'] + 1
+    dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
+    info_txt += '\n' + ("Train dataset" +
+                        f"\n\t- files count : {len(dataset)}" +
+                        f"\n\t- labels path: '{clean_labels_path}'")
 
+    noise_files_paths = [os.path.join(noise_data_path, p) for p in os.listdir(noise_data_path) if p.endswith(".wav")]
+    info_txt += '\n' + ("Noise files" +
+                        f"\n\t- files count : {len(noise_files_paths)}" +
+                        f"\n\t- path: '{noise_data_path}'")
+
+    train_dataloader, val_dataloader = get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size,
+                                                                 num_workers, val_num_workers)
+
+    if checkpoint is not None:
         mfcc_converter = WaveToMFCCConverter(
             n_mfcc=checkpoint['mfcc_n_mfcc'],
             sample_rate=checkpoint['mfcc_sample_rate'],
             win_length=checkpoint['mfcc_win_length'],
             hop_length=checkpoint['mfcc_hop_length'])
-
-        print(f"Continuing training from epoch {curr_run_start_global_epoch} on {device} device")
     else:
-        curr_run_start_global_epoch = 1
-        _info = get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size,
-                                          num_workers, val_num_workers, seed)
-        train_dataloader, val_dataloader, seed = _info
-
         mfcc_converter = WaveToMFCCConverter(
             n_mfcc=model.input_dim,
             sample_rate=dataset.sample_rate,
             win_length=default_win_length,
             hop_length=default_win_length // 2)
 
-        print(f"New model of {str(type(model))} type has been created, will be trained on {device} device")
-
-    print(f"Estimated [parameters: {count_parameters(model)}, vram: {estimate_vram_usage(model):.4f} GB (if float32)]")
+    info_txt += '\n' + ("Estimated" +
+                        f"\n\t- parameters : {count_parameters(model)}" +
+                        f"\n\t- VRAM: {estimate_vram_usage(model):.4f} GB (if float32)")
 
     try:
         loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
@@ -108,23 +138,39 @@ if __name__ == '__main__':
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, aug_params, snr_dict, mfcc_converter, zero_count)
     val_dataloader.collate_fn = ValCollate(dataset.sample_rate, aug_params, val_snrs_list, mfcc_converter)
 
-    print(f"Checkpoints(for this run) : {save_frames}")
-    print(f"Seed : {seed}")
+    # noinspection PyRedundantParentheses
+    info_txt += '\n' + (f"Checkpoints : {saves_count} in {do_epoches}")
+    info_txt += '\n' + ("Training" +
+                        f"\n\t- SNR values : [{', '.join(map(str, snr_dict))}]".replace('None', '_') +
+                        f"\n\t- final batch size:  {batch_size + zero_count if zero_count is not None else 0}")
 
-    print(f"Training SNR values : [{', '.join(map(str, snr_dict))}]".replace('None', '_'))
-    print(f"Training final batch size : {batch_size + zero_count if zero_count is not None else 0}")
     if val_every != 0:
-        print(f"Validation SNR values : [{', '.join(map(str, val_snrs_list))}]".replace('None', '_'))
-        print(f"Validation batch size : {len(val_snrs_list) * val_batch_size}")
+        info_txt += '\n' + ("Validation" +
+                            f"\n\t- SNR values : [{', '.join(map(str, val_snrs_list))}]".replace('None', '_') +
+                            f"\n\t- batch size:  {len(val_snrs_list) * val_batch_size}")
     else:
-        print("No validation is expecting for this run")
+        # noinspection PyRedundantParentheses
+        info_txt += '\n' + ("Validation : No validation is expecting for this run")
+    if print_mbox:
+        if last_weights_path is not None:
+            path = os.path.normpath(last_weights_path)
+            loc = path.split(os.sep)[-3:-1]
+            async_message_box(f"{model_name} training in {loc}", info_txt, 0)
+        else:
+            async_message_box(f"New {model_name} training", info_txt, 1)
+
+    print(f"\n{'=' * 100}\n")
+    print("Training")
+
     working_examples = {}
     for epoch in range(1, do_epoches + 1):
 
         global_epoch = curr_run_start_global_epoch + epoch - 1
         print(f"\n{'=' * 100}\n")
 
-        noises = [AudioWorker(p, p.replace("\\", "__")) for p in random.sample(noise_files_paths, epoch_noise_count)]
+        inds = torch.randperm(len(noise_files_paths))[:epoch_noise_count]
+
+        noises = [AudioWorker(noise_files_paths[i]) for i in inds]
         for noise in noises:
             noise.load()
             noise.resample(dataset.sample_rate)
@@ -203,10 +249,9 @@ if __name__ == '__main__':
             'train_accuracy': accuracy
         }
 
-        if print_level > 0:
-            time.sleep(0.25)
-            print(f"Training | loss: {running_loss:.4f} | accuracy: {accuracy:.4f}")
-            time.sleep(0.25)
+        time.sleep(0.25)
+        print(f"Training | loss: {running_loss:.4f} | accuracy: {accuracy:.4f}")
+        time.sleep(0.25)
 
         val_loss, val_acc = None, None
         if val_every != 0 and epoch % val_every == 0:
@@ -250,7 +295,7 @@ if __name__ == '__main__':
         loss_history_table.loc[global_epoch] = row_loss_values
         accuracy_history_table.loc[global_epoch] = row_acc_values
 
-        if val_every != 0 and print_level > 1 and epoch % val_every == 0:
+        if print_val_results and val_every != 0 and epoch % val_every == 0:
             print(f"\nLoss history")
             print_as_table(loss_history_table)
             print(f"\nAccuracy history")
@@ -281,7 +326,7 @@ if __name__ == '__main__':
                 os.makedirs(epoch_folder, exist_ok=True)
                 if global_epoch_id > 0:
                     for ex_id, example in enumerate(examples):
-                        wave, pred, info, bi = example
+                        wave, pred, info_txt, bi = example
                         win_length, hop_length, sample_rate = mfcc_converter.win_length, mfcc_converter.hop_length, mfcc_converter.sample_rate
 
                         speech_mask = pred.squeeze(-1).numpy()
@@ -291,7 +336,7 @@ if __name__ == '__main__':
                                     (speech_lh > threshold) or item_wise_mask[
                                                                hop_length * i:hop_length * i + win_length])
 
-                        p = os.path.join(epoch_folder, f"b{bi}_{ex_id}_{info}".replace(".", ","))
+                        p = os.path.join(epoch_folder, f"b{bi}_{ex_id}_{info_txt}".replace(".", ","))
                         torchaudio.save(p + '_res.wav', wave[:, item_wise_mask], sample_rate)
                         torchaudio.save(p + '.wav', wave, sample_rate)
                 else:

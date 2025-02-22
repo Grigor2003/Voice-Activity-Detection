@@ -1,5 +1,4 @@
 import os
-import random
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from sklearn.metrics import auc

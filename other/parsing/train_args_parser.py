@@ -1,5 +1,8 @@
+import random
+
 import numpy as np
 import ruamel.yaml
+
 from other.parsing.parsing_utils import *
 from other.models.models_handler import MODELS_COUNT, NAMES
 
@@ -12,6 +15,8 @@ with open(y_path) as f:
 
 # Data section
 seed = is_type_of(ydict['data']['seed'], int, req=False)
+if seed is None:
+    seed = random.randint(0, 2 ** 32 - 1)
 clean_audios_path = is_type_of(ydict['data']['clean'])
 clean_labels_path = is_type_of(ydict['data']['labels'])
 noise_data_path = is_type_of(ydict['data']['noise'])
@@ -42,7 +47,7 @@ aug_params = {
 snr_dict = parse_numeric_dict(ydict['noise']['snr_dict'],
                               1, 100,
                               [-25, 25, True, False],
-                              [0, 2**16, True, True])
+                              [0, 2 ** 16, True, True])
 zero_rate = is_type_of(ydict['noise']['zero_rate'], (int, float))
 
 # Train section
@@ -65,10 +70,11 @@ elif zero_rate > 0:
     zero_count = int(zero_rate * batch_size)
 default_win_length = is_range(ydict['train']['win_length'], 1, 2 ** 15, int)
 
-
 # Validation section
 train_ratio = 1 - is_range(ydict['val']['ratio'], 0, 1)
 val_every = is_range(ydict['val']['every'], 0, 1000, int)
+if val_every > do_epoches:
+    val_every = 0
 val_num_workers = is_range(ydict['val']['workers'], 0, 32, int)
 val_batch_size = is_range(ydict['val']['mini_batch'], 1, 2 ** 15, int)
 val_snrs_list = parse_numeric_list(ydict['val']['snr_list'], 1, 100, -25, 25, int, False)
@@ -76,7 +82,8 @@ val_snrs_list = parse_numeric_list(ydict['val']['snr_list'], 1, 100, -25, 25, in
 # Verbose section
 threshold = is_range(ydict['verbose']['threshold'], 0, 1)
 plot = is_type_of(ydict['verbose']['plot'], bool)
-print_level = is_range(ydict['verbose']['print'], 0, 2, int)
+print_mbox = is_type_of(ydict['verbose']['mbox'], bool)
+print_val_results = is_type_of(ydict['verbose']['val_results'], bool)
 n_examples = is_range(ydict['verbose']['n_examples'], 0, 1000, int)
 
 
