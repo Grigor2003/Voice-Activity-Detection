@@ -39,13 +39,14 @@ class WaveToMFCCConverter:
         mfcc_params = {
             "n_mfcc": n_mfcc,
             "sample_rate": sample_rate,
+            "log_mels": False
         }
         mel_params = {
             "n_fft": win_length,
             "win_length": win_length,
             "hop_length": hop_length,
             "center": False,
-            # "norm": 'slaney'
+            "norm": 'slaney'
         }
 
         self.converter = torchaudio.transforms.MFCC(**mfcc_params, melkwargs=mel_params)

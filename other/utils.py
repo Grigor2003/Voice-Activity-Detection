@@ -13,6 +13,7 @@ RES_PREFIX = "res"
 DATE_FORMAT = "%Y-%m-%d"
 MODEL_NAME = "weights.pt"
 EXAMPLE_FOLDER = "examples"
+RES_FOLDER = "train_results"
 
 
 def loss_function(pred, target, mask, reduction="auto", val=False):
@@ -55,8 +56,10 @@ def find_model_in_dir_or_path(dp: str):
         raise TypeError(f"Model file must be pytorch model: {dp}")
 
 
-def find_last_model_in_tree(model_trains_tree_dir):
+def find_last_model_in_tree(model_name):
     res_dir = None
+
+    model_trains_tree_dir = os.path.join(RES_FOLDER, model_name)
 
     if os.path.exists(model_trains_tree_dir):
         date_objects = [datetime.strptime(date, DATE_FORMAT)
@@ -78,7 +81,9 @@ def find_last_model_in_tree(model_trains_tree_dir):
         return res_dir, os.path.join(res_dir, MODEL_NAME)
 
 
-def create_new_model_trains_dir(model_trains_tree_dir):
+def create_new_model_trains_dir(model_name):
+    model_trains_tree_dir = os.path.join(RES_FOLDER, model_name)
+
     day_dir = os.path.join(model_trains_tree_dir, datetime.now().strftime(DATE_FORMAT))
     os.makedirs(day_dir, exist_ok=True)
     max_num = 0

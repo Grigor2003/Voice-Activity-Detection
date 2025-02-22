@@ -28,8 +28,6 @@ model:
   # The count of saves (one save is always done at the end of the run)
   # When 0 will be saved every epoch
   saves_count: 0
-  # The directory to save train results
-  directory: train_results
 
 noise:
   # The size of the noise pool for audio augmentation
@@ -55,7 +53,7 @@ train:
   # The learning rate given by power of 10
   lr: -3
   # The number of epochs to train the model in current session
-  epoch: 9
+  epoch: 3
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)

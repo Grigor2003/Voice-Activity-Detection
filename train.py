@@ -23,7 +23,6 @@ if __name__ == '__main__':
     info_txt = ""
     info_txt += '\n' + f"Create new model: {create_new_model}"
 
-    model_trains_tree_dir = os.path.join(train_res_dir, model_name)
     model_dir, model_path = None, None
     last_weights_path = None
 
@@ -31,14 +30,14 @@ if __name__ == '__main__':
         last_weights_path = find_model_in_dir_or_path(weights_load_from)
     else:
         if create_new_model is None:
-            model_dir, last_weights_path = find_last_model_in_tree(model_trains_tree_dir)
+            model_dir, last_weights_path = find_last_model_in_tree(model_name)
         elif not create_new_model:
-            model_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
+            model_dir, model_path = find_last_model_in_tree(model_name)
             last_weights_path = model_path
             if model_path is None:
                 # noinspection PyRedundantParentheses
                 info_txt += '\n' + (
-                    f"WARNING : Couldn't find weights in {model_trains_tree_dir} so brand new model will be created")
+                    f"WARNING : Couldn't find weights in {model_name} so brand new model will be created")
 
     checkpoint = None
     if last_weights_path is not None:
@@ -305,8 +304,12 @@ if __name__ == '__main__':
 
         if epoch in save_frames:
             if model_path is None:
-                model_dir, model_path = create_new_model_trains_dir(model_trains_tree_dir)
+                model_dir, model_path = create_new_model_trains_dir(model_name)
                 print(f"\nCreated {model_dir}")
+
+            curr_info_save_path = os.path.join(model_dir, 'info.txt')
+            with open(curr_info_save_path, 'w') as f:
+                f.write(info_txt)
 
             if last_weights_path is not None:
                 old = os.path.join(model_dir, "old")
@@ -364,3 +367,6 @@ if __name__ == '__main__':
 
             last_weights_path = model_path
             model_has_been_saved()
+
+    print()
+    print(info_txt)

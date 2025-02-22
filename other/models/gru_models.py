@@ -98,7 +98,7 @@ class DGCGD(nn.Module):
         self.dropout1 = nn.Dropout(dropout_prob)
 
         self.gru1 = nn.GRU(hidden_dim1, hidden_dim2, num_layers, batch_first=True)
-        self.conv2d1 = nn.Conv2d(1, 1, kernel_size=(1, 3), padding='same')
+        self.conv2d1 = nn.Conv2d(1, 1, kernel_size=(1, 7), padding='same')
         self.gru2 = nn.GRU(hidden_dim2, hidden_dim3, num_layers, batch_first=True)
 
         self.fc2 = nn.Linear(hidden_dim3, hidden_dim4)

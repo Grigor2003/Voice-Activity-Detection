@@ -33,7 +33,6 @@ else:
     raise ValueError(f"Model name or id has to be declared")
 
 create_new_model = is_type_of(ydict['model']['create_new_model'], bool, req=False)
-train_res_dir = is_type_of(ydict['model']['directory'])
 weights_load_from = is_type_of(ydict['model']['weights'], req=False)
 
 saves_count = is_range(ydict['model']['saves_count'], 0, 100, int)
