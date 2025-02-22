@@ -5,7 +5,6 @@ import random
 import time
 import shutil
 import pandas as pd
-from sympy import catalan
 from tqdm import tqdm
 
 from other.data.audio_utils import AudioWorker
