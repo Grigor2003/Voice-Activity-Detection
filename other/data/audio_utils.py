@@ -7,6 +7,7 @@ import torch
 import torchaudio
 import torchaudio.functional as tf
 from IPython.display import Audio as PyAudio, display
+import soundfile as sf
 
 
 def get_files_by_extension(directory, ext='txt', rel=False):
@@ -42,6 +43,13 @@ def parse_rttm(labels_path, sr):
     return data
 
 
+def get_wav_info(file_path):
+    info = sf.info(file_path)  # Get file metadata
+    duration = info.duration  # Duration in seconds
+    sample_rate = info.samplerate  # Sample rate (Hz)
+    return duration, sample_rate
+
+
 class AudioWorker:
     @staticmethod
     def from_wave(wave, sample_rate):
@@ -51,7 +59,7 @@ class AudioWorker:
         au.loaded = True
         return au
 
-    def __init__(self, path, name=None):
+    def __init__(self, path, name=None, frame_offset=0, num_frames=-1):
 
         self.name = name
         self.path = path
@@ -59,10 +67,12 @@ class AudioWorker:
         self.__unloaded__ = "unloaded"
         self.loaded = False
         self.wave = None
+        self.frame_offset = frame_offset
+        self.num_frames = num_frames
         self.rate = None
 
     def load(self):
-        self.wave, self.rate = torchaudio.load(self.path)
+        self.wave, self.rate = torchaudio.load(self.path, frame_offset=self.frame_offset, num_frames=self.num_frames)
         self.loaded = self.wave.size(1) > 0
         return self
 
