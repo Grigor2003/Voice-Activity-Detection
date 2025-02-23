@@ -5,10 +5,10 @@ import os
 from other.data.audio_utils import AudioWorker, parse_rttm
 
 
-class OpenSLRDataset(Dataset):
-    def __init__(self, openslr_path, labels_path):
-        self.openslr_path = openslr_path
-        self.labels_path = labels_path
+class CommonAccent(Dataset):
+    def __init__(self, common_accent_dir):
+
+        df = pd.read_parquet("your_dataset.parquet")
 
         self.labels = pd.read_csv(labels_path)
 
