@@ -8,9 +8,10 @@ from other.data.audio_utils import AudioWorker, get_wav_info
 
 
 class CommonAccent(Dataset):
-    def __init__(self, common_accent_dir, clip_length=4):
+    def __init__(self, common_accent_dir, clip_length_s=4):
+        self.sample_rate = 16000
         self.datapoints = []
-        self.clip_length = clip_length
+        self.clip_length_s = clip_length_s
         self.unique_labels = []
 
         folders = os.listdir(common_accent_dir)
@@ -35,7 +36,7 @@ class CommonAccent(Dataset):
 
     def get_clip_stamps(self, audio_path):
         audio_len, sr = get_wav_info(audio_path)
-        clip_sample_count = self.clip_length * sr
+        clip_sample_count = self.clip_length_s * sr
         sample_count = int(audio_len * sr)
 
         clip_count = sample_count // clip_sample_count
@@ -44,6 +45,8 @@ class CommonAccent(Dataset):
 
         clip_stamps = [(i * clip_sample_count, clip_sample_count)
                        for i in range(clip_count)]
+        if sample_count - clip_stamps[-1][0] < self.sample_rate * 0.5:
+            clip_stamps.pop(-1)
         return clip_stamps
 
     def __len__(self):

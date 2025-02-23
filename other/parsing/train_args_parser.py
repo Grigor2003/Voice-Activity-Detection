@@ -17,9 +17,12 @@ with open(y_path) as f:
 seed = is_type_of(ydict['data']['seed'], int, req=False)
 if seed is None:
     seed = random.randint(0, 2 ** 32 - 1)
-clean_audios_path = is_type_of(ydict['data']['clean'])
-clean_labels_path = is_type_of(ydict['data']['labels'])
+
+accent_dir = is_type_of(ydict['data']['accent_dir'])
 noise_data_path = is_type_of(ydict['data']['noise'])
+clip_length_s = is_range(ydict['data']['clip_length_s'], 0, 100, req=False)
+if clip_length_s is None:
+    clip_length_s = 5
 
 # Model section
 model_id = is_range(ydict['model']['id'], 0, MODELS_COUNT, int, req=False)
@@ -34,7 +37,7 @@ else:
 
 create_new_model = is_type_of(ydict['model']['create_new_model'], bool, req=False)
 weights_load_from = is_type_of(ydict['model']['weights'], req=False)
-
+pretrained_vad = is_type_of(ydict['model']['pretrained_vad'], req=False)
 saves_count = is_range(ydict['model']['saves_count'], 0, 100, int)
 
 # Noise section
@@ -83,8 +86,6 @@ threshold = is_range(ydict['verbose']['threshold'], 0, 1)
 plot = is_type_of(ydict['verbose']['plot'], bool)
 print_mbox = is_type_of(ydict['verbose']['mbox'], bool)
 print_val_results = is_type_of(ydict['verbose']['val_results'], bool)
-n_examples = is_range(ydict['verbose']['n_examples'], 0, 1000, int)
-
 
 def model_has_been_saved():
     global ydict

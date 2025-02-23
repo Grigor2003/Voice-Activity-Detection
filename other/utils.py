@@ -13,7 +13,7 @@ RES_PREFIX = "res"
 DATE_FORMAT = "%Y-%m-%d"
 MODEL_NAME = "weights.pt"
 EXAMPLE_FOLDER = "examples"
-RES_FOLDER = "train_results"
+RES_FOLDER = "train_results_accent"
 
 
 def loss_function(pred, target, mask, reduction="auto", val=False):

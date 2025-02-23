@@ -2,19 +2,18 @@ data:
   # Would be used only if generates a new model
   # Leave blank if you want random seed
   seed: 42
-  # Path to clean data
-  clean: datasets\train-clean-100(converted to 8000 sr)
-  # Path to labels
-  labels: datasets\8000_10_50_webrtc_labels.csv
-#  labels: datasets\8000_10_50_webrtc_labels_lite.csv
+  # Path to accent data
+  accent_dir: accent-dataset/cacc/wavs
   # Path to noises data
   noise: datasets\noise-16k
+  # clip_length_s
+  clip_length_s: 8
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
-  id:
+  id: 0
   # The name of the model from models.py one of {NAMES}
-  name: DGCGD_64
+  name:
 #  name: DNGGND_64
   # Loads the specified weights to continue training,
   # creates a new run folder for storing results
@@ -25,6 +24,8 @@ model:
   # If empty, continue training on last model, but in new run folder
   # Always sets create_new_model to false as soon as saved
   create_new_model: false
+  # If you are starting a new train you can load partial pretraind vad model
+  pretrained_vad: buffer/dgcgd_vad.pt
   # The count of saves (one save is always done at the end of the run)
   # When 0 will be saved every epoch
   saves_count: 0
@@ -35,7 +36,7 @@ noise:
   # The count of noises added on a single audio
   count: 3
   # The duration of added noises in seconds separated by f,t
-  duration: [1, 10]
+  duration: [1, 3]
   # Noises SNRs to use for batch augmentation
   # SNR is signal-to-noise ratio for audio augmentation
   snr_dict:
@@ -57,10 +58,10 @@ train:
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)
-  batch: 256
+  batch: 128
 #  batch: 12
   # Accumulation steps
-  n_accum: 8
+  n_accum: 4
   # Default window lenght (hop lenght would be half of window)
   win_length: 400
 
@@ -85,6 +86,3 @@ verbose:
   # The level of detail of printing
   mbox: true
   val_results: true
-  # Count of examples to save per epoch
-  # 0 or bigger then 2
-  n_examples: 3

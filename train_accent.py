@@ -9,7 +9,7 @@ from tqdm import tqdm
 from other.data.audio_utils import AudioWorker
 from other.models.models_handler import MODELS, count_parameters, estimate_vram_usage
 from other.data.collates import NoiseCollate, ValCollate
-from other.data.datasets import OpenSLRDataset
+from other.data.datasets import CommonAccent
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter
 from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
@@ -25,6 +25,7 @@ if __name__ == '__main__':
 
     model_dir, model_path = None, None
     last_weights_path = None
+    pretrained_vad_checkpoint = None
 
     if weights_load_from is not None:
         last_weights_path = find_model_in_dir_or_path(weights_load_from)
@@ -38,6 +39,8 @@ if __name__ == '__main__':
                 # noinspection PyRedundantParentheses
                 info_txt += '\n' + (
                     f"WARNING : Couldn't find weights in {model_name} so brand new model will be created")
+        elif create_new_model and pretrained_vad is not None:
+            pretrained_vad_checkpoint = torch.load(pretrained_vad, weights_only=True)
 
     checkpoint = None
     if last_weights_path is not None:
@@ -74,6 +77,10 @@ if __name__ == '__main__':
     model = MODELS[model_name]().to(device)
     if checkpoint is not None:
         model.load_state_dict(checkpoint['model_state_dict'])
+    if pretrained_vad_checkpoint:
+        model.load_state_dict(pretrained_vad_checkpoint['model_state_dict'], strict=False)
+        # noinspection PyRedundantParentheses
+        info_txt += '\n' + (f"Pretrained weights : {pretrained_vad}")
     # noinspection PyRedundantParentheses
     info_txt += '\n' + (f"Model : {model_name}")
 
@@ -88,10 +95,10 @@ if __name__ == '__main__':
     # noinspection PyRedundantParentheses
     info_txt += '\n' + (f"Optimizer : {type(optimizer)}")
 
-    dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
+    dataset = CommonAccent(accent_dir)
     info_txt += '\n' + ("Train dataset" +
                         f"\n\t- files count : {len(dataset)}" +
-                        f"\n\t- labels path: '{clean_labels_path}'")
+                        f"\n\t- labels dir: '{accent_dir}'")
 
     noise_files_paths = [os.path.join(noise_data_path, p) for p in os.listdir(noise_data_path) if p.endswith(".wav")]
     info_txt += '\n' + ("Noise files" +
@@ -163,7 +170,6 @@ if __name__ == '__main__':
     print(f"\n{'=' * 100}\n")
     print("Training")
 
-    working_examples = {}
     for epoch in range(1, do_epoches + 1):
 
         global_epoch = curr_run_start_global_epoch + epoch - 1
@@ -179,19 +185,14 @@ if __name__ == '__main__':
         train_dataloader.collate_fn.noises = noises
         val_dataloader.collate_fn.noises = noises
 
-        stats = {"target_positive": 0, "output_positive": 0, "whole_mask": 0}
-        working_examples[-global_epoch] = stats
-
         running_loss = torch.scalar_tensor(0, device=device)
         running_correct_count = torch.scalar_tensor(0, device=device)
         running_whole_count = torch.scalar_tensor(0, device=device)
 
         model.train()
         batch_idx, batch_count = 0, len(train_dataloader)
-        example_batch_indexes = np.linspace(0, batch_count - 1, n_examples, dtype=int)
-        working_examples[global_epoch] = []
 
-        for batch_idx, ((batch_inputs, mask, batch_targets), examples) in enumerate(
+        for batch_idx, (batch_inputs, mask, batch_targets) in enumerate(
                 tqdm(train_dataloader, desc=f"Training epoch: {global_epoch} ({epoch}\\{do_epoches})" + ' | ',
                      disable=0)):
 
@@ -201,28 +202,18 @@ if __name__ == '__main__':
             batch_targets = batch_targets.to(device)
 
             # Forward pass
-            out = model(batch_inputs, ~mask)
-            output = mask * out.squeeze(-1)
-
-            # Save some stats for logging
-            with torch.no_grad():
-                stats["target_positive"] += torch.sum(batch_targets).item()
-                stats["output_positive"] += torch.sum(output > threshold).item()
-                stats["whole_mask"] += torch.sum(mask).item()
-
-            if batch_idx in example_batch_indexes:
-                working_examples[global_epoch].extend(
-                    [(wave, out[i][mask[i]].detach().cpu(), info, batch_idx) for i, wave, info in examples])
+            output = model(batch_inputs, ~mask)
 
             # Calculate the loss
-            loss = loss_function(output, batch_targets, mask)
+            loss = torch.nn.CrossEntropyLoss()(output, torch.argmax(batch_targets, dim=1))
+            # loss = loss_function(output, batch_targets, mask)
             loss = loss / accumulation_steps  # Scale loss by the number of accumulation steps
 
             # Accumulate running loss and correct count (for logging/metrics)
             batch_samples_count = mask.size(0)
             running_loss += loss.item() * batch_samples_count * accumulation_steps  # Rescale back for logging
             running_whole_count += batch_samples_count
-            pred_correct = ((output > threshold) == (batch_targets > threshold)) * mask
+            pred_correct = torch.argmax(output, dim=1) == torch.argmax(batch_targets, dim=1)
             running_correct_count += torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
 
             # Backward pass (accumulate gradients)
@@ -325,30 +316,6 @@ if __name__ == '__main__':
 
                 save_history_plot(accuracy_history_table, 'global_epoch', 'Accuracy history', 'Epoch', 'Accuracy',
                                   os.path.join(model_dir, 'accuracy.png'))
-
-            for global_epoch_id, examples in working_examples.items():
-                epoch_folder = os.path.join(model_dir, EXAMPLE_FOLDER, str(abs(global_epoch_id)))
-                os.makedirs(epoch_folder, exist_ok=True)
-                if global_epoch_id > 0:
-                    for ex_id, example in enumerate(examples):
-                        wave, pred, info_txt, bi = example
-                        win_length, hop_length, sample_rate = mfcc_converter.win_length, mfcc_converter.hop_length, mfcc_converter.sample_rate
-
-                        speech_mask = pred.squeeze(-1).numpy()
-                        item_wise_mask = np.full(wave.size(1), False, dtype=bool)
-                        for i, speech_lh in enumerate(speech_mask.T):
-                            item_wise_mask[hop_length * i:hop_length * i + win_length] = (
-                                    (speech_lh > threshold) or item_wise_mask[
-                                                               hop_length * i:hop_length * i + win_length])
-
-                        p = os.path.join(epoch_folder, f"b{bi}_{ex_id}_{info_txt}".replace(".", ","))
-                        torchaudio.save(p + '_res.wav', wave[:, item_wise_mask], sample_rate)
-                        torchaudio.save(p + '.wav', wave, sample_rate)
-                else:
-                    examples["target_pos_rate"] = stats["target_positive"] / stats["whole_mask"]
-                    examples["output_pos_rate"] = stats["output_positive"] / stats["whole_mask"]
-                    with open(os.path.join(epoch_folder, 'stats.txt'), 'a') as f:
-                        f.write(str(examples).replace(',', '\n'))
 
             torch.save({
                 'seed': seed,

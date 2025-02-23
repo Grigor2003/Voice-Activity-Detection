@@ -22,29 +22,19 @@ class NoiseCollate:
 
     def __call__(self, batch):
         # Adding empty tracks with labels 0
-        if self.zsc > 0:
-            sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
+        # if self.zsc > 0:
+        #     sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
+        #
+        #     inds = torch.randint(0, len(sizes), (self.zsc, ))
+        #     for i in inds:
+        #         size, t_size, sr = sizes[i]
+        #         au = AudioWorker.from_wave(generate_white_noise(1, size, -50, 5), sr)
+        #         batch.append((au, []))
 
-            inds = torch.randint(0, len(sizes), (self.zsc, ))
-            for i in inds:
-                size, t_size, sr = sizes[i]
-                au = AudioWorker.from_wave(generate_white_noise(1, size, -50, 5), sr)
-                batch.append((au, []))
+        inputs, targets = [], []
 
-        inputs, targets, examples = [], [], []
-        ex_id = torch.randint(1, len(batch) - 1, (1,)).item() if len(batch) > 2 else None
-        for i, (au, one_stamps) in enumerate(batch):
-            total = au.wave.size(-1)
-            window = self.mfcc_converter.win_length
-            binary_counts = stamps_to_binary_counts(one_stamps, total)
-
+        for i, (au, tar) in enumerate(batch):
             # Augmenting audio and balancing zero and one counts in labels
-            au.wave, binary_counts = balance_regions(au.wave, binary_counts)
-            total = au.wave.size(-1)
-
-            one_counts = binary_counts_to_windows_np(binary_counts, window, total)
-            labels = one_counts > (window // 2)
-            tar = torch.tensor(labels).float()
 
             snr_db_ind = torch.multinomial(self.snr_dbs_freqs, 1)
             snr_db = self.snr_dbs[snr_db_ind]
@@ -54,15 +44,10 @@ class NoiseCollate:
             augmented_wave += generate_white_noise(1, augmented_wave.size(-1), -50, 5)
             inp = self.mfcc_converter(augmented_wave)
 
-            if tar.size(-1) != inp.size(-2):
-                print(f"WARNING: mismatch of target {tar.size(-1)} and input {inp.size(-2)} sizes in {au.name}")
-            else:
-                inputs.append(inp.squeeze(0))
-                targets.append(tar)
-            if i == ex_id or i == 0 or i == len(batch) - 1:
-                examples.append((i, augmented_wave.clone(), f"noise_snr_{snr_db}"))
+            inputs.append(inp.squeeze(0))
+            targets.append(tar)
 
-        return create_batch_tensor(inputs, targets), examples
+        return create_batch_tensor(inputs, targets)
 
 
 class ValCollate:
@@ -77,23 +62,15 @@ class ValCollate:
         all_inputs = {snr_db: [] for snr_db in self.snr_dbs}
         all_targets = {snr_db: [] for snr_db in self.snr_dbs}
 
-        for au, one_stamps in batch:
+        for au, tar in batch:
             au.resample(self.sample_rate)
-            total = au.wave.size(-1)
-            window = self.mfcc_converter.win_length
-            binary_counts = stamps_to_binary_counts(one_stamps, total)
-            one_counts = binary_counts_to_windows_np(binary_counts, window, total)
-            labels = one_counts > (window // 2)
-            tar = torch.tensor(labels).float()
 
             for snr_db in self.snr_dbs:
                 augmented_wave, _ = augment_sample(au, self.noises, snr_db=snr_db, **self.params)
                 inp = self.mfcc_converter(augmented_wave)
-                if tar.size(-1) != inp.size(-2):
-                    print(f"WARNING: mismatch of target {tar.size(-1)} and input {inp.size(-2)} sizes in {au.name}")
-                else:
-                    all_inputs[snr_db].append(inp.squeeze(0))
-                    all_targets[snr_db].append(tar)
+
+                all_inputs[snr_db].append(inp.squeeze(0))
+                all_targets[snr_db].append(tar)
 
         return {snr_db: create_batch_tensor(all_inputs[snr_db], all_targets[snr_db]) for snr_db in self.snr_dbs}
 
