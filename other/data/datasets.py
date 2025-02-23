@@ -9,12 +9,17 @@ from other.data.audio_utils import AudioWorker, get_wav_info
 
 class CommonAccent(Dataset):
     def __init__(self, common_accent_dir, clip_length_s=4):
-        self.sample_rate = 16000
+        self.sample_rate = None
         self.datapoints = []
         self.clip_length_s = clip_length_s
         self.unique_labels = []
 
         folders = os.listdir(common_accent_dir)
+        folders.remove('sample_rate.txt')
+        sample_rate_path = os.path.join(common_accent_dir, 'sample_rate.txt')
+        with open(sample_rate_path, 'r') as f:
+            self.sample_rate = int(f.readline().strip())
+
         for folder in folders:
             folder_path = os.path.join(common_accent_dir, folder)
             files = os.listdir(folder_path)
