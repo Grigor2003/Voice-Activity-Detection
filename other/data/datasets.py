@@ -8,21 +8,30 @@ from other.data.audio_utils import AudioWorker, get_wav_info
 
 
 class CommonAccent(Dataset):
-    def __init__(self, common_accent_csv, clip_length=4):
+    def __init__(self, common_accent_dir, clip_length=4):
         self.datapoints = []
         self.clip_length = clip_length
+        self.unique_labels = []
 
-        df = pd.read_csv(common_accent_csv)
-        self.unique_labels = sorted(df['label'].unique())
+        folders = os.listdir(common_accent_dir)
+        for folder in folders:
+            folder_path = os.path.join(common_accent_dir, folder)
+            files = os.listdir(folder_path)
+            files.remove('accent.txt')
+            label_path = os.path.join(folder_path, 'accent.txt')
+            with open(label_path, 'r') as f:
+                label = f.readline().strop()
+            self.unique_labels.append(label)
+
+            for file in files:
+                audio_path = os.path.join(folder_path, file)
+                clip_stamps = self.get_clip_stamps(audio_path)
+                self.datapoints.extend((audio_path, stamp, label) for stamp in clip_stamps)
+
+        self.unique_labels = sorted(self.unique_labels)
         self.label2idx = {label: i for i, label in enumerate(self.unique_labels)}
         self.idx2label = {i: label for label, i in self.label2idx.items()}
         self.label2tensor = torch.eye(len(self.unique_labels))
-        for idx, row in df.iterrows():
-            audio_path = row['audio_path']
-            label = row['label']
-            label_idx = self.label2idx[label]
-            clip_stamps = self.get_clip_stamps(audio_path)
-            self.datapoints.extend((audio_path, stamp, label_idx) for stamp in clip_stamps)
 
     def get_clip_stamps(self, audio_path):
         audio_len, sr = get_wav_info(audio_path)
@@ -44,7 +53,8 @@ class CommonAccent(Dataset):
 
     def __getitem__(self, idx) -> AudioWorker:
 
-        audio_path, stamp, label_idx = self.datapoints[idx]
+        audio_path, stamp, label = self.datapoints[idx]
+        label_idx = self.label2idx[label]
         label_tensor = self.label2tensor[label_idx]
 
         au = AudioWorker(audio_path, os.path.basename(audio_path), frame_offset=stamp[0], num_frames=stamp[1])
