@@ -20,7 +20,7 @@ class CommonAccent(Dataset):
             files.remove('accent.txt')
             label_path = os.path.join(folder_path, 'accent.txt')
             with open(label_path, 'r') as f:
-                label = f.readline().strop()
+                label = f.readline().strip()
             self.unique_labels.append(label)
 
             for file in files:
@@ -42,10 +42,8 @@ class CommonAccent(Dataset):
         non_full_clip = sample_count % clip_sample_count != 0
         clip_count += non_full_clip
 
-        clip_stamps = [(i * clip_sample_count, (i+1) * clip_sample_count)
+        clip_stamps = [(i * clip_sample_count, clip_sample_count)
                        for i in range(clip_count)]
-        if non_full_clip:
-            clip_stamps[-1] = ((clip_count - 1) * clip_sample_count, sample_count)
         return clip_stamps
 
     def __len__(self):
