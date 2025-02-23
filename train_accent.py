@@ -191,7 +191,8 @@ if __name__ == '__main__':
 
         model.train()
         batch_idx, batch_count = 0, len(train_dataloader)
-
+        
+        loss_fn = torch.nn.CrossEntropyLoss()
         for batch_idx, (batch_inputs, mask, batch_targets) in enumerate(
                 tqdm(train_dataloader, desc=f"Training epoch: {global_epoch} ({epoch}\\{do_epoches})" + ' | ',
                      disable=0)):
@@ -205,16 +206,15 @@ if __name__ == '__main__':
             output = model(batch_inputs, ~mask)
 
             # Calculate the loss
-            loss = torch.nn.CrossEntropyLoss()(output, torch.argmax(batch_targets, dim=1))
-            # loss = loss_function(output, batch_targets, mask)
+            loss = loss_fn(output, torch.argmax(batch_targets, dim=1))
             loss = loss / accumulation_steps  # Scale loss by the number of accumulation steps
 
             # Accumulate running loss and correct count (for logging/metrics)
-            batch_samples_count = mask.size(0)
+            batch_samples_count = batch_inputs.size(0)
             running_loss += loss.item() * batch_samples_count * accumulation_steps  # Rescale back for logging
             running_whole_count += batch_samples_count
             pred_correct = torch.argmax(output, dim=1) == torch.argmax(batch_targets, dim=1)
-            running_correct_count += torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
+            running_correct_count += torch.sum(pred_correct, dim=-1)
 
             # Backward pass (accumulate gradients)
             loss.backward()
@@ -262,13 +262,13 @@ if __name__ == '__main__':
                         batch_inputs = batch_inputs.to(device)
                         mask = mask.to(device)
                         batch_targets = batch_targets.to(device)
-                        real_samples_count = mask.size(0)
+                        real_samples_count = batch_inputs.size(0)
 
-                        output = mask * model(batch_inputs, ~mask).squeeze(-1)
-                        val_loss[snr_db] += loss_function(output, batch_targets, mask, val=True).item()
+                        output = model(batch_inputs, ~mask).squeeze(-1)
+                        val_loss[snr_db] += loss_fn(output, torch.argmax(batch_targets, dim=1)).item()
 
-                        pred_correct = ((output > threshold) == (batch_targets > threshold)) * mask
-                        correct_count[snr_db] += torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
+                        pred_correct = torch.argmax(output, dim=1) == torch.argmax(batch_targets, dim=1)
+                        correct_count[snr_db] += torch.sum(pred_correct, dim=-1)
                         whole_count[snr_db] += real_samples_count
 
                 for snr_db in val_snrs_list:
