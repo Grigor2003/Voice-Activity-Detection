@@ -13,7 +13,7 @@ from other.data.processing import WaveToMFCCConverter
 from other.utils import find_last_model_in_tree
 
 # model_name = r"WhisperLike_64"
-model_name = r"DGGD_64"
+model_name = r"DGCGD_64"
 train_res_dir = "train_results"
 th = 0.6
 frames_to_pass = 200
