@@ -1,9 +1,10 @@
 .idea/
 .ipynb_checkpoints/
-datasets/
-train_results/
-buffer/
 __pycache__/
 other/fast_tests.ipynb
-/train_results_accent/
-/accent-dataset/
+
+buffer/
+datasets/
+train_results/
+accent-dataset/
+train_results_accent/
