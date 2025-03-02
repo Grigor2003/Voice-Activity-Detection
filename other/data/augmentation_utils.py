@@ -1,5 +1,7 @@
 import torch
 
+from other.data.audio_utils import AudioWorker
+
 
 def calculate_rms(tensor):
     return torch.sqrt(torch.mean(tensor ** 2))
@@ -64,49 +66,68 @@ def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=800
     return temp
 
 
-def augment_sample(aw, noises=None, noise_count=1, noise_duration_range=(2, 5), snr_db=3):
+def augment_with_noises(aw: AudioWorker, noises=None, noise_count=1, noise_duration_range=(2, 5), snr_db=3):
     if None in [noises, noise_count, noise_duration_range, snr_db]:
-        return aw.wave, None
+        return {"noise_None": True}
 
-    audio = aw.wave
-    sample_rate = aw.rate
-    orig_audio = audio.clone()
-    augmentation_params = None
-
-    resampled_noises = []
     for noise in noises:
-        if noise.rate != sample_rate:
-            temp = noise.deepcopy()
-            temp.resample(sample_rate)
-            resampled_noises.append(temp.wave)
-        else:
-            resampled_noises.append(noise.wave)
-    noises = resampled_noises
-
-    sec = audio.size(-1) / sample_rate
+        noise.resample(aw.rate)
 
     if noise_count <= 0:
-        return orig_audio, augmentation_params
+        return {"noise_count": noise_count}
 
-    noises_starts, _ = torch.sort(torch.rand(noise_count) * sec)
+    noises_starts, _ = torch.sort(torch.rand(noise_count) * aw.duration_s)
     dur_delta = noise_duration_range[1] - noise_duration_range[0]
     noise_durations = torch.rand(noise_count) * dur_delta + noise_duration_range[0]
 
     noises_to_use = torch.randint(len(noises), (noise_count,))
 
     for i, noise_ind in enumerate(noises_to_use):
-        orig_audio = add_noise(orig_audio,
-                               noises[noise_ind],
-                               snr_db=snr_db,
-                               start=noises_starts[i],
-                               end=-noise_durations[i],
-                               sample_rate=sample_rate)
+        aw.wave = add_noise(aw.wave, sample_rate=aw.rate, noise=noises[noise_ind].wave,
+                            snr_db=snr_db, start=noises_starts[i], end=-noise_durations[i])
 
-    augmentation_params = {"noises_starts": noises_starts,
-                           "noise_durations": noise_durations,
-                           "noises_to_use": noises_to_use}
+    return {"noises_starts": noises_starts,
+            "noise_durations": noise_durations,
+            "noises_to_use": noises_to_use}
 
-    return orig_audio, augmentation_params
+
+def augment_volume_gain(aw, gain_function='random', effect_ratio=(0.2, 1), value_range=(0.05, 1), inverse=0.5):
+    functions = ['sin', 'woods']
+    if gain_function == "random":
+        ind = torch.randint(0, len(functions), (1,)).item()
+        gain_function = functions[ind]
+    if not isinstance(effect_ratio, (float, int)):
+        i_min, i_max = effect_ratio
+        mean, std = 0.5, 0.25
+        r = torch.clamp(mean + torch.randn(1) * std, 0.0, 1.0).item()
+        effect_ratio = i_min + r * (i_max - i_min)
+
+    match gain_function:
+        case 'sin':
+            gain = torch.sin(torch.linspace(0, 2 * torch.pi, steps=aw.length)) ** (2 * int(25 ** effect_ratio))
+        case 'woods':
+            a, b, c = effect_ratio, effect_ratio, 0.5
+            n = lambda x: 1 / torch.tan(torch.pi * (2 * torch.abs(x - c) / b))
+            v = lambda x: 1 / (1 + torch.exp(n(x)) ** (100 ** a))
+            fr, to = c - b / 2, c + b / 2
+            gain = torch.ones(aw.length)
+            s_fr, s_to = int(aw.length * fr), int(aw.length * to)
+            gain[s_fr: s_to] = v(torch.linspace(fr, to, steps=s_to - s_fr))
+        case _:
+            ValueError("Unsupported gain function. Choose 'sin' or 'woods'.")
+            return
+
+    was_inversed = torch.rand(1).item() < inverse
+    if was_inversed:
+        gain = 1 - gain
+
+    min_gain, max_gain = value_range
+    gain = min_gain + gain * (max_gain - min_gain)
+    aw.wave *= torch.abs(gain.to(aw.wave.device))
+
+    return {"was_inversed": was_inversed,
+            "gain_function": gain_function,
+            "effect_ratio": effect_ratio}
 
 
 def generate_white_noise(count, samples_count, noise_db=1, noise_dev=0):

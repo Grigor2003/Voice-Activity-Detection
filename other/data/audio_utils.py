@@ -46,24 +46,40 @@ class AudioWorker:
     @staticmethod
     def from_wave(wave, sample_rate):
         au = AudioWorker(None, "from wave")
-        au.wave = wave
         au.rate = sample_rate
+        au.wave = wave
         au.loaded = True
         return au
 
-    def __init__(self, path, name=None):
+    @property
+    def wave(self):
+        return self._wave
+
+    @wave.setter
+    def wave(self, value):
+        self.length = value.size(1)
+        self.duration_s = self.length / self.rate
+        self._wave = value
+
+
+    def __init__(self, path, name=None, frame_offset=0, num_frames=-1):
 
         self.name = name
         self.path = path
 
         self.__unloaded__ = "unloaded"
         self.loaded = False
-        self.wave = None
+        self._wave = None
+        self.frame_offset = frame_offset
+        self.num_frames = num_frames
+        self.length = None
         self.rate = None
+        self.duration_s = None
 
     def load(self):
-        self.wave, self.rate = torchaudio.load(self.path)
-        self.loaded = self.wave.size(1) > 0
+        wave, self.rate = torchaudio.load(self.path, frame_offset=self.frame_offset, num_frames=self.num_frames)
+        self.wave = wave
+        self.loaded = self.length > 0
         return self
 
     def resample(self, to_freq):
@@ -73,8 +89,9 @@ class AudioWorker:
         if self.rate == to_freq:
             return
 
-        self.wave = tf.resample(self.wave, self.rate, to_freq)
+        old_rate = self.rate
         self.rate = to_freq
+        self.wave = tf.resample(self.wave, old_rate, self.rate)
 
     def player(self, mask=None):
         if not self.loaded:

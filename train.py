@@ -211,8 +211,9 @@ if __name__ == '__main__':
                 stats["whole_mask"] += torch.sum(mask).item()
 
             if batch_idx in example_batch_indexes:
-                working_examples[global_epoch].extend(
-                    [(wave, out[i][mask[i]].detach().cpu(), info, batch_idx) for i, wave, info in examples])
+                for i, wave, name, *info in examples:
+                    working_examples[global_epoch].extend(
+                        [(wave, out[i][mask[i]].detach().cpu(), name, info, batch_idx)])
 
             # Calculate the loss
             loss = loss_function(output, batch_targets, mask)
@@ -331,7 +332,7 @@ if __name__ == '__main__':
                 os.makedirs(epoch_folder, exist_ok=True)
                 if global_epoch_id > 0:
                     for ex_id, example in enumerate(examples):
-                        wave, pred, info_txt, bi = example
+                        wave, pred, name, info_dicts, bi = example
                         win_length, hop_length, sample_rate = mfcc_converter.win_length, mfcc_converter.hop_length, mfcc_converter.sample_rate
 
                         speech_mask = pred.squeeze(-1).numpy()
@@ -341,15 +342,18 @@ if __name__ == '__main__':
                                     (speech_lh > threshold) or item_wise_mask[
                                                                hop_length * i:hop_length * i + win_length])
 
-                        p = os.path.join(epoch_folder, f"b{bi}_{ex_id}_{info_txt}".replace(".", ","))
+                        p = os.path.join(epoch_folder, f"{ex_id}_b{bi}_{name}".replace(".", ","))
                         torchaudio.save(p + '_res.wav', wave[:, item_wise_mask], sample_rate)
                         torchaudio.save(p + '.wav', wave, sample_rate)
+                        with open(p + '.info', 'a') as f:
+                            info = {}
+                            [info.update(dct) for dct in info_dicts]
+                            print(*info.items(), file=f, sep='\n')
                 else:
                     examples["target_pos_rate"] = stats["target_positive"] / stats["whole_mask"]
                     examples["output_pos_rate"] = stats["output_positive"] / stats["whole_mask"]
                     with open(os.path.join(epoch_folder, 'stats.txt'), 'a') as f:
-                        f.write(str(examples).replace(',', '\n'))
-
+                        print(*examples.items(), file=f, sep='\n')
             torch.save({
                 'seed': seed,
                 'epoch': global_epoch,
