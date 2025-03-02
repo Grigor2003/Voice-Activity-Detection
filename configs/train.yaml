@@ -63,7 +63,7 @@ train:
   # Accumulation steps
   n_accum: 4
   # Default window lenght (hop lenght would be half of window)
-  win_length: 400
+  win_length: 800
 
 val:
   # The ratio of validation data taken from clean data

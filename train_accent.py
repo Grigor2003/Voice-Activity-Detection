@@ -95,7 +95,7 @@ if __name__ == '__main__':
     # noinspection PyRedundantParentheses
     info_txt += '\n' + (f"Optimizer : {type(optimizer)}")
 
-    dataset = CommonAccent(accent_dir)
+    dataset = CommonAccent(accent_dir, clip_length_s=clip_length_s)
     info_txt += '\n' + ("Train dataset" +
                         f"\n\t- files count : {len(dataset)}" +
                         f"\n\t- labels dir: '{accent_dir}'")
@@ -190,7 +190,6 @@ if __name__ == '__main__':
         running_whole_count = torch.scalar_tensor(0, device=device)
 
         model.train()
-        batch_idx, batch_count = 0, len(train_dataloader)
         
         loss_fn = torch.nn.CrossEntropyLoss()
         for batch_idx, (batch_inputs, mask, batch_targets) in enumerate(
@@ -214,7 +213,7 @@ if __name__ == '__main__':
             running_loss += loss.item() * batch_samples_count * accumulation_steps  # Rescale back for logging
             running_whole_count += batch_samples_count
             pred_correct = torch.argmax(output, dim=1) == torch.argmax(batch_targets, dim=1)
-            running_correct_count += torch.sum(pred_correct, dim=-1)
+            running_correct_count += torch.sum(pred_correct)
 
             # Backward pass (accumulate gradients)
             loss.backward()
@@ -223,6 +222,10 @@ if __name__ == '__main__':
             if (batch_idx + 1) % accumulation_steps == 0:
                 optimizer.step()
                 optimizer.zero_grad()
+                
+            if train_dataloader.sampler.must_stop:
+                train_dataloader.sampler.must_stop
+                break
 
         # After the final batch, check if there are remaining gradients to update
         if (batch_idx + 1) % accumulation_steps != 0:
@@ -268,7 +271,7 @@ if __name__ == '__main__':
                         val_loss[snr_db] += loss_fn(output, torch.argmax(batch_targets, dim=1)).item()
 
                         pred_correct = torch.argmax(output, dim=1) == torch.argmax(batch_targets, dim=1)
-                        correct_count[snr_db] += torch.sum(pred_correct, dim=-1)
+                        correct_count[snr_db] += torch.sum(pred_correct)
                         whole_count[snr_db] += real_samples_count
 
                 for snr_db in val_snrs_list:

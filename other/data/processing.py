@@ -1,18 +1,22 @@
 import torch
 import torchaudio
-from torch.utils.data import random_split, DataLoader
+from torch.utils.data import DataLoader
+
+from other.data.datasets import AccentSampler, CommonAccent
 
 
-def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers, generator):
-    train_size = int(train_ratio * len(dataset))
-    val_size = len(dataset) - train_size
+def get_train_val_dataloaders(dataset: CommonAccent, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers, generator):
 
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator)
+    train_dataset, val_dataset = dataset.get_train_val_subsets(train_ratio, generator)
+
+    del dataset
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
-                                  shuffle=True, num_workers=num_workers, generator=generator)
+                                  num_workers=num_workers, generator=generator,
+                                  sampler=AccentSampler(train_dataset.datapoints, reset=True, shuffle=True))
     val_dataloader = DataLoader(val_dataset, batch_size=val_batch_size,
-                                shuffle=True, num_workers=val_num_workers, generator=generator)
+                                num_workers=val_num_workers, generator=generator,
+                                sampler=AccentSampler(val_dataset.datapoints, reset=False, shuffle=False))
     return train_dataloader, val_dataloader
 
 
