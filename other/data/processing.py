@@ -59,7 +59,7 @@ class WaveToMFCCConverter2:
     def __init__(
         self,
         sample_rate: int,
-        n_fft: int = 400,
+        n_fft: int = None,
         hop_length: int = None,
         win_length: int = None,
         window_fn: callable = torch.hann_window,
@@ -92,7 +92,7 @@ class WaveToMFCCConverter2:
 
         # Spectrogram transform
         self.spectrogram_transform = torchaudio.transforms.Spectrogram(
-            n_fft=n_fft,
+            n_fft=self.n_fft,
             hop_length=self.hop_length,
             win_length=self.win_length,
             window_fn=window_fn,
@@ -103,7 +103,7 @@ class WaveToMFCCConverter2:
         )
 
         # Mel scale transform
-        n_stft = n_fft // 2 + 1
+        n_stft = self.n_fft // 2 + 1
         self.mel_scale = torchaudio.transforms.MelScale(
             n_mels=n_mels,
             sample_rate=sample_rate,
