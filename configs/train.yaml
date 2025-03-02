@@ -25,7 +25,8 @@ model:
   # Always sets create_new_model to false as soon as saved
   create_new_model: false
   # If you are starting a new train you can load partial pretraind vad model
-  pretrained_vad: buffer/dgcgd_vad.pt
+#  pretrained_vad: buffer/dgcgd_vad.pt
+  pretrained_vad:
   # The count of saves (one save is always done at the end of the run)
   # When 0 will be saved every epoch
   saves_count: 0
@@ -54,11 +55,11 @@ train:
   # The learning rate given by power of 10
   lr: -3
   # The number of epochs to train the model in current session
-  epoch: 3
+  epoch: 21
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)
-  batch: 128
+  batch: 320
 #  batch: 12
   # Accumulation steps
   n_accum: 4
@@ -74,7 +75,7 @@ val:
   workers: 4
   # The size of the batch for simultaneous usage of samples during validation score calculation
   # The real size of validation batch is len(snr_list) * mini_batch
-  mini_batch: 8
+  mini_batch: 32
   # Noises SNRs to use for validation batch augmentation
   snr_list: [null, 10, 5, 0]
 
