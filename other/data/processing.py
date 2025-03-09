@@ -1,3 +1,5 @@
+import numpy as np
+import scipy.signal as signal
 import torch
 import torchaudio
 from torch.utils.data import random_split, DataLoader
@@ -103,13 +105,13 @@ class WaveToMFCCConverter2:
         )
 
         # Mel scale transform
-        n_stft = self.n_fft // 2 + 1
+        self.n_stft = self.n_fft // 2 + 1
         self.mel_scale = torchaudio.transforms.MelScale(
             n_mels=n_mels,
             sample_rate=sample_rate,
             f_min=f_min,
             f_max=self.f_max,
-            n_stft=n_stft,
+            n_stft=self.n_stft,
             norm=mel_norm,
             mel_scale=mel_scale,
         )
@@ -156,10 +158,100 @@ class WaveToMFCCConverter2:
         mfcc = torch.matmul(mel_specgram.transpose(-1, -2), self.dct_matrix).transpose(-1, -2)
         return mfcc
 
-    def __call__(self, audio: torch.Tensor, filter=None) -> torch.Tensor:
+    def __call__(self, audio: torch.Tensor, ir=None, spectre_filter=None) -> torch.Tensor:
+
+        if ir is not None:
+            orig_len = audio.shape[-1]
+            audio = torchaudio.functional.fftconvolve(audio, ir, mode='same')
+            audio = audio[:, :orig_len]
 
         spectrogram = self.get_spectrogram(audio)
-        if filter is not None:
-            spectrogram = filter(spectrogram)
+
+        if spectre_filter is not None:
+            if isinstance(spectre_filter, list) and all(callable(item) for item in spectre_filter):
+                for f in spectre_filter:
+                    spectrogram = f(spectrogram)
+            elif callable(spectre_filter):
+                spectrogram = spectre_filter(spectrogram)
+            else:
+                raise TypeError("spectre_filter should either be list[callable] or callable")
+
         mfcc = self.get_mfcc(spectrogram)
         return mfcc.transpose(-1, -2)
+
+
+class PassFilter:
+
+    def __init__(
+        self,
+        sample_rate,
+        n_fft,
+        lower_bound=None,
+        upper_bound=None,
+        band=None
+    ):
+        self.sample_rate = sample_rate
+        self.n_fft = n_fft
+        self.n_stft = n_fft // 2 + 1
+        self.resolution = sample_rate // n_fft
+
+        if lower_bound is not None:
+            self.lower_bound_bin_idx = lower_bound // self.resolution
+        if upper_bound is not None:
+            self.upper_bound_bin_idx = upper_bound // self.resolution
+        if band is not None:
+            self.band_slice = slice(band[0] // self.resolution, band[1] // self.resolution + 1)
+
+    def HPF(self, specgram):
+        specgram[:, :self.lower_bound_bin_idx + 1] = 0
+        return specgram
+
+    def LPF(self, specgram):
+        specgram[:, self.upper_bound_bin_idx:] = 0
+        return specgram
+
+    def BPF(self, specgram):
+        temp = specgram[:, self.band_slice]
+        specgram = torch.zeros_like(specgram)
+        specgram[:, self.band_slice] = temp
+        return specgram
+
+
+class ChebyshevType2Filter:
+
+    def __init__(
+        self,
+        sample_rate,
+        n_fft,
+        lower_bound=None,
+        upper_bound=None,
+        band=None
+    ):
+        self.sample_rate = sample_rate
+        self.n_fft = n_fft
+        self.n_stft = n_fft // 2 + 1
+
+        A_stop = 40  # Stopband attenuation in dB
+        R_pass = 0.5  # Passband ripple in dB
+        N = 9   # Filter order
+        nyquist = 0.5 * sample_rate
+
+        if lower_bound is not None:
+            Wn = lower_bound / nyquist
+            self.hpf_tensor = self.get_filter_tensor(N, Wn, R_pass, A_stop, 'high', self.n_stft)
+            self.HPF = lambda spec: (spec.transpose(-1, -2) * self.hpf_tensor).transpose(-1, -2)
+
+        if upper_bound is not None:
+            Wn = upper_bound / nyquist
+            self.lpf_tensor = self.get_filter_tensor(N, Wn, R_pass, A_stop, 'low', self.n_stft)
+            self.LPF = lambda spec: (spec.transpose(-1, -2) * self.lpf_tensor).transpose(-1, -2)
+
+        if band is not None:
+            Wn = (band[0] / nyquist, band[1] / nyquist)
+            self.bpf_tensor = self.get_filter_tensor(N, Wn, R_pass, A_stop, 'band', self.n_stft)
+            self.BPF = lambda spec: (spec.transpose(-1, -2) * self.bpf_tensor).transpose(-1, -2)
+
+    def get_filter_tensor(self, N, Wn, R_pass, A_stop, btype, worN):
+        b, a = signal.iirfilter(N, Wn, rp=R_pass, rs=A_stop, btype=btype, ftype='cheby2')
+        _, h = signal.freqz(b, a, worN=worN)
+        return torch.tensor(np.abs(h), dtype=torch.float32)
