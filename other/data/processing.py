@@ -55,7 +55,7 @@ class WaveToMFCCConverter:
         self.converter = torchaudio.transforms.MFCC(**mfcc_params, melkwargs=mel_params)
 
     def __call__(self, waveform):
-        return self.converter(waveform).transpose(-1, -2)
+        return self.converter(waveform).mT
 
 
 class WaveToMFCCConverter2:
@@ -156,7 +156,7 @@ class WaveToMFCCConverter2:
             mel_specgram = self.amplitude_to_DB(mel_specgram)
 
         # Apply DCT to get MFCCs
-        mfcc = torch.matmul(mel_specgram.transpose(-1, -2), self.dct_matrix).transpose(-1, -2)
+        mfcc = torch.matmul(mel_specgram.mT, self.dct_matrix).mT
         return mfcc
 
     def __call__(self, audio: torch.Tensor, ir=None, spectre_filter=None) -> torch.Tensor:
@@ -178,7 +178,7 @@ class WaveToMFCCConverter2:
                 raise TypeError("spectre_filter should either be list[callable] or callable")
 
         mfcc = self.get_mfcc(spectrogram)
-        return mfcc.transpose(-1, -2)
+        return mfcc.mT
 
 
 class PassFilter:
@@ -254,7 +254,7 @@ class ChebyshevType2Filter:
             self.pf_tensor = self.get_filter_tensor(N, Wn, R_pass, A_stop, 'band', self.n_stft)
 
     def __call__(self, spec):
-        return (spec.transpose(-1, -2) * self.pf_tensor).transpose(-1, -2)
+        return (spec.mT * self.pf_tensor).mT
 
     @staticmethod
     def get_filter_tensor(N, Wn, R_pass, A_stop, btype, worN):

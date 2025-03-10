@@ -59,18 +59,12 @@ class NoiseCollate:
             gain_augment_info = augment_volume_gain(aw)
             noise_augment_info = augment_with_noises(aw, self.noises, snr_db=snr_db, **self.params)
             aw.wave += generate_white_noise(1, aw.length, -50, 5)
-
-
-            inp = self.mfcc_converter(aw.wave, random.choice(self.mic_irs).wave, self.sp_filter)
-
-            if tar.size(-1) != inp.size(-2):
-                print(f"WARNING: mismatch of target {tar.size(-1)} and input {inp.size(-2)} sizes in {aw.name}")
-            else:
-                inputs.append(inp.squeeze(0))
-                targets.append(tar)
+            inputs.append(aw.wave.squeeze(0))
+            targets.append(tar)
             if i == ex_id or i == 0 or i == len(batch) - 1:
                 examples.append([i, aw.wave.clone(), f"snr{snr_db}", noise_augment_info, gain_augment_info])
-
+        inputs = pad_sequence(inputs, batch_first=True)
+        inputs = self.mfcc_converter(inputs, random.choice(self.mic_irs).wave, self.sp_filter)
         return create_batch_tensor(inputs, targets), examples
 
 
@@ -97,18 +91,14 @@ class ValCollate:
 
             for snr_db in self.snr_dbs:
                 noise_augment_info = augment_with_noises(aw, self.noises, snr_db=snr_db, **self.params)
-                inp = self.mfcc_converter(aw.wave)
-                if tar.size(-1) != inp.size(-2):
-                    print(f"WARNING: mismatch of target {tar.size(-1)} and input {inp.size(-2)} sizes in {aw.name}")
-                else:
-                    all_inputs[snr_db].append(inp.squeeze(0))
-                    all_targets[snr_db].append(tar)
-
+                all_inputs[snr_db].append(aw.wave.squeeze(0))
+                all_targets[snr_db].append(tar)
+        all_inputs = {k: self.mfcc_converter(pad_sequence(v, batch_first=True)) for k, v in all_inputs.items()}
         return {snr_db: create_batch_tensor(all_inputs[snr_db], all_targets[snr_db]) for snr_db in self.snr_dbs}
 
 
 def create_batch_tensor(inputs, targets):
-    lengths = [t.size(0) for t in inputs]
+    lengths = [t.size(0) for t in targets]
     max_len = max(lengths)
     mask = torch.arange(max_len).expand(len(lengths), max_len) < torch.tensor(lengths).unsqueeze(1)
     padded_input = pad_sequence(inputs, batch_first=True)
