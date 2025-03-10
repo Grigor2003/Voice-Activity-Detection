@@ -87,11 +87,12 @@ class AudioWorker:
             print("WARNING: attempted to resample AudioWorker before loading")
             return self.__unloaded__
         if self.rate == to_freq:
-            return
+            return self
 
         old_rate = self.rate
         self.rate = to_freq
         self.wave = tf.resample(self.wave, old_rate, self.rate)
+        return self
 
     def player(self, mask=None):
         if not self.loaded:

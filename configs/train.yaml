@@ -9,6 +9,8 @@ data:
 #  labels: datasets\8000_10_50_webrtc_labels_lite.csv
   # Path to noises data
   noise: datasets\noise-16k
+  # Impulse responses
+  mic_irs: datasets\mic-irs\microphone-irs-8000
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}

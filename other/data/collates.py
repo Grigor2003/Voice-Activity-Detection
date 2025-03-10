@@ -1,15 +1,22 @@
+import random  # TODO: can be only temporary
+
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
 from other.data.audio_utils import AudioWorker
 from other.data.augmentation_utils import generate_white_noise, augment_with_noises, augment_volume_gain
+from other.data.processing import WaveToMFCCConverter2, ChebyshevType2Filter
 from other.data.work_with_stamps_utils import stamps_to_binary_counts, balance_regions, binary_counts_to_windows_np
 
 
 class NoiseCollate:
-    def __init__(self, sample_rate, params, snr_dbs_dict, mfcc_converter, zero_sample_count=0):
+    def __init__(self, sample_rate, params, snr_dbs_dict, mfcc_converter: WaveToMFCCConverter2, sp_filter, zero_sample_count=0):
         self.sample_rate = sample_rate
+
         self.noises = None
+        self.mic_irs = None
+        self.sp_filter = sp_filter
+
         self.params = params
         self.snr_dbs, self.snr_dbs_freqs = [], []
         for snr, freq in snr_dbs_dict.items():
@@ -25,12 +32,11 @@ class NoiseCollate:
         if self.zsc > 0:
             sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
 
-            inds = torch.randint(0, len(sizes), (self.zsc, ))
+            inds = torch.randint(0, len(sizes), (self.zsc,))
             for i in inds:
                 size, t_size, sr = sizes[i]
                 aw = AudioWorker.from_wave(generate_white_noise(1, size, -50, 5), sr)
                 batch.append((aw, []))
-
 
         ex_id = torch.randint(1, len(batch) - 1, (1,)).item() if len(batch) > 2 else None
 
@@ -50,11 +56,12 @@ class NoiseCollate:
             snr_db = self.snr_dbs[snr_db_ind]
 
             # Augmenting audio by adding real noise and white noise
-
             gain_augment_info = augment_volume_gain(aw)
             noise_augment_info = augment_with_noises(aw, self.noises, snr_db=snr_db, **self.params)
             aw.wave += generate_white_noise(1, aw.length, -50, 5)
-            inp = self.mfcc_converter(aw.wave)
+
+
+            inp = self.mfcc_converter(aw.wave, random.choice(self.mic_irs).wave, self.sp_filter)
 
             if tar.size(-1) != inp.size(-2):
                 print(f"WARNING: mismatch of target {tar.size(-1)} and input {inp.size(-2)} sizes in {aw.name}")

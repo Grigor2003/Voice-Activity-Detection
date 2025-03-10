@@ -19,7 +19,8 @@ if seed is None:
     seed = random.randint(0, 2 ** 32 - 1)
 clean_audios_path = is_type_of(ydict['data']['clean'])
 clean_labels_path = is_type_of(ydict['data']['labels'])
-noise_data_path = is_type_of(ydict['data']['noise'])
+noise_data_dir = is_type_of(ydict['data']['noise'])
+mic_irs_dir = is_type_of(ydict['data']['mic_irs'])
 
 # Model section
 model_id = is_range(ydict['model']['id'], 0, MODELS_COUNT, int, req=False)

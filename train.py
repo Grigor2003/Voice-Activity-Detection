@@ -10,7 +10,7 @@ from other.data.audio_utils import AudioWorker
 from other.models.models_handler import MODELS, count_parameters, estimate_vram_usage
 from other.data.collates import NoiseCollate, ValCollate
 from other.data.datasets import OpenSLRDataset
-from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter
+from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter2, ChebyshevType2Filter
 from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
 from other.utils import print_as_table, save_history_plot
@@ -93,26 +93,29 @@ if __name__ == '__main__':
                         f"\n\t- files count : {len(dataset)}" +
                         f"\n\t- labels path: '{clean_labels_path}'")
 
-    noise_files_paths = [os.path.join(noise_data_path, p) for p in os.listdir(noise_data_path) if p.endswith(".wav")]
-    info_txt += '\n' + ("Noise files" +
-                        f"\n\t- files count : {len(noise_files_paths)}" +
-                        f"\n\t- path: '{noise_data_path}'")
-
-    train_dataloader, val_dataloader = get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size,
-                                                                 num_workers, val_num_workers, generator)
-
     if checkpoint is not None:
-        mfcc_converter = WaveToMFCCConverter(
+        mfcc_converter = WaveToMFCCConverter2(
             n_mfcc=checkpoint['mfcc_n_mfcc'],
             sample_rate=checkpoint['mfcc_sample_rate'],
             win_length=checkpoint['mfcc_win_length'],
             hop_length=checkpoint['mfcc_hop_length'])
     else:
-        mfcc_converter = WaveToMFCCConverter(
+        mfcc_converter = WaveToMFCCConverter2(
             n_mfcc=model.input_dim,
             sample_rate=dataset.sample_rate,
             win_length=default_win_length,
             hop_length=default_win_length // 2)
+
+    noise_files_paths = [os.path.join(noise_data_dir, p) for p in os.listdir(noise_data_dir) if p.endswith(".wav")]
+    mic_files_paths = [os.path.join(mic_irs_dir, p) for p in os.listdir(mic_irs_dir) if p.endswith(".wav")]
+    sp_filter = ChebyshevType2Filter(mfcc_converter.sample_rate, mfcc_converter.n_fft,
+                                             upper_bound=mfcc_converter.sample_rate // 2 - 1)
+    info_txt += '\n' + ("Noise files" +
+                        f"\n\t- files count : {len(noise_files_paths)}" +
+                        f"\n\t- path: '{noise_data_dir}'")
+
+    train_dataloader, val_dataloader = get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size,
+                                                                 num_workers, val_num_workers, generator)
 
     info_txt += '\n' + ("Estimated" +
                         f"\n\t- parameters : {count_parameters(model)}" +
@@ -136,7 +139,7 @@ if __name__ == '__main__':
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
                 accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
 
-    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, aug_params, snr_dict, mfcc_converter, zero_count)
+    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, aug_params, snr_dict, mfcc_converter, sp_filter, zero_count)
     val_dataloader.collate_fn = ValCollate(dataset.sample_rate, aug_params, val_snrs_list, mfcc_converter)
 
     # noinspection PyRedundantParentheses
@@ -171,12 +174,12 @@ if __name__ == '__main__':
 
         inds = torch.randperm(len(noise_files_paths))[:epoch_noise_count]
 
-        noises = [AudioWorker(noise_files_paths[i]) for i in inds]
-        for noise in noises:
-            noise.load()
-            noise.resample(dataset.sample_rate)
+        noises = [AudioWorker(noise_files_paths[i]).load().resample(dataset.sample_rate) for i in inds]
+        mic_irs = [AudioWorker(ir_path).load().resample(dataset.sample_rate) for ir_path in mic_files_paths]
 
         train_dataloader.collate_fn.noises = noises
+        train_dataloader.collate_fn.mic_irs = mic_irs
+
         val_dataloader.collate_fn.noises = noises
 
         stats = {"target_positive": 0, "output_positive": 0, "whole_mask": 0}
