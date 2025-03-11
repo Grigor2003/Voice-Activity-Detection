@@ -10,7 +10,8 @@ def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, 
     train_size = int(train_ratio * len(dataset))
     val_size = len(dataset) - train_size
 
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator)
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size],
+                                              torch.Generator().manual_seed(generator.initial_seed()))
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
                                   shuffle=True, num_workers=num_workers, generator=generator)
