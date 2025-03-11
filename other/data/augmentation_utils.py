@@ -66,7 +66,7 @@ def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=800
     return temp
 
 
-def augment_with_noises(aw: AudioWorker, noises=None, noise_count=1, noise_duration_range=(2, 5), snr_db=3):
+def augment_with_noises(aw: AudioWorker, noises=None, noise_count=1, noise_duration_range=(2, 5), snr_db=3, **kwargs):
     if None in [noises, noise_count, noise_duration_range, snr_db]:
         return {"noise_None": True}
 

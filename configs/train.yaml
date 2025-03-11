@@ -5,12 +5,15 @@ data:
   # Path to clean data
   clean: datasets\train-clean-100(converted to 8000 sr)
   # Path to labels
-  labels: datasets\8000_10_50_webrtc_labels.csv
+  labels: datasets\8000_10_50_webrtc_labels_lite.csv
 #  labels: datasets\8000_10_50_webrtc_labels_lite.csv
   # Path to noises data
   noise: datasets\noise-16k
+
+impulses:
   # Impulse responses
-  mic_irs: datasets\mic-irs\microphone-irs-8000
+  mic_ir_dir: datasets\mic-irs\microphone-irs-8000
+  mic_ir_prob: 0.25
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
@@ -55,11 +58,11 @@ train:
   # The learning rate given by power of 10
   lr: -3
   # The number of epochs to train the model in current session
-  epoch: 3
+  epoch: 9
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)
-  batch: 256
+  batch: 64
 #  batch: 12
   # Accumulation steps
   n_accum: 8

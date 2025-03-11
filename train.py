@@ -61,11 +61,18 @@ if __name__ == '__main__':
         except:
             # noinspection PyRedundantParentheses
             info_txt += '\n' + (f"WARNING : Last train seed couldn't be found in the checkpoint")
-    torch.manual_seed(seed)
-    generator = torch.Generator()
-    generator.manual_seed(seed)
+    generator = torch.manual_seed(seed)
+
     # noinspection PyRedundantParentheses
     info_txt += '\n' + (f"Global seed : {seed}")
+
+    if checkpoint is not None:
+        try:
+            generator.set_state(checkpoint["random_state"])
+        except:
+            # noinspection PyRedundantParentheses
+            info_txt += '\n' + (f"WARNING : Last train random state couldn't be found in the checkpoint")
+
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # noinspection PyRedundantParentheses
@@ -107,7 +114,7 @@ if __name__ == '__main__':
             hop_length=default_win_length // 2)
 
     noise_files_paths = [os.path.join(noise_data_dir, p) for p in os.listdir(noise_data_dir) if p.endswith(".wav")]
-    mic_files_paths = [os.path.join(mic_irs_dir, p) for p in os.listdir(mic_irs_dir) if p.endswith(".wav")]
+    mic_files_paths = [os.path.join(mic_ir_dir, p) for p in os.listdir(mic_ir_dir) if p.endswith(".wav")]
     sp_filter = ChebyshevType2Filter(mfcc_converter.sample_rate, mfcc_converter.n_fft,
                                              upper_bound=mfcc_converter.sample_rate // 2 - 1)
     info_txt += '\n' + ("Noise files" +
@@ -345,20 +352,25 @@ if __name__ == '__main__':
                                     (speech_lh > threshold) or item_wise_mask[
                                                                hop_length * i:hop_length * i + win_length])
 
-                        p = os.path.join(epoch_folder, f"{ex_id}_b{bi}_{name}".replace(".", ","))
-                        torchaudio.save(p + '_res.wav', wave[:, item_wise_mask], sample_rate)
-                        torchaudio.save(p + '.wav', wave, sample_rate)
-                        with open(p + '.info', 'a') as f:
-                            info = {}
-                            [info.update(dct) for dct in info_dicts]
-                            print(*info.items(), file=f, sep='\n')
+                        try:
+                            p = os.path.join(epoch_folder, f"{ex_id}_b{bi}_{name}".replace(".", ","))
+                            torchaudio.save(p + '_res.wav', wave[:, item_wise_mask], sample_rate)
+                            torchaudio.save(p + '.wav', wave, sample_rate)
+                            with open(p + '.info', 'a') as f:
+                                info = {}
+                                [info.update(dct) for dct in info_dicts]
+                                print(*info.items(), file=f, sep='\n')
+                        except:
+                            pass
                 else:
                     examples["target_pos_rate"] = stats["target_positive"] / stats["whole_mask"]
                     examples["output_pos_rate"] = stats["output_positive"] / stats["whole_mask"]
                     with open(os.path.join(epoch_folder, 'stats.txt'), 'a') as f:
                         print(*examples.items(), file=f, sep='\n')
+
             torch.save({
                 'seed': seed,
+                'random_state': generator.get_state(),
                 'epoch': global_epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer': type(optimizer).__name__,

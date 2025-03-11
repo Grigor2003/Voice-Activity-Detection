@@ -10,14 +10,14 @@ from other.data.work_with_stamps_utils import stamps_to_binary_counts, balance_r
 
 
 class NoiseCollate:
-    def __init__(self, sample_rate, params, snr_dbs_dict, mfcc_converter: WaveToMFCCConverter2, sp_filter, zero_sample_count=0):
+    def __init__(self, sample_rate, aug_params, snr_dbs_dict, mfcc_converter: WaveToMFCCConverter2, sp_filter, zero_sample_count=0):
         self.sample_rate = sample_rate
 
         self.noises = None
         self.mic_irs = None
         self.sp_filter = sp_filter
 
-        self.params = params
+        self.aug_params = aug_params
         self.snr_dbs, self.snr_dbs_freqs = [], []
         for snr, freq in snr_dbs_dict.items():
             self.snr_dbs.append(snr)
@@ -57,14 +57,23 @@ class NoiseCollate:
 
             # Augmenting audio by adding real noise and white noise
             gain_augment_info = augment_volume_gain(aw)
-            noise_augment_info = augment_with_noises(aw, self.noises, snr_db=snr_db, **self.params)
-            aw.wave += generate_white_noise(1, aw.length, -50, 5)
+            noise_augment_info = augment_with_noises(aw, self.noises, snr_db=snr_db, **self.aug_params)
+            aw.wave += generate_white_noise(1, aw.length, -75 + 20 * torch.randn(1).item(), 5)
+
             inputs.append(aw.wave.squeeze(0))
             targets.append(tar)
+
             if i == ex_id or i == 0 or i == len(batch) - 1:
                 examples.append([i, aw.wave.clone(), f"snr{snr_db}", noise_augment_info, gain_augment_info])
+
         inputs = pad_sequence(inputs, batch_first=True)
-        inputs = self.mfcc_converter(inputs, random.choice(self.mic_irs).wave, self.sp_filter)
+
+        use_mic_filter = torch.rand(1).item() < self.aug_params["impulse_mic_prob"]
+        if use_mic_filter:
+            inputs = self.mfcc_converter(inputs, random.choice(self.mic_irs).wave, self.sp_filter)
+        else:
+            inputs = self.mfcc_converter(inputs)
+
         return create_batch_tensor(inputs, targets), examples
 
 

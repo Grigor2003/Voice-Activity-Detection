@@ -20,7 +20,10 @@ if seed is None:
 clean_audios_path = is_type_of(ydict['data']['clean'])
 clean_labels_path = is_type_of(ydict['data']['labels'])
 noise_data_dir = is_type_of(ydict['data']['noise'])
-mic_irs_dir = is_type_of(ydict['data']['mic_irs'])
+
+# Impulses
+mic_ir_dir = is_type_of(ydict['impulses']['mic_ir_dir'])
+mic_ir_prob = is_range(ydict['impulses']['mic_ir_prob'], 0, 1)
 
 # Model section
 model_id = is_range(ydict['model']['id'], 0, MODELS_COUNT, int, req=False)
@@ -42,7 +45,8 @@ saves_count = is_range(ydict['model']['saves_count'], 0, 100, int)
 epoch_noise_count = is_range(ydict['noise']['pool'], 0, 5000, int)
 aug_params = {
     "noise_count": is_range(ydict['noise']['count'], 0, 10, int),
-    "noise_duration_range": parse_range(ydict['noise']['duration'], [0, 60], [0, 60])
+    "noise_duration_range": parse_range(ydict['noise']['duration'], [0, 60], [0, 60]),
+    "impulse_mic_prob": mic_ir_prob,
 }
 snr_dict = parse_numeric_dict(ydict['noise']['snr_dict'],
                               1, 100,
