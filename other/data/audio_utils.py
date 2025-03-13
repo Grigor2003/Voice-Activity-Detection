@@ -78,7 +78,7 @@ class AudioWorker:
 
     def load(self):
         wave, self.rate = torchaudio.load(self.path, frame_offset=self.frame_offset, num_frames=self.num_frames)
-        self.init_rate = wave.rate
+        self.init_rate = self.rate
         self.wave = wave
         self.loaded = self.length > 0
         return self
