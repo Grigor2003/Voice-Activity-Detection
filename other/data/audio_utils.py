@@ -45,11 +45,11 @@ def parse_rttm(labels_path, sr):
 class AudioWorker:
     @staticmethod
     def from_wave(wave, sample_rate):
-        au = AudioWorker(None, "from wave")
-        au.rate = sample_rate
-        au.wave = wave
-        au.loaded = True
-        return au
+        aw = AudioWorker(None, "from wave")
+        aw.rate = sample_rate
+        aw.wave = wave
+        aw.loaded = True
+        return aw
 
     @property
     def wave(self):
@@ -63,7 +63,6 @@ class AudioWorker:
 
 
     def __init__(self, path, name=None, frame_offset=0, num_frames=-1):
-
         self.name = name
         self.path = path
 
@@ -74,10 +73,12 @@ class AudioWorker:
         self.num_frames = num_frames
         self.length = None
         self.rate = None
+        self.init_rate = None
         self.duration_s = None
 
     def load(self):
         wave, self.rate = torchaudio.load(self.path, frame_offset=self.frame_offset, num_frames=self.num_frames)
+        self.init_rate = wave.rate
         self.wave = wave
         self.loaded = self.length > 0
         return self
@@ -92,6 +93,13 @@ class AudioWorker:
         old_rate = self.rate
         self.rate = to_freq
         self.wave = tf.resample(self.wave, old_rate, self.rate)
+        return self
+
+    def to_mono(self, channel=0):
+        if not self.loaded:
+            print("WARNING: attempted to change channels of AudioWorker before loading")
+            return self.__unloaded__
+        self._wave = self._wave[channel, :].unsqueeze(0)
         return self
 
     def player(self, mask=None):

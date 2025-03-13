@@ -91,7 +91,7 @@ def augment_with_noises(aw: AudioWorker, noises=None, noise_count=1, noise_durat
             "noises_to_use": noises_to_use}
 
 
-def augment_volume_gain(aw, gain_function='random', effect_ratio=(0.2, 1), value_range=(0.05, 1), inverse=0.5):
+def augment_volume_gain(aw, gain_function='random', effect_ratio=(0.1, 0.7), value_range=(0.15, 1), inverse=0.5):
     functions = ['sin', 'woods']
     if gain_function == "random":
         ind = torch.randint(0, len(functions), (1,)).item()
