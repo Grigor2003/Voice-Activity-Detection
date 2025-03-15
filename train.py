@@ -377,7 +377,7 @@ if __name__ == '__main__':
 
                 stats["target_pos_rate"] = stats["target_positive"] / stats["whole_mask"]
                 stats["output_pos_rate"] = stats["output_positive"] / stats["whole_mask"]
-                with open(os.path.join(epoch_folder, 'stats.txt'), 'a') as f:
+                with open(os.path.join(epoch_folder, '_batch_stats.txt'), 'a') as f:
                     print(*stats.items(), file=f, sep='\n')
 
             torch.save({
