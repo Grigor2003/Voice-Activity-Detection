@@ -91,27 +91,39 @@ def augment_with_noises(aw: AudioWorker, noises=None, noise_count=1, noise_durat
             "noises_to_use": noises_to_use}
 
 
-def augment_volume_gain(aw, gain_function='random', effect_ratio=(0.1, 0.7), value_range=(0.15, 1), inverse=0.5):
+def augment_volume_gain(aw: AudioWorker, gain_function='random', effect_duration_s=(3, 10),
+                        effect_ratio=(0.1, 0.7), value_range=(0.15, 1), inverse=0.5):
     functions = ['sin', 'woods']
     if gain_function == "random":
         ind = torch.randint(0, len(functions), (1,)).item()
         gain_function = functions[ind]
+
+    mean, std = 0.5, 0.25
+
     if not isinstance(effect_ratio, (float, int)):
         i_min, i_max = effect_ratio
-        mean, std = 0.5, 0.25
-        r = torch.clamp(mean + torch.randn(1) * std, 0.0, 1.0).item()
+        r = (mean + torch.randn(1) * std)
         effect_ratio = i_min + r * (i_max - i_min)
+
+    if not isinstance(effect_duration_s, (float, int)):
+        i_min, i_max = effect_duration_s
+        r = (mean + torch.randn(1) * std)
+        effect_duration_s = i_min + r * (i_max - i_min)
+
+    effect_ratio = torch.clamp(effect_ratio, 0.0, 1.0).item()
+
+    steps = int(torch.clamp(effect_duration_s * aw.rate, 1, aw.length - 1).item())
 
     match gain_function:
         case 'sin':
-            gain = torch.sin(torch.linspace(0, 2 * torch.pi, steps=aw.length)) ** (2 * int(25 ** effect_ratio))
+            gain = torch.sin(torch.linspace(0, 2 * torch.pi, steps=steps)) ** (2 * int(25 ** effect_ratio))
         case 'woods':
             a, b, c = effect_ratio, effect_ratio, 0.5
             n = lambda x: 1 / torch.tan(torch.pi * (2 * torch.abs(x - c) / b))
             v = lambda x: 1 / (1 + torch.exp(n(x)) ** (100 ** a))
             fr, to = c - b / 2, c + b / 2
-            gain = torch.ones(aw.length)
-            s_fr, s_to = int(aw.length * fr), int(aw.length * to)
+            gain = torch.ones(steps)
+            s_fr, s_to = int(steps * fr), int(steps * to)
             gain[s_fr: s_to] = v(torch.linspace(fr, to, steps=s_to - s_fr))
         case _:
             ValueError("Unsupported gain function. Choose 'sin' or 'woods'.")
@@ -123,9 +135,14 @@ def augment_volume_gain(aw, gain_function='random', effect_ratio=(0.1, 0.7), val
 
     min_gain, max_gain = value_range
     gain = min_gain + gain * (max_gain - min_gain)
-    aw.wave *= torch.abs(gain.to(aw.wave.device))
+    gain = torch.abs(gain.to(aw.wave.device))
 
-    return {"was_inversed": was_inversed,
+    start = torch.randint(0, aw.length - steps, (1,)).item()
+
+    aw.wave[:, start:start + steps] *= gain
+
+    return {"start_dur": (int(start / aw.length), effect_duration_s.item()),
+            "was_inversed": was_inversed,
             "gain_function": gain_function,
             "effect_ratio": effect_ratio}
 
