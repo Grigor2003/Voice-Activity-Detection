@@ -8,7 +8,6 @@ from tabulate import tabulate
 import ctypes
 import threading
 
-
 RES_PREFIX = "res"
 DATE_FORMAT = "%Y-%m-%d"
 MODEL_NAME = "weights.pt"
@@ -134,3 +133,45 @@ def async_message_box(title, text, style):
     thread = threading.Thread(target=ctypes.windll.user32.MessageBoxW,
                               args=(0, text, title, style), daemon=True)
     thread.start()
+
+
+class Example:
+    def __init__(self,
+                 wave: torch.Tensor = None,
+                 clear: torch.Tensor = None,
+                 label: torch.Tensor = None,
+                 pred: torch.Tensor = None,
+                 name: str = None, info_dicts: list[dict] = None,
+                 bi: int = None, i: int = None):
+        self.wave = wave
+        self.clear = clear
+        self.label = label
+        self.pred = pred
+        self.name = name
+        self.info_dicts = info_dicts
+        self.bi = bi
+        self.i = i
+
+    def update(self,
+               wave: torch.Tensor = None,
+               clear: torch.Tensor = None,
+               label: torch.Tensor = None,
+               pred: torch.Tensor = None,
+               name: str = None, info_dicts: list[dict] = None,
+               bi: int = None, i: int = None):
+        if wave is not None:
+            self.wave = wave
+        if clear is not None:
+            self.clear = clear
+        if label is not None:
+            self.label = label
+        if pred is not None:
+            self.pred = pred
+        if name is not None:
+            self.name = name
+        if info_dicts is not None:
+            self.info_dicts = info_dicts
+        if bi is not None:
+            self.bi = bi
+        if i is not None:
+            self.i = i

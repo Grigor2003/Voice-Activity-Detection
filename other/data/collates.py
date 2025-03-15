@@ -5,10 +5,12 @@ from other.data.audio_utils import AudioWorker
 from other.data.augmentation_utils import generate_white_noise, augment_with_noises, augment_volume_gain
 from other.data.processing import WaveToMFCCConverter2, ChebyshevType2Filter
 from other.data.work_with_stamps_utils import stamps_to_binary_counts, balance_regions, binary_counts_to_windows_np
+from other.utils import Example
 
 
 class NoiseCollate:
-    def __init__(self, sample_rate, aug_params, snr_dbs_dict, mfcc_converter: WaveToMFCCConverter2, sp_filter, zero_sample_count=0):
+    def __init__(self, sample_rate, aug_params, snr_dbs_dict, mfcc_converter: WaveToMFCCConverter2, sp_filter,
+                 zero_sample_count=0):
         self.sample_rate = sample_rate
 
         self.noises = None
@@ -36,9 +38,10 @@ class NoiseCollate:
                 aw = AudioWorker.from_wave(generate_white_noise(1, size, -50, 5), sr)
                 batch.append((aw, []))
 
-        ex_id = torch.randint(1, len(batch) - 1, (1,)).item() if len(batch) > 2 else None
+        ex_ids = [0, len(batch) - 1] + torch.randint(1, len(batch) - 1, (3,)).tolist() if len(batch) > 2 else []
 
-        inputs, targets, examples = [], [], []
+        waves, targets = [], []
+        examples, clear = [], None
         for i, (aw, one_stamps) in enumerate(batch):
             binary_counts = stamps_to_binary_counts(one_stamps, aw.length)
 
@@ -53,27 +56,37 @@ class NoiseCollate:
             snr_db_ind = torch.multinomial(self.snr_dbs_freqs, 1)
             snr_db = self.snr_dbs[snr_db_ind]
 
+            if i in ex_ids:
+                clear = aw.wave.clone()
+
             # Augmenting audio by adding real noise and white noise
             gain_augment_info = augment_volume_gain(aw)
             noise_augment_info = augment_with_noises(aw, self.noises, snr_db=snr_db, **self.aug_params)
             aw.wave += generate_white_noise(1, aw.length, -75 + 20 * torch.randn(1).item(), 5)
 
-            inputs.append(aw.wave.squeeze(0))
+            waves.append(aw.wave.squeeze(0))
             targets.append(tar)
 
-            if i == ex_id or i == 0 or i == len(batch) - 1:
-                examples.append([i, aw.wave.clone(), f"snr{snr_db}", noise_augment_info, gain_augment_info])
+            if i in ex_ids:
+                name = f"snr_{snr_db}" if i < len(batch) - self.zsc else f"zero_snr_{snr_db}"
+                examples.append(Example(clear=clear,
+                                        name=name, info_dicts=[noise_augment_info, gain_augment_info], i=i,
+                                        label=labels))
 
-        inputs = pad_sequence(inputs, batch_first=True)
+        pad_waves = pad_sequence(waves, batch_first=True)
 
         use_mic_filter = torch.rand(1).item() < self.aug_params["impulse_mic_prob"]
         if use_mic_filter:
-            mic_ind = torch.randint(0, len(self.mic_irs) - 1, (1, )).item()
-            inputs = self.mfcc_converter(inputs, self.mic_irs[mic_ind].wave, self.sp_filter)
+            mic_ind = torch.randint(0, len(self.mic_irs) - 1, (1,)).item()
+            pad_inputs, exam_waves = self.mfcc_converter(pad_waves, self.mic_irs[mic_ind].wave, self.sp_filter,
+                                                         wave_indexes_to_return=ex_ids)
         else:
-            inputs = self.mfcc_converter(inputs)
+            pad_inputs, exam_waves = self.mfcc_converter(pad_waves, wave_indexes_to_return=ex_ids)
 
-        return create_batch_tensor(inputs, targets), examples
+        for ex in examples:
+            ex.update(wave=exam_waves[ex.i][:, :waves[ex.i].size(-1)])
+
+        return create_batch_tensor(pad_inputs, targets), examples
 
 
 class ValCollate:
@@ -112,4 +125,4 @@ def create_batch_tensor(inputs, targets):
     padded_input = pad_sequence(inputs, batch_first=True)
     padded_output = pad_sequence(targets, batch_first=True)
 
-    return padded_input, mask, padded_output
+    return padded_input, padded_output, mask

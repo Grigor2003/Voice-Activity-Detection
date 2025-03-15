@@ -160,7 +160,7 @@ class WaveToMFCCConverter2:
         mfcc = torch.matmul(mel_specgram.mT, self.dct_matrix).mT
         return mfcc
 
-    def __call__(self, audio: torch.Tensor, ir=None, spectre_filter=None) -> torch.Tensor:
+    def __call__(self, audio: torch.Tensor, ir=None, spectre_filter=None, wave_indexes_to_return=None) -> torch.Tensor:
 
         if ir is not None:
             orig_len = audio.shape[-1]
@@ -179,6 +179,8 @@ class WaveToMFCCConverter2:
                 raise TypeError("spectre_filter should either be list[callable] or callable")
 
         mfcc = self.get_mfcc(spectrogram)
+        if wave_indexes_to_return is not None:
+            return mfcc.mT, {i: audio[i].unsqueeze(0) for i in wave_indexes_to_return}
         return mfcc.mT
 
 

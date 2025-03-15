@@ -87,12 +87,12 @@ def augment_with_noises(aw: AudioWorker, noises=None, noise_count=1, noise_durat
                             snr_db=snr_db, start=noises_starts[i], end=-noise_durations[i])
 
     return {"noises_starts": noises_starts,
-            "noise_durations": noise_durations,
+            "noises_durations": noise_durations,
             "noises_to_use": noises_to_use}
 
 
 def augment_volume_gain(aw: AudioWorker, gain_function='random', effect_duration_s=(3, 10),
-                        effect_ratio=(0.1, 0.7), value_range=(0.15, 1), inverse=0.5):
+                        effect_ratio=(0.1, 0.7), value_range=(0.15, 1), inverse=0):
     functions = ['sin', 'woods']
     if gain_function == "random":
         ind = torch.randint(0, len(functions), (1,)).item()
@@ -141,10 +141,11 @@ def augment_volume_gain(aw: AudioWorker, gain_function='random', effect_duration
 
     aw.wave[:, start:start + steps] *= gain
 
-    return {"start_dur": (int(start / aw.length), effect_duration_s.item()),
-            "was_inversed": was_inversed,
+    return {"gain_start": start / aw.rate,
+            "gain_duration": effect_duration_s,
+            "gain_was_inversed": was_inversed,
             "gain_function": gain_function,
-            "effect_ratio": effect_ratio}
+            "gain_effect_ratio": effect_ratio}
 
 
 def generate_white_noise(count, samples_count, noise_db=1, noise_dev=0):
