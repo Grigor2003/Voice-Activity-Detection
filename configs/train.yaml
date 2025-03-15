@@ -5,8 +5,8 @@ data:
   # Path to clean data
   clean: datasets\train-clean-100(converted to 8000 sr)
   # Path to labels
-  labels: datasets\8000_10_50_webrtc_labels.csv
-#  labels: datasets\8000_10_50_webrtc_labels_lite.csv
+#  labels: datasets\8000_10_50_webrtc_labels.csv
+  labels: datasets\8000_10_50_webrtc_labels_lite.csv
   # Path to noises data
   noise: datasets\noise-16k
 
@@ -60,10 +60,10 @@ train:
   # The number of epochs to train the model in current session
   epoch: 3
   # The number of workers for data loading during training
-  workers: 4
+  workers: 0
   # The size of training batch (can be not final)
-  batch: 300
-#  batch: 12
+#  batch: 300
+  batch: 50
   # Accumulation steps
   n_accum: 4
   # Default window lenght (hop lenght would be half of window)
@@ -75,7 +75,7 @@ val:
   # The number of epochs to pass before calculating the validation score
   every: 3
   # The number of workers for data loading during validation score calculation
-  workers: 4
+  workers:
   # The size of the batch for simultaneous usage of samples during validation score calculation
   # The real size of validation batch is len(snr_list) * mini_batch
   mini_batch: 8

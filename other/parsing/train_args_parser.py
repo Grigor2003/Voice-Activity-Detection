@@ -79,7 +79,9 @@ train_ratio = 1 - is_range(ydict['val']['ratio'], 0, 1)
 val_every = is_range(ydict['val']['every'], 0, 1000, int)
 if val_every > do_epoches:
     val_every = 0
-val_num_workers = is_range(ydict['val']['workers'], 0, 32, int)
+val_num_workers = is_range(ydict['val']['workers'], 0, 32, int, req=False)
+if val_num_workers is None:
+    val_num_workers = num_workers
 val_batch_size = is_range(ydict['val']['mini_batch'], 1, 2 ** 15, int)
 val_snrs_list = parse_numeric_list(ydict['val']['snr_list'], 1, 100, -25, 25, int, False)
 
