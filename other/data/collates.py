@@ -1,5 +1,3 @@
-import random  # TODO: can be only temporary
-
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
@@ -70,7 +68,8 @@ class NoiseCollate:
 
         use_mic_filter = torch.rand(1).item() < self.aug_params["impulse_mic_prob"]
         if use_mic_filter:
-            inputs = self.mfcc_converter(inputs, random.choice(self.mic_irs).wave, self.sp_filter)
+            mic_ind = torch.randint(0, len(self.mic_irs) - 1, (1, )).item()
+            inputs = self.mfcc_converter(inputs, self.mic_irs[mic_ind].wave, self.sp_filter)
         else:
             inputs = self.mfcc_converter(inputs)
 
