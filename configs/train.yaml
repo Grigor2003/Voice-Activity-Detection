@@ -5,7 +5,7 @@ data:
   # Path to clean data
   clean: datasets\train-clean-100(converted to 8000 sr)
   # Path to labels
-  labels: datasets\8000_10_50_webrtc_labels_lite.csv
+  labels: datasets\8000_10_50_webrtc_labels.csv
 #  labels: datasets\8000_10_50_webrtc_labels_lite.csv
   # Path to noises data
   noise: datasets\noise-16k
@@ -29,7 +29,7 @@ model:
   # creates a new run folder for storing results
   # If empty, continue training on last model, but in new run folder
   # Always sets create_new_model to false as soon as saved
-  create_new_model: false
+  create_new_model:
   # The count of saves (one save is always done at the end of the run)
   # When 0 will be saved every epoch
   saves_count: 0
@@ -56,16 +56,16 @@ noise:
 
 train:
   # The learning rate given by power of 10
-  lr: -3
+  lr: -1
   # The number of epochs to train the model in current session
-  epoch: 9
+  epoch: 3
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)
-  batch: 64
+  batch: 300
 #  batch: 12
   # Accumulation steps
-  n_accum: 8
+  n_accum: 4
   # Default window lenght (hop lenght would be half of window)
   win_length: 400
 
