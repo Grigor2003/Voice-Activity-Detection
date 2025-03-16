@@ -17,7 +17,7 @@ class DGCGD_Accent(nn.Module):
         self.activation2 = nn.ReLU()
         self.dropout2 = nn.Dropout(dropout_prob)
 
-        self.accent_fc1 = nn.Linear(hidden_dim4, 5)
+        self.accent_fc1 = nn.Linear(hidden_dim4, 6)
         self.accent_activation1 = nn.Sigmoid()
 
         self.input_dim = input_dim
