@@ -123,12 +123,12 @@ class AccentSampler(Sampler):
         self.labels = list(datapoints.keys())
         self.set_lengths = {key: len(value) for key, value in datapoints.items()}
         self.longest_set = max(self.set_lengths, key=self.set_lengths.get)
-        self.dataqueues = defaultdict(deque)
+        self.data_queues = defaultdict(deque)
 
     def create_queue(self, label):
-        self.dataqueues[label] = deque(range(self.set_lengths[label]))
+        self.data_queues[label] = deque(range(self.set_lengths[label]))
         if self.shuffle:
-            random.shuffle(self.dataqueues[label])
+            random.shuffle(self.data_queues[label])
 
     def prepare_sampler(self):
         self.must_stop = False
@@ -148,7 +148,7 @@ class AccentSampler(Sampler):
                 break
             label = random.choice(curr_labels)
 
-            if len(self.dataqueues[label]) == 0:
+            if len(self.data_queues[label]) == 0:
                 if not self.reset:
                     curr_labels.remove(label)
                     continue
@@ -157,4 +157,4 @@ class AccentSampler(Sampler):
                     self.must_stop = True
                 self.create_queue(label)
 
-            yield (label, self.dataqueues[label].pop())
+            yield label, self.data_queues[label].pop()
