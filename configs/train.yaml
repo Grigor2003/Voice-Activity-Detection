@@ -15,6 +15,12 @@ impulses:
   mic_ir_dir: datasets\mic-irs\microphone-irs-8000
   mic_ir_prob: 0.25
 
+bg_music:
+  # BG Music for augmentation
+  bg_music_dir: datasets\noise-16k
+  bg_music_prob: 0.25
+  pool: 10
+
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
   id:

@@ -25,6 +25,11 @@ noise_data_dir = is_type_of(ydict['data']['noise'])
 mic_ir_dir = is_type_of(ydict['impulses']['mic_ir_dir'])
 mic_ir_prob = is_range(ydict['impulses']['mic_ir_prob'], 0, 1)
 
+# BG Music
+bg_music_dir = is_type_of(ydict['bg_music']['bg_music_dir'])
+bg_music_prob = is_range(ydict['bg_music']['bg_music_prob'], 0, 1)
+epoch_bg_music_count = is_range(ydict['bg_music']['pool'], 0, 100, int)
+
 # Model section
 model_id = is_range(ydict['model']['id'], 0, MODELS_COUNT, int, req=False)
 model_name = is_type_of(ydict['model']['name'], req=False)
@@ -47,6 +52,7 @@ aug_params = {
     "noise_count": is_range(ydict['noise']['count'], 0, 10, int),
     "noise_duration_range": parse_range(ydict['noise']['duration'], [0, 60], [0, 60]),
     "impulse_mic_prob": mic_ir_prob,
+    "bg_music_prob": bg_music_prob
 }
 snr_dict = parse_numeric_dict(ydict['noise']['snr_dict'],
                               1, 100,

@@ -114,6 +114,7 @@ if __name__ == '__main__':
 
     noise_files_paths = [os.path.join(noise_data_dir, p) for p in os.listdir(noise_data_dir) if p.endswith(".wav")]
     mic_files_paths = [os.path.join(mic_ir_dir, p) for p in os.listdir(mic_ir_dir) if p.endswith(".wav")]
+    bg_music_paths = [os.path.join(bg_music_dir, p) for p in os.listdir(bg_music_dir) if p.endswith(".wav")]
     sp_filter = ChebyshevType2Filter(mfcc_converter.sample_rate, mfcc_converter.n_fft,
                                      upper_bound=mfcc_converter.sample_rate // 2 - 1)
     info_txt += '\n' + ("Noise files" +
@@ -179,13 +180,16 @@ if __name__ == '__main__':
         global_epoch = curr_run_start_global_epoch + epoch - 1
         print(f"\n{'=' * 100}\n")
 
-        inds = torch.randperm(len(noise_files_paths))[:epoch_noise_count]
+        noise_inds = torch.randperm(len(noise_files_paths))[:epoch_noise_count]
+        bg_music_inds = torch.randperm(len(bg_music_paths))[:epoch_bg_music_count]
 
-        noises = [AudioWorker(noise_files_paths[i]).load().resample(dataset.sample_rate) for i in inds]
+        noises = [AudioWorker(noise_files_paths[i]).load().resample(dataset.sample_rate) for i in noise_inds]
         mic_irs = [AudioWorker(ir_path).load().resample(dataset.sample_rate) for ir_path in mic_files_paths]
+        bg_musics = [AudioWorker(bg_music_paths[i]).load().resample(dataset.sample_rate) for i in bg_music_inds]
 
         train_dataloader.collate_fn.noises = noises
         train_dataloader.collate_fn.mic_irs = mic_irs
+        train_dataloader.collate_fn.bg_musics = bg_musics
 
         val_dataloader.collate_fn.noises = noises
 

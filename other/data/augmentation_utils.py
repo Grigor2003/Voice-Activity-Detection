@@ -7,7 +7,7 @@ def calculate_rms(tensor):
     return torch.sqrt(torch.mean(tensor ** 2))
 
 
-def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=8000):
+def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=8000, random_noise_phase=False):
     if start < 0:
         start = 0
     if end is not None:
@@ -25,10 +25,12 @@ def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=800
         end = audio.size(-1)
     audio_part = audio[:, start:end]
     orig_noise = noise.clone()
+    if random_noise_phase:
+        orig_noise = orig_noise[:, :torch.randint(orig_noise.shape[1], (1,))]
     if torch.sum(torch.isnan(orig_noise)):
         print("orig noise has nan")
     while end - start > noise.size(-1):
-        noise = torch.cat([noise, orig_noise], dim=1)
+        noise = torch.cat([orig_noise, noise], dim=1)
     noise = noise[:, : end - start]
     if torch.sum(torch.isnan(noise)):
         print("nan after repeating noise ", torch.sum(torch.isnan(orig_noise)), torch.sum(torch.isnan(noise)))
@@ -66,7 +68,7 @@ def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=800
     return temp
 
 
-def augment_with_noises(aw: AudioWorker, noises=None, noise_count=1, noise_duration_range=(2, 5), snr_db=3, **kwargs):
+def augment_with_noises(aw: AudioWorker, noises=None, noise_count=1, noise_duration_range=(2, 5), snr_db=3, random_noise_phase=False, **kwargs):
     if None in [noises, noise_count, noise_duration_range, snr_db]:
         return {"noise_None": True}
 
@@ -84,7 +86,8 @@ def augment_with_noises(aw: AudioWorker, noises=None, noise_count=1, noise_durat
 
     for i, noise_ind in enumerate(noises_to_use):
         aw.wave = add_noise(aw.wave, sample_rate=aw.rate, noise=noises[noise_ind].wave,
-                            snr_db=snr_db, start=noises_starts[i], end=-noise_durations[i])
+                            snr_db=snr_db, start=noises_starts[i], end=-noise_durations[i],
+                            random_noise_phase=random_noise_phase)
 
     return {"noises_starts": noises_starts,
             "noises_durations": noise_durations,

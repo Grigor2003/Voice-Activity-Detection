@@ -1,3 +1,4 @@
+from typing import Iterable
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
@@ -15,6 +16,7 @@ class NoiseCollate:
 
         self.noises = None
         self.mic_irs = None
+        self.bg_musics = None
         self.sp_filter = sp_filter
 
         self.aug_params = aug_params
@@ -27,7 +29,7 @@ class NoiseCollate:
         self.mfcc_converter = mfcc_converter
         self.zsc = zero_sample_count
 
-    def __call__(self, batch):
+    def __call__(self, batch: Iterable[tuple[AudioWorker, list]]):
         # Adding empty tracks with labels 0
         if self.zsc > 0:
             sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
@@ -61,6 +63,16 @@ class NoiseCollate:
 
             # Augmenting audio by adding real noise and white noise
             gain_augment_info = augment_volume_gain(aw)
+            music_augment_info = dict()
+            if torch.rand(1).item() < self.aug_params["bg_music_prob"]:
+                bg_music_ind = torch.randint(len(self.bg_musics), (1,)).item()
+                music_augment_info = augment_with_noises(
+                    aw,
+                    [self.bg_musics[bg_music_ind]],
+                    snr_db=snr_db,
+                    noise_count=1,
+                    noise_duration_range=(aw.duration_s//4, aw.duration_s//2),
+                    random_noise_phase=True)
             noise_augment_info = augment_with_noises(aw, self.noises, snr_db=snr_db, **self.aug_params)
             aw.wave += generate_white_noise(1, aw.length, -75 + 20 * torch.randn(1).item(), 5)
 
@@ -70,14 +82,14 @@ class NoiseCollate:
             if i in ex_ids:
                 name = f"snr_{snr_db}" if i < len(batch) - self.zsc else f"zero_snr_{snr_db}"
                 examples.append(Example(clear=clear,
-                                        name=name, info_dicts=[noise_augment_info, gain_augment_info], i=i,
+                                        name=name, info_dicts=[noise_augment_info, music_augment_info, gain_augment_info], i=i,
                                         label=labels))
 
         pad_waves = pad_sequence(waves, batch_first=True)
 
         use_mic_filter = torch.rand(1).item() < self.aug_params["impulse_mic_prob"]
         if use_mic_filter:
-            mic_ind = torch.randint(0, len(self.mic_irs) - 1, (1,)).item()
+            mic_ind = torch.randint(len(self.mic_irs), (1,)).item()
             pad_inputs, exam_waves = self.mfcc_converter(pad_waves, self.mic_irs[mic_ind].wave, self.sp_filter,
                                                          wave_indexes_to_return=ex_ids)
         else:
