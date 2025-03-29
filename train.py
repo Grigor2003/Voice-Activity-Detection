@@ -185,7 +185,7 @@ if __name__ == '__main__':
 
         noises = [AudioWorker(noise_files_paths[i]).load().resample(dataset.sample_rate) for i in noise_inds]
         mic_irs = [AudioWorker(ir_path).load().resample(dataset.sample_rate) for ir_path in mic_files_paths]
-        bg_musics = [AudioWorker(bg_music_paths[i]).load().resample(dataset.sample_rate) for i in bg_music_inds]
+        bg_musics = [AudioWorker(bg_music_paths[i]).load().to_mono().resample(dataset.sample_rate) for i in bg_music_inds]
 
         train_dataloader.collate_fn.noises = noises
         train_dataloader.collate_fn.mic_irs = mic_irs

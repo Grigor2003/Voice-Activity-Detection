@@ -29,7 +29,7 @@ class NoiseCollate:
         self.mfcc_converter = mfcc_converter
         self.zsc = zero_sample_count
 
-    def __call__(self, batch: Iterable[tuple[AudioWorker, list]]):
+    def __call__(self, batch: list[tuple[AudioWorker, list]]):
         # Adding empty tracks with labels 0
         if self.zsc > 0:
             sizes = [(i.wave.size(-1), len(t), i.rate) for i, t in batch]
