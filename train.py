@@ -11,7 +11,7 @@ from other.models.models_handler import MODELS, count_parameters, estimate_vram_
 from other.data.collates import NoiseCollate, ValCollate
 from other.data.datasets import OpenSLRDataset
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter2, ChebyshevType2Filter
-from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box, Example
+from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box, Example, plot_target_prediction
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
 from other.utils import print_as_table, save_history_plot
 
@@ -372,6 +372,9 @@ if __name__ == '__main__':
                     torchaudio.save(p.format(pfx='_target') + '.wav', ex.wave[:, target_iw_mask], sample_rate)
                     torchaudio.save(p.format(pfx='_target_clear') + '.wav', ex.clear[:, target_iw_mask], sample_rate)
                     torchaudio.save(p.format(pfx='') + '.wav', ex.wave, sample_rate)
+                    plot_target_prediction(ex.clear, target_iw_mask, output_iw_mask, sample_rate, p.format(pfx='') + '.png')
+                    plot_target_prediction(ex.wave, target_iw_mask, output_iw_mask, sample_rate, p.format(pfx='_noised') + '.png')
+
                     with open(p.format(pfx='') + '.info', 'a') as f:
                         info = {}
                         [info.update(dct) for dct in ex.info_dicts]

@@ -135,6 +135,47 @@ def async_message_box(title, text, style):
     thread.start()
 
 
+def plot_overlay(item_wise, color, alpha=1.0):
+    changes = np.diff(np.concatenate(([0], item_wise, [0])))
+    starts = np.where(changes == 1)[0]
+    ends = np.where(changes == -1)[0]
+
+    for start, end in zip(starts, ends):
+        plt.axvspan(start, end, color=color, alpha=alpha)
+
+
+def plot_target_prediction(wave, target, pred, sample_rate, save_path=None):
+    plt.figure(figsize=(10, 4))
+    plt.plot(wave[0], color='black')
+
+    plot_overlay(target, 'blue')
+
+    matching_inds = np.logical_and(target == pred, target == 1)
+    matches = np.zeros_like(pred)
+    matches[matching_inds] = 1
+
+    plot_overlay(matches, 'limegreen')
+
+    non_matching_inds = np.logical_and(target != pred, target == 0)
+    non_matching = np.zeros_like(pred)
+    non_matching[non_matching_inds] = 1
+
+    plot_overlay(non_matching, 'red')
+
+    plt.yticks([])
+    xticks = plt.xticks()[0]
+    xticks = xticks[np.logical_and(xticks >= 0, xticks <= wave.shape[-1])]
+    plt.xticks(xticks, xticks / sample_rate)
+
+    if save_path is None:
+        plt.show()
+        plt.close()
+        return
+
+    plt.savefig(save_path, dpi=200, bbox_inches='tight')
+    plt.close()
+
+
 class Example:
     def __init__(self,
                  wave: torch.Tensor = None,
