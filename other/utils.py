@@ -1,12 +1,13 @@
 import os
 from datetime import datetime
+import glob
+import ctypes
+import threading
 
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from tabulate import tabulate
-import ctypes
-import threading
 
 RES_PREFIX = "res"
 DATE_FORMAT = "%Y-%m-%d"
@@ -36,11 +37,67 @@ def loss_function(pred, target, mask, reduction="auto", val=False):
     return loss
 
 
+class Example:
+    def __init__(self,
+                 wave: torch.Tensor = None,
+                 clear: torch.Tensor = None,
+                 label: torch.Tensor = None,
+                 pred: torch.Tensor = None,
+                 name: str = None, info_dicts: list[dict] = None,
+                 bi: int = None, i: int = None):
+        self.wave = wave
+        self.clear = clear
+        self.label = label
+        self.pred = pred
+        self.name = name
+        self.info_dicts = info_dicts
+        self.bi = bi
+        self.i = i
+
+    def update(self,
+               wave: torch.Tensor = None,
+               clear: torch.Tensor = None,
+               label: torch.Tensor = None,
+               pred: torch.Tensor = None,
+               name: str = None, info_dicts: list[dict] = None,
+               bi: int = None, i: int = None):
+        if wave is not None:
+            self.wave = wave
+        if clear is not None:
+            self.clear = clear
+        if label is not None:
+            self.label = label
+        if pred is not None:
+            self.pred = pred
+        if name is not None:
+            self.name = name
+        if info_dicts is not None:
+            self.info_dicts = info_dicts
+        if bi is not None:
+            self.bi = bi
+        if i is not None:
+            self.i = i
+
+
 def print_as_table(dataframe):
     if len(dataframe) > 4:
         print(tabulate(dataframe.iloc[[0, -3, -2, -1], :].T.fillna("---"), headers='keys'))
     else:
         print(tabulate(dataframe.T.fillna("---"), headers='keys'))
+
+
+def get_files_by_extension(directory, ext='txt', rel=False):
+    ext = ext if ext.startswith('.') else ('.' + ext)
+    pattern = os.path.join(directory, '**', f'*{ext}')
+    files = glob.glob(pattern, recursive=True)
+    if rel:
+        return [os.path.relpath(path, directory) for path in files]
+    return files
+
+
+def change_file_extension(file_path, new_extension):
+    ext = new_extension.strip('.')
+    return os.path.splitext(file_path)[0] + "." + ext
 
 
 def find_model_in_dir_or_path(dp: str):
@@ -144,9 +201,8 @@ def plot_overlay(item_wise, color, alpha=1.0):
         plt.axvspan(start, end, color=color, alpha=alpha)
 
 
-def plot_target_prediction(wave, target, pred, sample_rate, save_path=None):
-    plt.figure(figsize=(10, 4))
-    plt.plot(wave[0], color='black')
+def plot_target_prediction(wave, noised_wave, target, pred, sample_rate, save_path=None):
+    plt.figure(figsize=(20, 4))
 
     plot_overlay(target, 'blue')
 
@@ -161,6 +217,8 @@ def plot_target_prediction(wave, target, pred, sample_rate, save_path=None):
     non_matching[non_matching_inds] = 1
 
     plot_overlay(non_matching, 'red')
+    plt.plot(noised_wave[0], color='gray')
+    plt.plot(wave[0], color='black')
 
     plt.yticks([])
     xticks = plt.xticks()[0]
@@ -174,45 +232,3 @@ def plot_target_prediction(wave, target, pred, sample_rate, save_path=None):
 
     plt.savefig(save_path, dpi=200, bbox_inches='tight')
     plt.close()
-
-
-class Example:
-    def __init__(self,
-                 wave: torch.Tensor = None,
-                 clear: torch.Tensor = None,
-                 label: torch.Tensor = None,
-                 pred: torch.Tensor = None,
-                 name: str = None, info_dicts: list[dict] = None,
-                 bi: int = None, i: int = None):
-        self.wave = wave
-        self.clear = clear
-        self.label = label
-        self.pred = pred
-        self.name = name
-        self.info_dicts = info_dicts
-        self.bi = bi
-        self.i = i
-
-    def update(self,
-               wave: torch.Tensor = None,
-               clear: torch.Tensor = None,
-               label: torch.Tensor = None,
-               pred: torch.Tensor = None,
-               name: str = None, info_dicts: list[dict] = None,
-               bi: int = None, i: int = None):
-        if wave is not None:
-            self.wave = wave
-        if clear is not None:
-            self.clear = clear
-        if label is not None:
-            self.label = label
-        if pred is not None:
-            self.pred = pred
-        if name is not None:
-            self.name = name
-        if info_dicts is not None:
-            self.info_dicts = info_dicts
-        if bi is not None:
-            self.bi = bi
-        if i is not None:
-            self.i = i

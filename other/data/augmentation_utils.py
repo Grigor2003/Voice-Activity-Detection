@@ -7,7 +7,7 @@ def calculate_rms(tensor):
     return torch.sqrt(torch.mean(tensor ** 2))
 
 
-def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=8000, random_noise_phase=False):
+def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=8000, noise_phase=None):
     if start < 0:
         start = 0
     if end is not None:
@@ -25,8 +25,8 @@ def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=800
         end = audio.size(-1)
     audio_part = audio[:, start:end]
     orig_noise = noise.clone()
-    if random_noise_phase:
-        orig_noise = orig_noise[:, :torch.randint(orig_noise.shape[1], (1,))]
+    if noise_phase is not None:
+        orig_noise = orig_noise[:, noise_phase:]
     if torch.sum(torch.isnan(orig_noise)):
         print("orig noise has nan")
     while end - start > noise.size(-1):
@@ -68,30 +68,42 @@ def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=800
     return temp
 
 
-def augment_with_noises(aw: AudioWorker, noises=None, noise_count=1, noise_duration_range=(2, 5), snr_db=3, random_noise_phase=False, **kwargs):
-    if None in [noises, noise_count, noise_duration_range, snr_db]:
+def augment_with_noises(aw: AudioWorker, noises=None, noise_duration_range=(2, 5), snr_db=3, random_noise_phase=False,
+                        warnings=True, seed=None):
+    if None in [noises, noise_duration_range, snr_db]:
+        if warnings:
+            print("WARNING: no noise augmentation applied")
         return {"noise_None": True}
 
     for noise in noises:
-        noise.resample(aw.rate)
+        if noise.rate != aw.rate:
+            if warnings:
+                print("WARNING: noise and audio sample rates do not match")
+            return {"noise_rate": noise.rate, "audio_rate": aw.rate}
 
+    noise_count = len(noises)
     if noise_count <= 0:
+        if warnings:
+            print("WARNING: noises were empty")
         return {"noise_count": noise_count}
 
-    noises_starts, _ = torch.sort(torch.rand(noise_count) * aw.duration_s)
+    gen = None
+    if seed is not None:
+        gen = torch.Generator()
+        gen.manual_seed(seed)
+    noises_starts, _ = torch.sort(torch.rand(noise_count, generator=gen) * aw.duration_s)
     dur_delta = noise_duration_range[1] - noise_duration_range[0]
-    noise_durations = torch.rand(noise_count) * dur_delta + noise_duration_range[0]
-
-    noises_to_use = torch.randint(len(noises), (noise_count,))
-
-    for i, noise_ind in enumerate(noises_to_use):
-        aw.wave = add_noise(aw.wave, sample_rate=aw.rate, noise=noises[noise_ind].wave,
+    noise_durations = torch.rand(noise_count, generator=gen) * dur_delta + noise_duration_range[0]
+    noise_phase = None
+    if random_noise_phase:
+        noise_phase = torch.randint(aw.length, (1,), generator=gen)
+    for i, noise in enumerate(noises):
+        aw.wave = add_noise(aw.wave, sample_rate=aw.rate, noise=noise.wave,
                             snr_db=snr_db, start=noises_starts[i], end=-noise_durations[i],
-                            random_noise_phase=random_noise_phase)
+                            noise_phase=noise_phase)
 
     return {"noises_starts": noises_starts,
-            "noises_durations": noise_durations,
-            "noises_to_use": noises_to_use}
+            "noises_durations": noise_durations}
 
 
 def augment_volume_gain(aw: AudioWorker, gain_function='random', effect_duration_s=(3, 10),

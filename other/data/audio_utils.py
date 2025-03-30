@@ -1,25 +1,8 @@
-import copy
-import glob
-import os
-
 import matplotlib.pyplot as plt
 import torch
 import torchaudio
 import torchaudio.functional as tf
 from IPython.display import Audio as PyAudio, display
-
-
-def get_files_by_extension(directory, ext='txt', rel=False):
-    pattern = os.path.join(directory, '**', f'*.{ext}')
-    files = glob.glob(pattern, recursive=True)
-    if rel:
-        return [os.path.relpath(path, directory) for path in files]
-    return files
-
-
-def change_file_extension(file_path, new_extension):
-    ext = new_extension.strip('.')
-    return os.path.splitext(file_path)[0] + "." + ext
 
 
 def parse_rttm(labels_path, sr):
@@ -61,7 +44,6 @@ class AudioWorker:
         self.duration_s = self.length / self.rate
         self._wave = value
 
-
     def __init__(self, path, name=None, frame_offset=0, num_frames=-1):
         self.name = name
         self.path = path
@@ -95,7 +77,7 @@ class AudioWorker:
         self.wave = tf.resample(self.wave, old_rate, self.rate)
         return self
 
-    def to_mono(self, channel=0):
+    def leave_one_channel(self, channel=0):
         if not self.loaded:
             print("WARNING: attempted to change channels of AudioWorker before loading")
             return self.__unloaded__
@@ -144,5 +126,13 @@ class AudioWorker:
                 axes[c].set_ylabel(f"Channel {c + 1}")
         figure.suptitle(f"Waveform of {self.name}")
 
-    def deepcopy(self):
-        return copy.deepcopy(self)
+    def clone(self):
+        aw = AudioWorker(self.path, self.name, self.frame_offset, self.num_frames)
+        aw.loaded = self.loaded
+        if aw.loaded:
+            aw.rate = self.rate
+            aw.init_rate = self.init_rate
+            aw.duration_s = self.duration_s
+            aw.length = self.length
+            aw._wave = self._wave.clone()
+        return aw

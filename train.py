@@ -11,7 +11,8 @@ from other.models.models_handler import MODELS, count_parameters, estimate_vram_
 from other.data.collates import NoiseCollate, ValCollate
 from other.data.datasets import OpenSLRDataset
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter2, ChebyshevType2Filter
-from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box, Example, plot_target_prediction
+from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box, Example, plot_target_prediction, \
+    get_files_by_extension
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
 from other.utils import print_as_table, save_history_plot
 
@@ -112,14 +113,17 @@ if __name__ == '__main__':
             win_length=default_win_length,
             hop_length=default_win_length // 2)
 
-    noise_files_paths = [os.path.join(noise_data_dir, p) for p in os.listdir(noise_data_dir) if p.endswith(".wav")]
-    mic_files_paths = [os.path.join(mic_ir_dir, p) for p in os.listdir(mic_ir_dir) if p.endswith(".wav")]
-    bg_music_paths = [os.path.join(bg_music_dir, p) for p in os.listdir(bg_music_dir) if p.endswith(".wav")]
-    sp_filter = ChebyshevType2Filter(mfcc_converter.sample_rate, mfcc_converter.n_fft,
-                                     upper_bound=mfcc_converter.sample_rate // 2 - 1)
+    noise_files_count = 0
+    for ndata in noise_args.datas:
+        ndata.all_files_paths = get_files_by_extension(ndata.data_dir, 'wav')
+        noise_files_count += len(ndata.all_files_paths)
+
+    impulse_args.mic_ir_files_paths = get_files_by_extension(impulse_args.mic_ir_dir, 'wav')
+    chebyshev_filter = ChebyshevType2Filter(mfcc_converter.sample_rate, mfcc_converter.n_fft,
+                                            upper_bound=mfcc_converter.sample_rate // 2 - 1)
     info_txt += '\n' + ("Noise files" +
-                        f"\n\t- files count : {len(noise_files_paths)}" +
-                        f"\n\t- path: '{noise_data_dir}'")
+                        f"\n\t- files count : {noise_files_count}" +
+                        f"\n\t- data names: [{', '.join([d.name for d in noise_args.datas])}]")
 
     train_dataloader, val_dataloader = get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size,
                                                                  num_workers, val_num_workers, generator)
@@ -146,15 +150,14 @@ if __name__ == '__main__':
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
                 accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
 
-    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, aug_params, snr_dict, mfcc_converter, sp_filter,
-                                               zero_count)
-    val_dataloader.collate_fn = ValCollate(dataset.sample_rate, aug_params, val_snrs_list, mfcc_converter)
+    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, noise_args, impulse_args, mfcc_converter)
+    val_dataloader.collate_fn = ValCollate(dataset.sample_rate, noise_args, val_snrs_list, mfcc_converter)
 
     # noinspection PyRedundantParentheses
     info_txt += '\n' + (f"Checkpoints : {saves_count} in {do_epoches}")
     info_txt += '\n' + ("Training" +
-                        f"\n\t- SNR values : [{', '.join(map(str, snr_dict))}]".replace('None', '_') +
-                        f"\n\t- final batch size:  {batch_size + zero_count if zero_count is not None else 0}")
+                        # f"\n\t- SNR values : [{', '.join(map(str, snr_dict))}]".replace('None', '_') +
+                        f"\n\t- final batch size:  {batch_size + noise_args.zero_count if noise_args.zero_count is not None else 0}")
 
     if val_every != 0:
         info_txt += '\n' + ("Validation" +
@@ -180,19 +183,16 @@ if __name__ == '__main__':
         global_epoch = curr_run_start_global_epoch + epoch - 1
         print(f"\n{'=' * 100}\n")
 
-        noise_inds = torch.randperm(len(noise_files_paths))[:epoch_noise_count]
-        bg_music_inds = torch.randperm(len(bg_music_paths))[:epoch_bg_music_count]
+        for ndata in noise_args.datas:
+            noise_inds = torch.randperm(len(ndata.all_files_paths))[:ndata.epoch_pool]
+            ndata.loaded_pool = [AudioWorker(ndata.all_files_paths[i])
+                                 .load().leave_one_channel().resample(dataset.sample_rate) for i in noise_inds]
 
-        noises = [AudioWorker(noise_files_paths[i]).load().resample(dataset.sample_rate) for i in noise_inds]
-        mic_irs = [AudioWorker(ir_path).load().resample(dataset.sample_rate) for ir_path in mic_files_paths]
-        bg_musics = [AudioWorker(bg_music_paths[i]).load().to_mono().resample(dataset.sample_rate) for i in bg_music_inds]
+        if len(impulse_args.mic_ir_loaded) == 0:
+            impulse_args.mic_ir_loaded = [AudioWorker(ir_path).load().leave_one_channel().resample(dataset.sample_rate)
+                                          for ir_path in impulse_args.mic_ir_files_paths]
 
-        train_dataloader.collate_fn.noises = noises
-        train_dataloader.collate_fn.mic_irs = mic_irs
-        train_dataloader.collate_fn.bg_musics = bg_musics
-
-        val_dataloader.collate_fn.noises = noises
-
+        train_dataloader.collate_fn.sp_filter = chebyshev_filter
         stats = {"target_positive": 0, "output_positive": 0, "whole_mask": 0}
         working_examples[-global_epoch] = stats
 
@@ -368,12 +368,11 @@ if __name__ == '__main__':
 
                     # try:
                     p = os.path.join(epoch_folder, f"{ex.name}_b{ex.bi}_i{ex.i}" + '{pfx}')
-                    torchaudio.save(p.format(pfx='_output') + '.wav', ex.wave[:, output_iw_mask], sample_rate)
-                    torchaudio.save(p.format(pfx='_target') + '.wav', ex.wave[:, target_iw_mask], sample_rate)
-                    torchaudio.save(p.format(pfx='_target_clear') + '.wav', ex.clear[:, target_iw_mask], sample_rate)
-                    torchaudio.save(p.format(pfx='') + '.wav', ex.wave, sample_rate)
-                    plot_target_prediction(ex.clear, target_iw_mask, output_iw_mask, sample_rate, p.format(pfx='') + '.png')
-                    plot_target_prediction(ex.wave, target_iw_mask, output_iw_mask, sample_rate, p.format(pfx='_noised') + '.png')
+                    torchaudio.save(p.format(pfx='_0_input') + '.wav', ex.wave, sample_rate)
+                    torchaudio.save(p.format(pfx='_1_output') + '.wav', ex.wave[:, output_iw_mask], sample_rate)
+                    torchaudio.save(p.format(pfx='_2_target') + '.wav', ex.wave[:, target_iw_mask], sample_rate)
+                    torchaudio.save(p.format(pfx='_3_target_clear') + '.wav', ex.clear[:, target_iw_mask], sample_rate)
+                    plot_target_prediction(ex.clear, ex.wave, target_iw_mask, output_iw_mask, sample_rate, p.format(pfx='_plot') + '.png')
 
                     with open(p.format(pfx='') + '.info', 'a') as f:
                         info = {}

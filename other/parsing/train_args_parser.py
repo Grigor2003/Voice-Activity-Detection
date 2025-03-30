@@ -2,6 +2,7 @@ import random
 
 import numpy as np
 import ruamel.yaml
+import torch
 
 from other.parsing.parsing_utils import *
 from other.models.models_handler import MODELS_COUNT, NAMES
@@ -19,16 +20,6 @@ if seed is None:
     seed = random.randint(0, 2 ** 32 - 1)
 clean_audios_path = is_type_of(ydict['data']['clean'])
 clean_labels_path = is_type_of(ydict['data']['labels'])
-noise_data_dir = is_type_of(ydict['data']['noise'])
-
-# Impulses
-mic_ir_dir = is_type_of(ydict['impulses']['mic_ir_dir'])
-mic_ir_prob = is_range(ydict['impulses']['mic_ir_prob'], 0, 1)
-
-# BG Music
-bg_music_dir = is_type_of(ydict['bg_music']['bg_music_dir'])
-bg_music_prob = is_range(ydict['bg_music']['bg_music_prob'], 0, 1)
-epoch_bg_music_count = is_range(ydict['bg_music']['pool'], 0, 100, int)
 
 # Model section
 model_id = is_range(ydict['model']['id'], 0, MODELS_COUNT, int, req=False)
@@ -46,19 +37,52 @@ weights_load_from = is_type_of(ydict['model']['weights'], req=False)
 
 saves_count = is_range(ydict['model']['saves_count'], 0, 100, int)
 
-# Noise section
-epoch_noise_count = is_range(ydict['noise']['pool'], 0, 5000, int)
-aug_params = {
-    "noise_count": is_range(ydict['noise']['count'], 0, 10, int),
-    "noise_duration_range": parse_range(ydict['noise']['duration'], [0, 60], [0, 60]),
-    "impulse_mic_prob": mic_ir_prob,
-    "bg_music_prob": bg_music_prob
-}
-snr_dict = parse_numeric_dict(ydict['noise']['snr_dict'],
-                              1, 100,
-                              [-25, 25, True, False],
-                              [0, 2 ** 16, True, True])
-zero_rate = is_type_of(ydict['noise']['zero_rate'], (int, float))
+# Augmentation Noises
+class NoiseArgs:
+    def __init__(self, dct):
+        self.zero_rate = is_type_of(dct['zero_arg'], (int, float))
+        self.zero_count = 0
+        self.count = is_range(dct['count'], 0, 100, int)
+        self.use_weights_as_counts = is_type_of(dct['use_weights_as_counts'], bool)
+        self.datas = []
+        for name, dct in dct.items():
+            if not isinstance(dct, dict):
+                continue
+            self.datas.append(NoiseData(name, dct))
+
+class NoiseData:
+    def __init__(self, name, dct):
+        self.name = name
+        self.weight = is_range(dct['weight'], 0, 5000, int)
+        self.data_dir = is_type_of(dct['dir'])
+        self.epoch_pool = is_range(dct['epoch_pool'], 0, 5000, int)
+        self.duration_range = parse_range(dct['duration'], [0, 60], [0, 60])
+        self.random_phase = is_type_of(dct['random_phase'], bool)
+        snr_to_freq_dict = parse_numeric_dict(dct['snr&weight'],
+                                              1, 100,
+                                              [-25, 25, True, False],
+                                              [0, 2 ** 16, True, True])
+
+        self.snr_dbs, self.snr_dbs_freqs = [], []
+        for snr, freq in snr_to_freq_dict.items():
+            self.snr_dbs.append(snr)
+            self.snr_dbs_freqs.append(freq)
+        self.snr_dbs_freqs = torch.tensor(self.snr_dbs_freqs, dtype=torch.float)
+
+        self.all_files_paths = []
+        self.loaded_pool = []
+
+noise_args = NoiseArgs(ydict['augmentation']['noises'])
+
+# Augmentation Impulses
+class ImpulseArgs:
+    def __init__(self, dct):
+        self.mic_ir_dir = is_type_of(dct['mic_ir_dir'])
+        self.mic_ir_prob = is_range(dct['mic_ir_prob'], 0, 1)
+        self.mic_ir_files_paths = []
+        self.mic_ir_loaded = []
+
+impulse_args = ImpulseArgs(ydict['augmentation']['impulses'])
 
 # Train section
 lr = 10 ** is_range(ydict['train']['lr'], -100, 100)
@@ -73,11 +97,11 @@ elif saves_count > do_epoches:
     raise ValueError(f"Saves count must be less than epoches count to do: {do_epoches}")
 save_frames = np.linspace(do_epoches / saves_count, do_epoches, saves_count, dtype=int)
 
-zero_count = None
-if zero_rate < 0:
-    zero_count = int(-zero_rate)
-elif zero_rate > 0:
-    zero_count = int(zero_rate * batch_size)
+if noise_args.zero_rate < 0:
+    noise_args.zero_count = int(-noise_args.zero_rate)
+elif noise_args.zero_rate > 0:
+    noise_args.zero_count = int(noise_args.zero_rate * batch_size)
+
 default_win_length = is_range(ydict['train']['win_length'], 1, 2 ** 15, int)
 
 # Validation section
