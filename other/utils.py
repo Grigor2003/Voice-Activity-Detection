@@ -134,3 +134,47 @@ def async_message_box(title, text, style):
     thread = threading.Thread(target=ctypes.windll.user32.MessageBoxW,
                               args=(0, text, title, style), daemon=True)
     thread.start()
+
+
+def get_confusion_matrix(preds, labels, num_classes):
+    # Convert one-hot to class indices
+    preds = preds.argmax(dim=1)
+    labels = labels.argmax(dim=1)
+
+    # Compute indices for bincount
+    indices = num_classes * labels + preds  # Unique index for each (true, pred) pair
+
+    # Count occurrences
+    cm = torch.bincount(indices, minlength=num_classes**2).reshape(num_classes, num_classes)
+    return cm
+
+
+def compute_inverse_weighted_f1_from_confusion(confusion_matrix):
+
+    # True Positives (Diagonal)
+    TP = np.diag(confusion_matrix)
+
+    # False Positives (Column sum minus TP)
+    FP = np.sum(confusion_matrix, axis=0) - TP
+
+    # False Negatives (Row sum minus TP)
+    FN = np.sum(confusion_matrix, axis=1) - TP
+
+    # Compute per-class precision and recall
+    precision = TP / (TP + FP + 1e-6)  # Avoid division by zero
+    recall = TP / (TP + FN + 1e-6)
+
+    # Compute per-class F1 score
+    f1_per_class = 2 * (precision * recall) / (precision + recall + 1e-6)
+
+    # Compute class frequencies
+    class_counts = np.sum(confusion_matrix, axis=1) + 1e-6  # Avoid zero division
+
+    # Compute inverse frequency weights
+    inverse_weights = 1.0 / class_counts
+    inverse_weights /= inverse_weights.sum()  # Normalize
+
+    # Compute inversely weighted F1-score
+    weighted_f1 = np.sum(f1_per_class * inverse_weights)
+
+    return weighted_f1

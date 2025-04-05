@@ -11,7 +11,7 @@ from other.models.models_handler import MODELS, count_parameters, estimate_vram_
 from other.data.collates import NoiseCollate, ValCollate
 from other.data.datasets import CommonAccent
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter
-from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box
+from other.utils import EXAMPLE_FOLDER, compute_inverse_weighted_f1_from_confusion, get_confusion_matrix, loss_function, async_message_box
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
 from other.utils import print_as_table, save_history_plot
 
@@ -129,19 +129,25 @@ if __name__ == '__main__':
         loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
         accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'),
                                              index_col="global_epoch")
+        f1_history_table = pd.read_csv(os.path.join(model_dir, 'f1_history.csv'),
+                                             index_col="global_epoch")
     except:
         loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
         accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
+        f1_history_table = pd.DataFrame(columns=['global_epoch', 'train_f1'])
         loss_history_table.set_index('global_epoch', inplace=True)
         accuracy_history_table.set_index('global_epoch', inplace=True)
+        f1_history_table.set_index('global_epoch', inplace=True)
 
         for snr in val_snrs_list:
             if snr is None:
                 loss_history_table['clear_audio_loss'] = []
                 accuracy_history_table['clear_audio_acc'] = []
+                f1_history_table['clear_audio_f1'] = []
             else:
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
                 accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
+                f1_history_table[f'noised_audio_snr{snr}_f1'] = []
 
     train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, aug_params, snr_dict, mfcc_converter, zero_count)
     val_dataloader.collate_fn = ValCollate(dataset.sample_rate, aug_params, val_snrs_list, mfcc_converter)
@@ -169,7 +175,8 @@ if __name__ == '__main__':
 
     print(f"\n{'=' * 100}\n")
     print("Training")
-
+    
+    num_classes = len(train_dataloader.dataset.unique_labels)
     for epoch in range(1, do_epoches + 1):
 
         global_epoch = curr_run_start_global_epoch + epoch - 1
@@ -186,8 +193,8 @@ if __name__ == '__main__':
         val_dataloader.collate_fn.noises = noises
 
         running_loss = torch.scalar_tensor(0, device=device)
-        running_correct_count = torch.scalar_tensor(0, device=device)
         running_whole_count = torch.scalar_tensor(0, device=device)
+        running_confusion_matrix = torch.zeros(num_classes, num_classes, dtype=torch.float32)
 
         model.train()
         
@@ -212,8 +219,7 @@ if __name__ == '__main__':
             batch_samples_count = batch_inputs.size(0)
             running_loss += loss.item() * batch_samples_count * accumulation_steps  # Rescale back for logging
             running_whole_count += batch_samples_count
-            pred_correct = torch.argmax(output, dim=1) == torch.argmax(batch_targets, dim=1)
-            running_correct_count += torch.sum(pred_correct)
+            running_confusion_matrix += get_confusion_matrix(output, batch_targets, num_classes)
 
             # Backward pass (accumulate gradients)
             loss.backward()
@@ -233,7 +239,8 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
         running_loss = (running_loss / running_whole_count).item()
-        accuracy = (running_correct_count / running_whole_count).item()
+        accuracy = (running_confusion_matrix.diagonal().sum() / running_whole_count).item()
+        f1 = compute_inverse_weighted_f1_from_confusion(running_confusion_matrix.numpy())
 
         row_loss_values = {
             'global_epoch': global_epoch,
@@ -241,21 +248,26 @@ if __name__ == '__main__':
         }
         row_acc_values = {
             'global_epoch': global_epoch,
-            'train_accuracy': accuracy
+            'train_accuracy': accuracy,
+        }
+        row_f1_scores = {
+            'global_epoch': global_epoch,
+            'train_f1': f1
         }
 
         time.sleep(0.25)
-        print(f"Training | loss: {running_loss:.4f} | accuracy: {accuracy:.4f}")
+        print(f"Training | loss: {running_loss:.4f} | accuracy: {accuracy:.4f} | f1: {f1:.4f}")
         time.sleep(0.25)
 
-        val_loss, val_acc = None, None
+        val_loss, val_acc, val_f1 = None, None, None
         if val_every != 0 and epoch % val_every == 0:
             model.eval()
 
             with torch.no_grad():
                 val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
                 val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
-                correct_count = {snr_db: 0 for snr_db in val_snrs_list}
+                val_f1 = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
+                confusion_matrix = {snr_db: torch.zeros(num_classes, num_classes, dtype=torch.float32) for snr_db in val_snrs_list}
                 whole_count = {snr_db: 0 for snr_db in val_snrs_list}
 
                 print()
@@ -271,30 +283,36 @@ if __name__ == '__main__':
                         val_loss[snr_db] += loss_fn(output, torch.argmax(batch_targets, dim=1)).item()
 
                         pred_correct = torch.argmax(output, dim=1) == torch.argmax(batch_targets, dim=1)
-                        correct_count[snr_db] += torch.sum(pred_correct)
+                        confusion_matrix[snr_db] += get_confusion_matrix(output, batch_targets, num_classes)
                         whole_count[snr_db] += real_samples_count
 
                 for snr_db in val_snrs_list:
                     val_loss[snr_db] /= whole_count[snr_db]
-                    val_acc[snr_db] = correct_count[snr_db] / whole_count[snr_db]
+                    val_acc[snr_db] = confusion_matrix[snr_db].diagonal().sum() / whole_count[snr_db]
+                    val_f1[snr_db] = compute_inverse_weighted_f1_from_confusion(confusion_matrix[snr_db].numpy())
 
         for snr in val_snrs_list:
             if snr is None:
                 row_loss_values['clear_audio_loss'] = val_loss[snr].item() if val_loss is not None else np.nan
                 row_acc_values['clear_audio_acc'] = val_acc[snr].item() if val_acc is not None else np.nan
+                row_f1_scores['clear_audio_f1'] = val_f1[snr].item() if val_f1 is not None else np.nan
             else:
                 row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[
                     snr].item() if val_loss is not None else np.nan
                 row_acc_values[f'noised_audio_snr{snr}_acc'] = val_acc[snr].item() if val_acc is not None else np.nan
+                row_f1_scores[f'noised_audio_snr{snr}_f1'] = val_f1[snr].item() if val_f1 is not None else np.nan
 
         loss_history_table.loc[global_epoch] = row_loss_values
         accuracy_history_table.loc[global_epoch] = row_acc_values
+        f1_history_table.loc[global_epoch] = row_f1_scores
 
         if print_val_results and val_every != 0 and epoch % val_every == 0:
             print(f"\nLoss history")
             print_as_table(loss_history_table)
             print(f"\nAccuracy history")
             print_as_table(accuracy_history_table)
+            print(f"\nF1 history")
+            print_as_table(f1_history_table)
 
         if epoch in save_frames:
             if model_path is None:
@@ -312,6 +330,7 @@ if __name__ == '__main__':
 
             loss_history_table.to_csv(os.path.join(model_dir, 'loss_history.csv'))
             accuracy_history_table.to_csv(os.path.join(model_dir, 'accuracy_history.csv'))
+            f1_history_table.to_csv(os.path.join(model_dir, 'f1_history.csv'))
 
             if plot:
                 save_history_plot(loss_history_table, 'global_epoch', 'Loss history', 'Epoch', 'Loss',
@@ -319,6 +338,10 @@ if __name__ == '__main__':
 
                 save_history_plot(accuracy_history_table, 'global_epoch', 'Accuracy history', 'Epoch', 'Accuracy',
                                   os.path.join(model_dir, 'accuracy.png'))
+                
+                save_history_plot(f1_history_table, 'global_epoch', 'F1 history', 'Epoch', 'F1',
+                                  os.path.join(model_dir, 'f1.png'))
+                
 
             torch.save({
                 'seed': seed,
