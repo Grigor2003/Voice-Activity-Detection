@@ -14,7 +14,7 @@ from other.utils import Example
 class NoiseCollate:
     def __init__(self, sample_rate, noise_args: NoiseArgs, impulses_args: ImpulseArgs,
                  mfcc_converter: WaveToMFCCConverter2):
-        self.sp_filter = None
+        self.spectre_filter = None
 
         self.sample_rate = sample_rate
         self.noise_args = noise_args
@@ -66,10 +66,10 @@ class NoiseCollate:
         if use_mic_filter:
             mic_ind = torch.randint(len(self.impulses_args.mic_ir_loaded), (1,)).item()
             pad_inputs, exam_waves = self.mfcc_converter(pad_waves, self.impulses_args.mic_ir_loaded[mic_ind].wave,
-                                                         self.sp_filter,
-                                                         wave_indexes_to_return=ex_ids)
+                                                         self.spectre_filter, wave_indexes_to_return=ex_ids)
         else:
-            pad_inputs, exam_waves = self.mfcc_converter(pad_waves, wave_indexes_to_return=ex_ids)
+            pad_inputs, exam_waves = self.mfcc_converter(pad_waves, spectre_filter=self.spectre_filter,
+                                                         wave_indexes_to_return=ex_ids)
 
         for ex in examples:
             ex.update(wave=exam_waves[ex.i][:, :waves[ex.i].size(-1)])
@@ -110,6 +110,8 @@ class NoiseCollate:
 
 class ValCollate:
     def __init__(self, sample_rate, noise_args: NoiseArgs, snr_dbs, mfcc_converter: WaveToMFCCConverter2):
+        self.spectre_filter = None
+
         self.sample_rate = sample_rate
         self.noise_args = noise_args
         self.snr_dbs = snr_dbs
@@ -148,8 +150,8 @@ class ValCollate:
 
                     all_inputs[snr_db].append(_aw.wave[0])
                     all_targets[snr_db].append(tar)
-
-        all_inputs = {k: self.mfcc_converter(pad_sequence(v, batch_first=True)) for k, v in all_inputs.items()}
+        all_inputs = {k: self.mfcc_converter(pad_sequence(v, batch_first=True), spectre_filter=self.spectre_filter) for
+                      k, v in all_inputs.items()}
         return {snr_db: create_batch_tensor(all_inputs[snr_db], all_targets[snr_db]) for snr_db in self.snr_dbs}
 
 

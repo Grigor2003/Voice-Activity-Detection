@@ -192,7 +192,7 @@ if __name__ == '__main__':
             impulse_args.mic_ir_loaded = [AudioWorker(ir_path).load().leave_one_channel().resample(dataset.sample_rate)
                                           for ir_path in impulse_args.mic_ir_files_paths]
 
-        train_dataloader.collate_fn.sp_filter = chebyshev_filter
+        train_dataloader.collate_fn.spectre_filter = chebyshev_filter
         stats = {"target_positive": 0, "output_positive": 0, "whole_mask": 0}
         working_examples[-global_epoch] = stats
 
