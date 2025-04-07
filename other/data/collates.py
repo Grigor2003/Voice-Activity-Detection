@@ -7,7 +7,7 @@ from other.data.audio_utils import AudioWorker
 from other.data.augmentation_utils import generate_white_noise, augment_with_noises, augment_volume_gain
 from other.data.processing import WaveToMFCCConverter2, ChebyshevType2Filter
 from other.data.work_with_stamps_utils import stamps_to_binary_counts, balance_regions, binary_counts_to_windows_np
-from other.parsing.train_args_parser import NoiseArgs, ImpulseArgs
+from other.parsing.train_args_helper import NoiseArgs, ImpulseArgs
 from other.utils import Example
 
 
