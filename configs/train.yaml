@@ -12,8 +12,8 @@ model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
   id:
   # The name of the model from models.py one of {NAMES}
-  name: DGCGD_64
-#  name: DNGGND_64
+#  name: DGCGD_7
+  name: DGCGCGD_13_7
   # Loads the specified weights to continue training,
   # creates a new run folder for storing results
   # Clears the weights and sets create_new_model to false as soon as saved
@@ -42,19 +42,19 @@ augmentation:
       weight: 2
       dir: datasets\noise-16k
       epoch_pool: 150 # The size of the noise pool for audio augmentation TODO: fix description
-      duration: [1, 10]   # The duration of added noises in seconds separated by f,t
+      duration: [1, 10]     # The duration of added noises in seconds separated by f,t
       random_phase: false
       snr&weight: # Noises SNRs to use for batch augmentation
-        null: 10
-        0: 50
-        3: 30
-        10: 10
+        null: 5
+        0: 70
+        3: 20
+        10: 5
 
     music:
       weight: 1
       dir: datasets\bg_music_fixed
       epoch_pool: 20 # The size of the noise pool for audio augmentation TODO: fix description
-      duration: [1, 10] # The duration of added noises in seconds separated by f,t
+      duration: [1, 20]   # The duration of added noises in seconds separated by f,t
       random_phase: true
       snr&weight: # Noises SNRs to use for batch augmentation
         null: 10
@@ -69,14 +69,14 @@ augmentation:
 
 train:
   # The learning rate given by power of 10
-  lr: -4
+  lr: -5
   # The number of epochs to train the model in current session
-  epoch: 4
+  epoch: 16
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)
-  batch: 300
-#  batch: 50
+#  batch: 200
+  batch: 50
   # Accumulation steps
   n_accum: 4
   # Default window lenght (hop lenght would be half of window)
@@ -84,14 +84,14 @@ train:
 
 val:
   # The ratio of validation data taken from clean data
-  ratio: 0.2
+  ratio: 0.1
   # The number of epochs to pass before calculating the validation score
   every: 2
   # The number of workers for data loading during validation score calculation
   workers:
   # The size of the batch for simultaneous usage of samples during validation score calculation
   # The real size of validation batch is len(snr_list) * mini_batch
-  mini_batch: 8
+  mini_batch: 16
   # Noises SNRs to use for validation batch augmentation
   snr_list: [null, 10, 5, 0]
 

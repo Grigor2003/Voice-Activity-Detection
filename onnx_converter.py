@@ -5,8 +5,8 @@ import torch
 from other.models.models_handler import MODELS
 from other.utils import find_last_model_in_tree
 
-model_name = 'DGCGD_64'
-out_name = model_name + '_music_89' +'.onnx'
+model_name = 'DGCGCGD_13_7'
+out_name = model_name + '_big128' +'.onnx'
 example_inp_x = torch.rand(1, 1000, 64)
 # ckp_path = r"C:\Users\gg\Projects\Voice-Activity-Detection\train_results\DGCGD_64\2025-03-13\res_1\weights.pt"
 _, ckp_path = find_last_model_in_tree(model_name)
