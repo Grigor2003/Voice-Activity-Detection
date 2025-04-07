@@ -11,9 +11,9 @@ data:
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
-  id: 0
+#  id: 0
   # The name of the model from models.py one of {NAMES}
-  name:
+  name: DGCGCGD_13_7
 #  name: DNGGND_64
   # Loads the specified weights to continue training,
   # creates a new run folder for storing results
@@ -23,7 +23,7 @@ model:
   # creates a new run folder for storing results
   # If empty, continue training on last model, but in new run folder
   # Always sets create_new_model to false as soon as saved
-  create_new_model:
+  create_new_model: false
   # If you are starting a new train you can load partial pretraind vad model
 #  pretrained_vad: buffer/dgcgd_vad.pt
   pretrained_vad:
@@ -53,7 +53,7 @@ noise:
 
 train:
   # The learning rate given by power of 10
-  lr: -3
+  lr: -4
   # The number of epochs to train the model in current session
   epoch: 21
   # The number of workers for data loading during training

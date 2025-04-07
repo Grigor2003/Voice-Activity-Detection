@@ -219,7 +219,7 @@ if __name__ == '__main__':
             batch_samples_count = batch_inputs.size(0)
             running_loss += loss.item() * batch_samples_count * accumulation_steps  # Rescale back for logging
             running_whole_count += batch_samples_count
-            running_confusion_matrix += get_confusion_matrix(output, batch_targets, num_classes)
+            running_confusion_matrix += get_confusion_matrix(output, batch_targets, num_classes).detach().cpu()
 
             # Backward pass (accumulate gradients)
             loss.backward()
@@ -283,7 +283,7 @@ if __name__ == '__main__':
                         val_loss[snr_db] += loss_fn(output, torch.argmax(batch_targets, dim=1)).item()
 
                         pred_correct = torch.argmax(output, dim=1) == torch.argmax(batch_targets, dim=1)
-                        confusion_matrix[snr_db] += get_confusion_matrix(output, batch_targets, num_classes)
+                        confusion_matrix[snr_db] += get_confusion_matrix(output, batch_targets, num_classes).detach().cpu()
                         whole_count[snr_db] += real_samples_count
 
                 for snr_db in val_snrs_list:

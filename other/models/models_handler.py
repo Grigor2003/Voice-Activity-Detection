@@ -1,12 +1,13 @@
-from other.models.gru_models import DGCGD_Accent
+from other.models.gru_models import DGCGD_Accent, DGCGCGD_13_7_Accent
 from other.models.attention_models import AttentionModel, WhisperLikeModel
 
 
 dgcgd_accent = lambda: DGCGD_Accent(input_dim=64, hidden_dim1=48, hidden_dim2=32, hidden_dim3=16, hidden_dim4=8,
                                dropout_prob=0.2)
-
+gruconv_with_denses_bigger_x2 = lambda: DGCGCGD_13_7_Accent(input_dim=64)
 MODELS = {
-    "DGCGD_A_64": dgcgd_accent
+    "DGCGD_A_64": dgcgd_accent,
+    "DGCGCGD_13_7": gruconv_with_denses_bigger_x2,
 }
 
 NAMES = [*MODELS.keys()]
