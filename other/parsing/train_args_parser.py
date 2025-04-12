@@ -93,7 +93,7 @@ def model_has_been_saved():
         return
 
     ydict['model']['weights'] = None
-    ydict['model']['create_new_model'] = ' '
+    ydict['model']['create_new_model'] = None
 
     try:
         with open(y_path, 'w') as f:

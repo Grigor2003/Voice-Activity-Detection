@@ -22,7 +22,7 @@ model:
   # creates a new run folder for storing results
   # If empty, continue training on last model, but in new run folder
   # Always sets create_new_model to false as soon as saved
-  create_new_model: +
+  create_new_model:
   # The count of saves (one save is always done at the end of the run)
   # When 0 will be saved every epoch
   saves_count: 0
@@ -35,25 +35,25 @@ augmentation:
     # if value is negative then the absolute would be taken
     # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
     # Example: batch: 100, zero_rate: 1.25 => 100 + 125 = 225
-    zero_arg: 0.05
+    zero_arg: 0.1
     use_weights_as_counts: false
 
     ambience:
       weight: 5
       dir: datasets\noise-16k
-      epoch_pool: 150 # The size of the noise pool for audio augmentation TODO: fix description
+      epoch_pool: 500 # The size of the noise pool for audio augmentation TODO: fix description
       duration: [1, 10]     # The duration of added noises in seconds separated by f,t
       random_phase: false
       snr&weight: # Noises SNRs to use for batch augmentation
         null: 5
-        0: 70
+        0: 500
         3: 20
         10: 5
 
     music:
       weight: 1
       dir: datasets\bg_music_fixed
-      epoch_pool: 20 # The size of the noise pool for audio augmentation TODO: fix description
+      epoch_pool: 125 # The size of the noise pool for audio augmentation TODO: fix description
       duration: [1, 20]   # The duration of added noises in seconds separated by f,t
       random_phase: true
       snr&weight: # Noises SNRs to use for batch augmentation
@@ -69,7 +69,7 @@ augmentation:
 
 train:
   # The learning rate given by power of 10
-  lr: -3
+  lr: -8
   # The number of epochs to train the model in current session
   epoch: 3
   # The number of workers for data loading during training
