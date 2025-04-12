@@ -36,7 +36,6 @@ if __name__ == '__main__':
             model_dir, model_path = find_last_model_in_tree(model_name)
             last_weights_path = model_path
             if model_path is None:
-                # noinspection PyRedundantParentheses
                 info_txt += '\n' + (
                     f"WARNING : Couldn't find weights in {model_name} so brand new model will be created")
 
@@ -50,9 +49,9 @@ if __name__ == '__main__':
             curr_run_start_global_epoch = checkpoint['epoch'] + 1
         except:
             curr_run_start_global_epoch = torch.nan
-            # noinspection PyRedundantParentheses
+
             info_txt += '\n' + (f"WARNING : Last train epochs count couldn't be found in the checkpoint")
-    # noinspection PyRedundantParentheses
+
     info_txt += '\n' + (f"Global epoch : {curr_run_start_global_epoch}")
 
     seed = seed  # Needs for PyCharm's satisfaction
@@ -60,28 +59,27 @@ if __name__ == '__main__':
         try:
             seed = checkpoint["seed"]
         except:
-            # noinspection PyRedundantParentheses
+
             info_txt += '\n' + (f"WARNING : Last train seed couldn't be found in the checkpoint")
     generator = torch.manual_seed(seed)
 
-    # noinspection PyRedundantParentheses
     info_txt += '\n' + (f"Global seed : {seed}")
 
     if checkpoint is not None:
         try:
             generator.set_state(checkpoint["random_state"])
         except:
-            # noinspection PyRedundantParentheses
+
             info_txt += '\n' + (f"WARNING : Last train random state couldn't be found in the checkpoint")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # noinspection PyRedundantParentheses
+
     info_txt += '\n' + (f"Device : {device}")
 
     model = MODELS[model_name]().to(device)
     if checkpoint is not None:
         model.load_state_dict(checkpoint['model_state_dict'])
-    # noinspection PyRedundantParentheses
+
     info_txt += '\n' + (f"Model : {model_name}")
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -90,15 +88,21 @@ if __name__ == '__main__':
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             optimizer.lr = lr
         except:
-            # noinspection PyRedundantParentheses
+
             info_txt += '\n' + (f"WARNING : Couldn't load optimizer states from the checkpoint")
-    # noinspection PyRedundantParentheses
+
     info_txt += '\n' + (f"Optimizer : {type(optimizer)}")
 
     dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
     info_txt += '\n' + ("Train dataset" +
                         f"\n\t- files count : {len(dataset)}" +
                         f"\n\t- labels path: '{clean_labels_path}'")
+
+    synth_args.paths = get_files_by_extension(synth_args.dir, 'wav')
+    info_txt += '\n' + ("Synthetic" +
+                        f"\n\t- files count : {len(synth_args.paths)}" +
+                        f"\n\t- count in batch : {synth_args.count}" +
+                        f"\n\t- labels path: '{synth_args.dir}'")
 
     if checkpoint is not None:
         mfcc_converter = WaveToMFCCConverter2(
@@ -150,21 +154,21 @@ if __name__ == '__main__':
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
                 accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
 
-    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, noise_args, impulse_args, mfcc_converter)
+    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, noise_args, synth_args, impulse_args,
+                                               mfcc_converter, n_examples)
     val_dataloader.collate_fn = ValCollate(dataset.sample_rate, noise_args, val_snrs_list, mfcc_converter)
 
-    # noinspection PyRedundantParentheses
     info_txt += '\n' + (f"Checkpoints : {saves_count} in {do_epoches}")
     info_txt += '\n' + ("Training" +
                         # f"\n\t- SNR values : [{', '.join(map(str, snr_dict))}]".replace('None', '_') +
-                        f"\n\t- final batch size:  {batch_size + noise_args.zero_count if noise_args.zero_count is not None else 0}")
+                        f"\n\t- final batch size:  {batch_size + noise_args.zero_count + synth_args.count}")
 
     if val_every != 0:
         info_txt += '\n' + ("Validation" +
                             f"\n\t- SNR values : [{', '.join(map(str, val_snrs_list))}]".replace('None', '_') +
                             f"\n\t- batch size:  {len(val_snrs_list) * val_batch_size}")
     else:
-        # noinspection PyRedundantParentheses
+
         info_txt += '\n' + ("Validation : No validation is expecting for this run")
     if print_mbox:
         if last_weights_path is not None:
@@ -202,7 +206,8 @@ if __name__ == '__main__':
 
         model.train()
         batch_idx, batch_count = 0, len(train_dataloader)
-        example_batch_indexes = np.linspace(0, batch_count - 1, n_examples, dtype=int)
+        # example_batch_indexes = np.linspace(0, batch_count - 1, n_examples, dtype=int)
+        example_batch_indexes = [batch_count - 1]
         working_examples[global_epoch] = []
 
         for batch_idx, ((batch_inputs, batch_targets, mask), examples) in enumerate(
@@ -372,7 +377,8 @@ if __name__ == '__main__':
                     torchaudio.save(p.format(pfx='_1_output') + '.wav', ex.wave[:, output_iw_mask], sample_rate)
                     torchaudio.save(p.format(pfx='_2_target') + '.wav', ex.wave[:, target_iw_mask], sample_rate)
                     torchaudio.save(p.format(pfx='_3_target_clear') + '.wav', ex.clear[:, target_iw_mask], sample_rate)
-                    plot_target_prediction(ex.clear, ex.wave, target_iw_mask, output_iw_mask, sample_rate, p.format(pfx='_plot') + '.png')
+                    plot_target_prediction(ex.clear, ex.wave, target_iw_mask, output_iw_mask, sample_rate,
+                                           p.format(pfx='_plot') + '.png')
 
                     with open(p.format(pfx='') + '.info', 'a') as f:
                         info = {}
@@ -383,7 +389,7 @@ if __name__ == '__main__':
 
                 stats["target_pos_rate"] = stats["target_positive"] / stats["whole_mask"]
                 stats["output_pos_rate"] = stats["output_positive"] / stats["whole_mask"]
-                with open(os.path.join(epoch_folder, '_batch_stats.txt'), 'a') as f:
+                with open(os.path.join(epoch_folder, '___batch_stats___.txt'), 'a') as f:
                     print(*stats.items(), file=f, sep='\n')
 
             torch.save({

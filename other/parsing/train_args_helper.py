@@ -3,6 +3,21 @@ import torch
 from other.parsing.parsing_utils import *
 
 
+class SynthArgs:
+    def __init__(self, dct):
+        self.dir = is_type_of(dct['dir'])
+        self.rate = is_type_of(dct['count'], (int, float))
+        self.zeros_crop = is_type_of(dct['zeros_crop_ratio'], (int, float))
+        self.paths = []
+        self.count = 0
+
+    def post_count(self, batch_size):
+        if self.rate < 0:
+            self.count = int(-self.rate)
+        elif self.rate > 0:
+            self.count = int(self.rate * batch_size)
+
+
 class NoiseArgs:
     def __init__(self, dct):
         self.zero_rate = is_type_of(dct['zero_arg'], (int, float))
@@ -14,6 +29,12 @@ class NoiseArgs:
             if not isinstance(dct, dict):
                 continue
             self.datas.append(NoiseData(name, dct))
+
+    def post_zero_count(self, batch_size):
+        if self.zero_rate < 0:
+            self.zero_count = int(-self.zero_rate)
+        elif self.zero_rate > 0:
+            self.zero_count = int(self.zero_rate * batch_size)
 
 
 class NoiseData:

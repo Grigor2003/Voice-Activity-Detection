@@ -3,6 +3,7 @@ import pandas as pd
 import os
 
 from other.data.audio_utils import AudioWorker, parse_rttm
+from other.data.stamps_utils import AudioBinaryLabel
 
 
 class OpenSLRDataset(Dataset):
@@ -20,20 +21,20 @@ class OpenSLRDataset(Dataset):
     def __len__(self):
         return len(self.labels)
 
-    def __getitem__(self, idx) -> AudioWorker:
+    def __getitem__(self, idx) -> (AudioWorker, AudioBinaryLabel):
         filename = self.labels.filename[idx]
         reader, chapter, _ = filename.split('-')
         audio_file_path = os.path.join(self.openslr_path, reader, chapter, filename)
 
         # name = os.path.splitext(audio_file_path)[0].replace("\\", "-")
         # au = AudioWorker(os.path.join(self.openslr_path, audio_file_path), name)
-        au = AudioWorker(audio_file_path, os.path.basename(filename))
-        au.load().leave_one_channel().resample(self.sample_rate)
+        aw = AudioWorker(audio_file_path, os.path.basename(filename))
+        aw.load().leave_one_channel().resample(self.sample_rate)
 
         stamps_flatten = [*map(int, self.labels.at[idx, 'labels'].split('-'))]
         stamps = list(zip(stamps_flatten[::2], stamps_flatten[1::2]))
-
-        return au, stamps
+        label = AudioBinaryLabel.from_one_stamps(stamps, aw.length)
+        return aw, label
 
 
 class MSDWildDataset(Dataset):

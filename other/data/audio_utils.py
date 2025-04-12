@@ -25,6 +25,14 @@ def parse_rttm(labels_path, sr):
     return data
 
 
+def get_wav_frames_count(path, for_samplerate=8000):
+    info = torchaudio.info(path)
+    num_frames = info.num_frames
+    sample_rate = info.sample_rate
+    duration = for_samplerate * num_frames / sample_rate
+    return duration
+
+
 class AudioWorker:
     @staticmethod
     def from_wave(wave, sample_rate):

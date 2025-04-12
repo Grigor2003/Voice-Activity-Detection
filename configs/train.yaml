@@ -5,8 +5,12 @@ data:
   # Path to clean data
   clean: ../datasets/train-clean-100(converted to 8000 sr)
   # Path to labels
-  labels: ../datasets/8000_30_90_webrtc_labels.csv
-#  labels: datasets\8000_10_50_webrtc_labels_lite.csv
+#  labels: ../datasets/8000_30_90_webrtc_labels.csv
+  labels: ../datasets/8000_30_90_webrtc_labels_lite.csv
+  synthetic:
+    dir: ../datasets/speech_commands
+    zeros_crop_ratio: 0.2
+    count: 0.5
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
@@ -71,7 +75,7 @@ train:
   # The learning rate given by power of 10
   lr: -8
   # The number of epochs to train the model in current session
-  epoch: 3
+  epoch: 1
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)
@@ -103,6 +107,8 @@ verbose:
   # The level of detail of printing
   mbox: true
   val_results: true
-  # Count of examples to save per epoch
-  # 0 or bigger then 2
-  n_examples: 3
+  # Count of examples to save
+  n_examples:
+    _: 3
+    zero: 0
+    synth: 5

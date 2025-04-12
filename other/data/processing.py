@@ -180,7 +180,7 @@ class WaveToMFCCConverter2:
 
         mfcc = self.get_mfcc(spectrogram)
         if wave_indexes_to_return is not None:
-            return mfcc.mT, {i: audio[i].unsqueeze(0) for i in wave_indexes_to_return}
+            return mfcc.mT, [audio[i].unsqueeze(0) for i in wave_indexes_to_return]
         return mfcc.mT
 
 

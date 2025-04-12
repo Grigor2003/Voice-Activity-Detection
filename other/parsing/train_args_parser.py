@@ -6,6 +6,7 @@ import ruamel.yaml
 from other.parsing.parsing_utils import *
 from other.parsing.train_args_helper import *
 from other.models.models_handler import MODELS_COUNT, NAMES
+from other.parsing.train_args_helper import SynthArgs
 
 y_path = 'configs/train.yaml'
 
@@ -20,6 +21,9 @@ if seed is None:
     seed = random.randint(0, 2 ** 32 - 1)
 clean_audios_path = is_type_of(ydict['data']['clean'])
 clean_labels_path = is_type_of(ydict['data']['labels'])
+
+# Synthetic data
+synth_args = SynthArgs(ydict['data']['synthetic'])
 
 # Model section
 model_id = is_range(ydict['model']['id'], 0, MODELS_COUNT, int, req=False)
@@ -60,10 +64,8 @@ elif saves_count > do_epoches:
     raise ValueError(f"Saves count must be less than epoches count to do: {do_epoches}")
 save_frames = np.linspace(do_epoches / saves_count, do_epoches, saves_count, dtype=int)
 
-if noise_args.zero_rate < 0:
-    noise_args.zero_count = int(-noise_args.zero_rate)
-elif noise_args.zero_rate > 0:
-    noise_args.zero_count = int(noise_args.zero_rate * batch_size)
+noise_args.post_zero_count(batch_size)
+synth_args.post_count(batch_size)
 
 default_win_length = is_range(ydict['train']['win_length'], 1, 2 ** 15, int)
 
@@ -83,7 +85,7 @@ threshold = is_range(ydict['verbose']['threshold'], 0, 1)
 plot = is_type_of(ydict['verbose']['plot'], bool)
 print_mbox = is_type_of(ydict['verbose']['mbox'], bool)
 print_val_results = is_type_of(ydict['verbose']['val_results'], bool)
-n_examples = is_range(ydict['verbose']['n_examples'], 0, 1000, int)
+n_examples = ydict['verbose']['n_examples']
 
 
 def model_has_been_saved():

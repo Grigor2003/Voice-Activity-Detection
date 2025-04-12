@@ -2,6 +2,42 @@ import numpy as np
 import torch
 
 
+class AudioBinaryLabel:
+
+    def clean(self):
+        self.binary = None
+        self.one_stamps = None
+        self.length = None
+
+    def __init__(self):
+        self.binary = None
+        self.one_stamps = None
+        self.length = None
+
+    @staticmethod
+    def from_one_stamps(one_stamps, length, to=None):
+        if to is None:
+            to = AudioBinaryLabel()
+        to.clean()
+        to.one_stamps = one_stamps
+        to.length = length
+        return to
+
+    @staticmethod
+    def from_binary(binary, to=None):
+        if to is None:
+            to = AudioBinaryLabel()
+        to.clean()
+        to.binary = binary
+        return to
+
+    # Get or compute
+    def binary_goc(self):
+        if self.binary is None:
+            self.binary = stamps_to_binary_counts(self.one_stamps, self.length)
+        return self.binary
+
+
 def stamps_to_binary_counts(stamps, target_len):
     e_ = 0
     summa = 0
@@ -55,8 +91,10 @@ def binary_counts_to_windows_np(binary, window, total=None):
 
     return ones
 
+
 def top_k_indices(lst, k):
     return [idx for idx, _ in sorted(enumerate(lst), key=lambda x: x[1], reverse=True)[:k]]
+
 
 def balance_regions(wave, counts, k=3):
     """
@@ -74,12 +112,12 @@ def balance_regions(wave, counts, k=3):
     add = diff // k
     for idx in largest_zero_regions_indices:
         count = zeros[idx]
-        counts_before = sum(counts[:idx*2])
+        counts_before = sum(counts[:idx * 2])
         fill_coord = counts_before + count // 2
         first_half = wave[:, :fill_coord]
         second_half = wave[:, fill_coord:]
         wave = torch.cat([first_half, torch.zeros(wave.size(0), add), second_half], dim=-1)
         zeros[idx] += add
-        counts[idx*2] += add
-    
+        counts[idx * 2] += add
+
     return wave, counts
