@@ -3,9 +3,9 @@ data:
   # Leave blank if you want random seed
   seed: 42
   # Path to clean data
-  clean: datasets\train-clean-100(converted to 8000 sr)
+  clean: ../datasets/train-clean-100(converted to 8000 sr)
   # Path to labels
-  labels: datasets\8000_30_90_webrtc_labels.csv
+  labels: ../datasets/8000_30_90_webrtc_labels.csv
 #  labels: datasets\8000_10_50_webrtc_labels_lite.csv
 
 model:
@@ -40,7 +40,7 @@ augmentation:
 
     ambience:
       weight: 5
-      dir: datasets\noise-16k
+      dir: ../datasets/noise-16k
       epoch_pool: 500 # The size of the noise pool for audio augmentation TODO: fix description
       duration: [1, 10]     # The duration of added noises in seconds separated by f,t
       random_phase: false
@@ -52,7 +52,7 @@ augmentation:
 
     music:
       weight: 1
-      dir: datasets\bg_music_fixed
+      dir: ../datasets/bg_music_fixed
       epoch_pool: 125 # The size of the noise pool for audio augmentation TODO: fix description
       duration: [1, 20]   # The duration of added noises in seconds separated by f,t
       random_phase: true
@@ -64,7 +64,7 @@ augmentation:
 
   impulses:
     # Impulse responses
-    mic_ir_dir: datasets\mic-irs\microphone-irs-8000
+    mic_ir_dir: ../datasets/mic-irs/microphone-irs-8000
     mic_ir_prob: 0.25
 
 train:

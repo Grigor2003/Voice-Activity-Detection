@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class DGCGCGD_13_7(nn.Module):
     def __init__(self, input_dim):
         super().__init__()
