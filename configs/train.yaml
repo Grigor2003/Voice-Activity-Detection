@@ -41,6 +41,11 @@ augmentation:
     # Example: batch: 100, zero_rate: 1.25 => 100 + 125 = 225
     zero_arg: 0.1
     use_weights_as_counts: false
+    snr&weight: # Noises SNRs to use for batch augmentation
+      null: 100
+      0: 10
+      3: 20
+      10: 20
 
     ambience:
       weight: 5
@@ -48,11 +53,6 @@ augmentation:
       epoch_pool: 500 # The size of the noise pool for audio augmentation TODO: fix description
       duration: [1, 10]     # The duration of added noises in seconds separated by f,t
       random_phase: false
-      snr&weight: # Noises SNRs to use for batch augmentation
-        null: 50
-        0: 10
-        3: 20
-        10: 20
 
     esc50:
       weight: 5
@@ -60,11 +60,6 @@ augmentation:
       epoch_pool: 200 # The size of the noise pool for audio augmentation TODO: fix description
       duration: [ 1, 10 ]     # The duration of added noises in seconds separated by f,t
       random_phase: false
-      snr&weight: # Noises SNRs to use for batch augmentation
-        null: 50
-        0: 10
-        3: 20
-        10: 20
 
     music:
       weight: 1
@@ -85,9 +80,9 @@ augmentation:
 
 train:
   # The learning rate given by power of 10
-  lr: -3
+  lr: -5
   # The number of epochs to train the model in current session
-  epoch: 3
+  epoch: 1
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)

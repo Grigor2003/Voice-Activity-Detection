@@ -24,11 +24,16 @@ class NoiseArgs:
         self.zero_count = 0
         self.count = is_range(dct['count'], 0, 100, int)
         self.use_weights_as_counts = is_type_of(dct['use_weights_as_counts'], bool)
+        default_snr_to_frec = parse_numeric_dict(dct['snr&weight'],
+                                                 1, 100,
+                                                 [-25, 25, True, False],
+                                                 [0, 2 ** 16, True, True])
+
         self.datas = []
-        for name, dct in dct.items():
-            if not isinstance(dct, dict):
+        for name, d in dct.items():
+            if not isinstance(d, dict) or name in ["snr&weight"]:
                 continue
-            self.datas.append(NoiseData(name, dct))
+            self.datas.append(NoiseData(name, d, default_snr_to_frec))
 
     def post_zero_count(self, batch_size):
         if self.zero_rate < 0:
@@ -38,18 +43,20 @@ class NoiseArgs:
 
 
 class NoiseData:
-    def __init__(self, name, dct):
+    def __init__(self, name, dct, default_snr_dict):
         self.name = name
         self.weight = is_range(dct['weight'], 0, 5000, int)
         self.data_dir = is_type_of(dct['dir'])
         self.epoch_pool = is_range(dct['epoch_pool'], 0, 5000, int)
         self.duration_range = parse_range(dct['duration'], [0, 60], [0, 60])
         self.random_phase = is_type_of(dct['random_phase'], bool)
-        snr_to_freq_dict = parse_numeric_dict(dct['snr&weight'],
-                                              1, 100,
-                                              [-25, 25, True, False],
-                                              [0, 2 ** 16, True, True])
-
+        if 'snr&weight' in dct.keys():
+            snr_to_freq_dict = parse_numeric_dict(dct['snr&weight'],
+                                                  1, 100,
+                                                  [-25, 25, True, False],
+                                                  [0, 2 ** 16, True, True])
+        else:
+            snr_to_freq_dict = default_snr_dict
         self.snr_dbs, self.snr_dbs_freqs = [], []
         for snr, freq in snr_to_freq_dict.items():
             self.snr_dbs.append(snr)
