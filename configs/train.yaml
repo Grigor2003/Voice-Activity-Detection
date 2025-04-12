@@ -5,12 +5,12 @@ data:
   # Path to clean data
   clean: ../datasets/train-clean-100(converted to 8000 sr)
   # Path to labels
-#  labels: ../datasets/8000_30_90_webrtc_labels.csv
-  labels: ../datasets/8000_30_90_webrtc_labels_lite.csv
+  labels: ../datasets/8000_30_90_webrtc_labels.csv
+#  labels: ../datasets/8000_30_90_webrtc_labels_lite.csv
   synthetic:
     dir: ../datasets/speech_commands
-    zeros_crop_ratio: 0.2
-    count: 0.5
+    zeros_crop_ratio: 0.3
+    count: 0
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
@@ -49,10 +49,22 @@ augmentation:
       duration: [1, 10]     # The duration of added noises in seconds separated by f,t
       random_phase: false
       snr&weight: # Noises SNRs to use for batch augmentation
-        null: 5
-        0: 500
+        null: 50
+        0: 10
         3: 20
-        10: 5
+        10: 20
+
+    esc50:
+      weight: 5
+      dir: ../datasets/ecs-50
+      epoch_pool: 200 # The size of the noise pool for audio augmentation TODO: fix description
+      duration: [ 1, 10 ]     # The duration of added noises in seconds separated by f,t
+      random_phase: false
+      snr&weight: # Noises SNRs to use for batch augmentation
+        null: 50
+        0: 10
+        3: 20
+        10: 20
 
     music:
       weight: 1
@@ -73,9 +85,9 @@ augmentation:
 
 train:
   # The learning rate given by power of 10
-  lr: -8
+  lr: -3
   # The number of epochs to train the model in current session
-  epoch: 1
+  epoch: 3
   # The number of workers for data loading during training
   workers: 4
   # The size of training batch (can be not final)

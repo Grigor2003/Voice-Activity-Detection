@@ -207,7 +207,7 @@ if __name__ == '__main__':
         model.train()
         batch_idx, batch_count = 0, len(train_dataloader)
         # example_batch_indexes = np.linspace(0, batch_count - 1, n_examples, dtype=int)
-        example_batch_indexes = [batch_count - 1]
+        example_batch_indexes = [batch_count - 2]
         working_examples[global_epoch] = []
 
         for batch_idx, ((batch_inputs, batch_targets, mask), examples) in enumerate(

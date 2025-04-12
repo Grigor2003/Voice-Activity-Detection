@@ -36,7 +36,8 @@ class NoiseCollate:
         type_to_ex_inds = {}
         if self.n_examples is not None:
             for tp, c in self.n_examples.items():
-                type_to_ex_inds[tp] = (torch.randperm(len(types_to_batches[tp]) - 1)[:c]).tolist()
+                if len(types_to_batches[tp]) > 0:
+                    type_to_ex_inds[tp] = (torch.randperm(len(types_to_batches[tp]) - 1)[:c]).tolist()
 
         waves, targets, global_ex_inds = [], [], []
         examples, clear = [], None
@@ -92,7 +93,7 @@ class NoiseCollate:
 
     def generate_zero_samples(self, sizes):
         if self.noise_args.zero_count <= 0:
-            return
+            return []
         inds = torch.randint(0, len(sizes), (self.noise_args.zero_count,))
         batch = []
         for i in inds:
@@ -103,7 +104,7 @@ class NoiseCollate:
 
     def generate_synth_samples(self, sizes):
         if self.synth_args.count <= 0:
-            return
+            return []
         mean_size = sum(sizes) // len(sizes)
         random_inds = torch.randperm(len(self.synth_args.paths))
         taken = 0
