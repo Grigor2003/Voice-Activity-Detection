@@ -98,11 +98,19 @@ if __name__ == '__main__':
                         f"\n\t- files count : {len(dataset)}" +
                         f"\n\t- labels path: '{clean_labels_path}'")
 
-    synth_args.paths = get_files_by_extension(synth_args.dir, 'wav')
+    with open(synth_args.labels_path, 'r') as f:
+        lines = f.readlines()
+    for line in lines[1:]:
+        path, label = line.strip().split(',')
+        if label == '':
+            continue
+        synth_args.labels[path] = list(map(int, label.split('-')))
+    synth_args.paths = list(synth_args.labels.keys())
+
     info_txt += '\n' + ("Synthetic" +
                         f"\n\t- files count : {len(synth_args.paths)}" +
                         f"\n\t- count in batch : {synth_args.count}" +
-                        f"\n\t- labels path: '{synth_args.dir}'")
+                        f"\n\t- labels path: '{synth_args.labels_path}'")
 
     if checkpoint is not None:
         mfcc_converter = WaveToMFCCConverter2(
@@ -362,14 +370,14 @@ if __name__ == '__main__':
                     output_iw_mask = np.full(ex.wave.size(1), False, dtype=bool)
                     for i, speech_lh in enumerate(speech_mask.T):
                         output_iw_mask[hop_length * i:hop_length * i + win_length] = (
-                                (speech_lh > threshold) or
-                                output_iw_mask[hop_length * i:hop_length * i + win_length])
+                            (speech_lh > threshold) or
+                            output_iw_mask[hop_length * i:hop_length * i + win_length])
 
                     target_iw_mask = np.full(ex.wave.size(1), False, dtype=bool)
                     for i, speech_lh in enumerate(ex.label):
                         target_iw_mask[hop_length * i:hop_length * i + win_length] = (
-                                (speech_lh > threshold) or
-                                target_iw_mask[hop_length * i:hop_length * i + win_length])
+                            (speech_lh > threshold) or
+                            target_iw_mask[hop_length * i:hop_length * i + win_length])
 
                     # try:
                     p = os.path.join(epoch_folder, f"{ex.name}_b{ex.bi}_i{ex.i}" + '{pfx}')

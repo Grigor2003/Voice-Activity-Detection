@@ -5,7 +5,8 @@ from other.parsing.parsing_utils import *
 
 class SynthArgs:
     def __init__(self, dct):
-        self.dir = is_type_of(dct['dir'])
+        self.labels_path = is_type_of(dct['labels'])
+        self.labels = dict()
         self.rate = is_type_of(dct['count'], (int, float))
         self.zeros_crop = is_type_of(dct['zeros_crop_ratio'], (int, float))
         self.paths = []
