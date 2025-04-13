@@ -111,11 +111,13 @@ class NoiseCollate:
         batch = []
         for i in range(self.synth_args.count):
             audios = []
+            labels = []
             sum_frames = 0
             while True:
                 if taken >= len(self.synth_args.paths):
                     taken = 0
                 curr_path = self.synth_args.paths[random_inds[taken]]
+                curr_label = self.synth_args.labels[curr_path]
                 frames = get_wav_frames_count(curr_path, self.sample_rate)
                 if sum_frames + frames > mean_size:
                     break
@@ -124,20 +126,23 @@ class NoiseCollate:
                     sum_frames += frames
                     audios.append(AudioWorker(curr_path).load()
                                   .leave_one_channel().resample(self.sample_rate))
+                    labels.append(curr_label)
             if len(audios) <= 0:
                 print(f"WARNING: Couldn't synthesize audio, batch mean is {mean_size / self.sample_rate}s")
                 continue
 
             wave = torch.concat([aw.wave for aw in audios], dim=-1)
             aw = AudioWorker.from_wave(wave, self.sample_rate)
-            binary = [0]
-            for a in audios:
-                zeros = int(a.length * self.synth_args.zeros_crop)
-                binary[-1] += zeros
-                binary.append(a.length - 2 * zeros)
-                binary.append(zeros)
+            regions = []
+            curr_len = 0
+            for a, label in zip(audios, labels):
+                regions.append([
+                    label[0] + curr_len,
+                    label[1] + curr_len
+                ])
+                curr_len += a.length
 
-            abl = AudioBinaryLabel.from_binary(binary)
+            abl = AudioBinaryLabel.from_one_stamps(regions, curr_len)
             batch.append((aw, abl))
         return batch
 

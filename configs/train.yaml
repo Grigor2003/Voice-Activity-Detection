@@ -8,7 +8,7 @@ data:
   labels: ../datasets/8000_30_90_webrtc_labels.csv
 #  labels: ../datasets/8000_30_90_webrtc_labels_lite.csv
   synthetic:
-    dir: ../datasets/speech_commands
+    labels: buffer/8000_30_90_webrtc_labels.csv
     zeros_crop_ratio: 0.3
     count: 0
 
