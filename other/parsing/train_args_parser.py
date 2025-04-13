@@ -2,8 +2,8 @@ import random
 
 import numpy as np
 import ruamel.yaml
+from ruamel.yaml import CommentedMap, CommentedSeq
 
-from other.parsing.parsing_utils import *
 from other.parsing.train_args_helper import *
 from other.models.models_handler import MODELS_COUNT, NAMES
 from other.parsing.train_args_helper import SynthArgs
@@ -40,7 +40,7 @@ create_new_model_lit = is_type_of(ydict['model']['create_new_model'], req=False)
 if create_new_model_lit is None:
     create_new_model = None
 else:
-    create_new_model = create_new_model_lit.lower() in ['true', '1', 't', 'y', 'yes', '+']
+    create_new_model = str(create_new_model_lit).lower() in ['true', '1', 't', 'y', 'yes', '+']
 weights_load_from = is_type_of(ydict['model']['weights'], req=False)
 
 saves_count = is_range(ydict['model']['saves_count'], 0, 100, int)
@@ -102,3 +102,15 @@ def model_has_been_saved():
             yaml.dump(ydict, f)
     except IOError:
         print("WARNING: Couldn't change yaml file content")
+
+
+def strip_comments(data):
+    if isinstance(data, CommentedMap):
+        new_data = {}
+        for k, v in data.items():
+            new_data[k] = strip_comments(v)
+        return new_data
+    elif isinstance(data, CommentedSeq):
+        return [strip_comments(i) for i in data]
+    else:
+        return data

@@ -12,7 +12,7 @@ from other.data.collates import NoiseCollate, ValCollate
 from other.data.datasets import OpenSLRDataset
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter2, ChebyshevType2Filter
 from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box, Example, plot_target_prediction, \
-    get_files_by_extension
+    get_files_by_extension, MODEL_NAME, MODEL_EXT
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
 from other.utils import print_as_table, save_history_plot
 
@@ -22,13 +22,14 @@ if __name__ == '__main__':
     # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
     # os.environ['TORCH_USE_CUDA_DSA'] = "1"
     info_txt = ""
-    info_txt += '\n' + f"Create new model: {create_new_model}"
+    info_txt += f"Create new model: {create_new_model}"
 
     model_dir, model_path = None, None
     last_weights_path = None
 
     if weights_load_from is not None:
         last_weights_path = find_model_in_dir_or_path(weights_load_from)
+        create_new_model = True
     else:
         if create_new_model is None:
             model_dir, last_weights_path = find_last_model_in_tree(model_name)
@@ -37,7 +38,7 @@ if __name__ == '__main__':
             last_weights_path = model_path
             if model_path is None:
                 info_txt += '\n' + (
-                    f"WARNING : Couldn't find weights in {model_name} so brand new model will be created")
+                    f"WARNING: Couldn't find weights in {model_name} so brand new model will be created")
 
     checkpoint = None
     if last_weights_path is not None:
@@ -50,9 +51,9 @@ if __name__ == '__main__':
         except:
             curr_run_start_global_epoch = torch.nan
 
-            info_txt += '\n' + (f"WARNING : Last train epochs count couldn't be found in the checkpoint")
+            info_txt += '\n' + (f"WARNING: Last train epochs count couldn't be found in the checkpoint")
 
-    info_txt += '\n' + (f"Global epoch : {curr_run_start_global_epoch}")
+    info_txt += '\n' + (f"Global epoch: {curr_run_start_global_epoch}")
 
     seed = seed  # Needs for PyCharm's satisfaction
     if checkpoint is not None:
@@ -60,27 +61,27 @@ if __name__ == '__main__':
             seed = checkpoint["seed"]
         except:
 
-            info_txt += '\n' + (f"WARNING : Last train seed couldn't be found in the checkpoint")
+            info_txt += '\n' + (f"WARNING: Last train seed couldn't be found in the checkpoint")
     generator = torch.manual_seed(seed)
 
-    info_txt += '\n' + (f"Global seed : {seed}")
+    info_txt += '\n' + (f"Global seed: {seed}")
 
     if checkpoint is not None:
         try:
             generator.set_state(checkpoint["random_state"])
         except:
 
-            info_txt += '\n' + (f"WARNING : Last train random state couldn't be found in the checkpoint")
+            info_txt += '\n' + (f"WARNING: Last train random state couldn't be found in the checkpoint")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    info_txt += '\n' + (f"Device : {device}")
+    info_txt += '\n' + (f"Device: {device}")
 
     model = MODELS[model_name]().to(device)
     if checkpoint is not None:
         model.load_state_dict(checkpoint['model_state_dict'])
 
-    info_txt += '\n' + (f"Model : {model_name}")
+    info_txt += '\n' + (f"Model: {model_name}")
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     if checkpoint is not None:
@@ -89,13 +90,13 @@ if __name__ == '__main__':
             optimizer.lr = lr
         except:
 
-            info_txt += '\n' + (f"WARNING : Couldn't load optimizer states from the checkpoint")
+            info_txt += '\n' + (f"WARNING: Couldn't load optimizer states from the checkpoint")
 
-    info_txt += '\n' + (f"Optimizer : {type(optimizer)}")
+    info_txt += '\n' + (f"Optimizer: {type(optimizer)}")
 
     dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
-    info_txt += '\n' + ("Train dataset" +
-                        f"\n\t- files count : {len(dataset)}" +
+    info_txt += '\n' + ("Train dataset: " +
+                        f"\n\t- files count: {len(dataset)}" +
                         f"\n\t- labels path: '{clean_labels_path}'")
 
     with open(synth_args.labels_path, 'r') as f:
@@ -107,9 +108,9 @@ if __name__ == '__main__':
         synth_args.labels[path] = list(map(int, label.split('-')))
     synth_args.paths = list(synth_args.labels.keys())
 
-    info_txt += '\n' + ("Synthetic" +
-                        f"\n\t- files count : {len(synth_args.paths)}" +
-                        f"\n\t- count in batch : {synth_args.count}" +
+    info_txt += '\n' + ("Synthetic: " +
+                        f"\n\t- files count: {len(synth_args.paths)}" +
+                        f"\n\t- count in batch: {synth_args.count}" +
                         f"\n\t- labels path: '{synth_args.labels_path}'")
 
     if checkpoint is not None:
@@ -133,15 +134,15 @@ if __name__ == '__main__':
     impulse_args.mic_ir_files_paths = get_files_by_extension(impulse_args.mic_ir_dir, 'wav')
     chebyshev_filter = ChebyshevType2Filter(mfcc_converter.sample_rate, mfcc_converter.n_fft,
                                             upper_bound=mfcc_converter.sample_rate // 2 - 1)
-    info_txt += '\n' + ("Noise files" +
-                        f"\n\t- files count : {noise_files_count}" +
+    info_txt += '\n' + ("Noise files: " +
+                        f"\n\t- files count: {noise_files_count}" +
                         f"\n\t- data names: [{', '.join([d.name for d in noise_args.datas])}]")
 
     train_dataloader, val_dataloader = get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size,
                                                                  num_workers, val_num_workers, generator)
 
-    info_txt += '\n' + ("Estimated" +
-                        f"\n\t- parameters : {count_parameters(model)}" +
+    info_txt += '\n' + ("Estimated: " +
+                        f"\n\t- parameters: {count_parameters(model)}" +
                         f"\n\t- VRAM: {estimate_vram_usage(model):.4f} GB (if float32)")
 
     try:
@@ -166,18 +167,18 @@ if __name__ == '__main__':
                                                mfcc_converter, n_examples)
     val_dataloader.collate_fn = ValCollate(dataset.sample_rate, noise_args, val_snrs_list, mfcc_converter)
 
-    info_txt += '\n' + (f"Checkpoints : {saves_count} in {do_epoches}")
-    info_txt += '\n' + ("Training" +
-                        # f"\n\t- SNR values : [{', '.join(map(str, snr_dict))}]".replace('None', '_') +
+    info_txt += '\n' + (f"Checkpoints: {saves_count} in {do_epoches}")
+    info_txt += '\n' + ("Training: " +
+                        # f"\n\t- SNR values: [{', '.join(map(str, snr_dict))}]".replace('None', '_') +
                         f"\n\t- final batch size:  {batch_size + noise_args.zero_count + synth_args.count}")
 
     if val_every != 0:
-        info_txt += '\n' + ("Validation" +
-                            f"\n\t- SNR values : [{', '.join(map(str, val_snrs_list))}]".replace('None', '_') +
+        info_txt += '\n' + ("Validation: " +
+                            f"\n\t- SNR values: [{', '.join(map(str, val_snrs_list))}]".replace('None', '_') +
                             f"\n\t- batch size:  {len(val_snrs_list) * val_batch_size}")
     else:
 
-        info_txt += '\n' + ("Validation : No validation is expecting for this run")
+        info_txt += '\n' + ("Validation: No validation is expecting for this run")
     if print_mbox:
         if last_weights_path is not None:
             path = os.path.normpath(last_weights_path)
@@ -333,17 +334,19 @@ if __name__ == '__main__':
 
         if epoch in save_frames:
             if model_path is None:
-                model_dir, model_path = create_new_model_trains_dir(model_name)
+                model_dir, model_path = create_new_model_trains_dir(model_name, create_new_model)
                 print(f"\nCreated {model_dir}")
 
-            curr_info_save_path = os.path.join(model_dir, 'info.txt')
+            curr_info_save_path = os.path.join(model_dir, 'info.yaml')
             with open(curr_info_save_path, 'w') as f:
+                yaml.dump(strip_comments(ydict), f)
+                f.write(3 * "\n" + "# " + 100 * "=" + 3 * "\n")
                 f.write(info_txt)
 
             if last_weights_path is not None:
                 old = os.path.join(model_dir, "old")
                 os.makedirs(old, exist_ok=True)
-                shutil.copy(last_weights_path, old)
+                shutil.copy(last_weights_path, os.path.join(old, f"{MODEL_NAME}_{global_epoch - 1}{MODEL_EXT}"))
 
             loss_history_table.to_csv(os.path.join(model_dir, 'loss_history.csv'))
             accuracy_history_table.to_csv(os.path.join(model_dir, 'accuracy_history.csv'))

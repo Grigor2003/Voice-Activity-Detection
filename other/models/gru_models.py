@@ -6,13 +6,15 @@ class DGCGCGD_13_7(nn.Module):
     def __init__(self, input_dim):
         super().__init__()
         self.fc1 = nn.Linear(input_dim, 32)
-        self.activation1 = nn.Sigmoid()
+        self.activation1 = nn.Tanh()
         self.dropout2 = nn.Dropout(0.5)
 
         self.gru1 = nn.GRU(32, 16, 1, batch_first=True)
         self.conv2d1 = nn.Conv2d(1, 1, kernel_size=(1, 13), padding='same')
+        self.bn1 = nn.BatchNorm1d(num_features=32)
         self.gru2 = nn.GRU(16, 8, 1, batch_first=True)
         self.conv2d2 = nn.Conv2d(1, 1, kernel_size=(1, 7), padding='same')
+        self.bn2 = nn.BatchNorm1d(num_features=32)
         self.gru3 = nn.GRU(8, 4, 1, batch_first=True)
 
         self.fc2 = nn.Linear(4, 4)
@@ -36,10 +38,12 @@ class DGCGCGD_13_7(nn.Module):
         conv_in = hiddens1.view(batch_size, 1, seq_length, hiddens1.size(-1))
         conv_out = self.conv2d1(conv_in)
         conv_out = conv_out.view(-1, seq_length, conv_out.size(-1))
+
         hiddens2, _ = self.gru2(conv_out, hidden_state[1])
         conv_in = hiddens2.view(batch_size, -1, seq_length, hiddens2.size(-1))
         conv_out = self.conv2d2(conv_in)
         conv_out = conv_out.view(-1, seq_length, conv_out.size(-1))
+
         hiddens3, _ = self.gru3(conv_out, hidden_state[2])
         self.hidden_states = [hiddens1, hiddens2, hiddens3]
         # endregion

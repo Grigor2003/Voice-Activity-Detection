@@ -5,8 +5,8 @@ data:
   # Path to clean data
   clean: ../datasets/train-clean-100(converted to 8000 sr)
   # Path to labels
-  labels: ../datasets/8000_30_90_webrtc_labels.csv
-#  labels: ../datasets/8000_30_90_webrtc_labels_lite.csv
+#  labels: ../datasets/8000_30_90_webrtc_labels.csv
+  labels: ../datasets/8000_30_90_webrtc_labels_lite.csv
   synthetic:
     labels: buffer/8000_30_90_webrtc_labels.csv
     zeros_crop_ratio: 0.3
@@ -42,7 +42,7 @@ augmentation:
     zero_arg: 0.1
     use_weights_as_counts: false
     snr&weight: # Noises SNRs to use for batch augmentation
-      null: 100
+      null: 200
       0: 10
       3: 20
       10: 20
@@ -58,7 +58,7 @@ augmentation:
       weight: 5
       dir: ../datasets/ecs-50
       epoch_pool: 200 # The size of the noise pool for audio augmentation TODO: fix description
-      duration: [ 1, 10 ]     # The duration of added noises in seconds separated by f,t
+      duration: [1, 10]       # The duration of added noises in seconds separated by f,t
       random_phase: false
 
     music:
@@ -84,7 +84,7 @@ train:
   # The number of epochs to train the model in current session
   epoch: 1
   # The number of workers for data loading during training
-  workers: 4
+  workers: 0
   # The size of training batch (can be not final)
 #  batch: 200
   batch: 50
@@ -97,7 +97,7 @@ val:
   # The ratio of validation data taken from clean data
   ratio: 0.1
   # The number of epochs to pass before calculating the validation score
-  every: 1
+  every: 2
   # The number of workers for data loading during validation score calculation
   workers:
   # The size of the batch for simultaneous usage of samples during validation score calculation

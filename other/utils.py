@@ -9,11 +9,13 @@ import torch
 from matplotlib import pyplot as plt
 from tabulate import tabulate
 
-RES_PREFIX = "res"
+RES_FOLDER = "RESULTS"
+BRAND_MODEL_PREFIX = "START"
+RUN_PREFIX = "run"
 DATE_FORMAT = "%Y-%m-%d"
-MODEL_NAME = "weights.pt"
+MODEL_NAME = "weights"
+MODEL_EXT = ".pt"
 EXAMPLE_FOLDER = "examples"
-RES_FOLDER = "train_results"
 
 
 def loss_function(pred, target, mask, reduction="auto", val=False):
@@ -118,39 +120,53 @@ def find_last_model_in_tree(model_name):
     model_trains_tree_dir = os.path.join(RES_FOLDER, model_name)
 
     if os.path.exists(model_trains_tree_dir):
-        date_objects = [datetime.strptime(date, DATE_FORMAT)
-                        for date in os.listdir(model_trains_tree_dir)
-                        if len(os.listdir(os.path.join(model_trains_tree_dir, date))) != 0]
-        if len(date_objects) != 0:
-            max_num = 0
-            day_dir = os.path.join(model_trains_tree_dir, max(date_objects).strftime(DATE_FORMAT))
-            for name in os.listdir(day_dir):
-                st, num = name.split("_")
-                folder_path = os.path.join(day_dir, name)
-                if max_num <= int(num) and MODEL_NAME in os.listdir(folder_path):
+        max_num = 0
+        max_name = None
+        for name in os.listdir(model_trains_tree_dir):
+            bnm, num, _ = name.split("_")
+            if bnm == BRAND_MODEL_PREFIX:
+                if int(num) >= max_num:
                     max_num = int(num)
+                    max_name = name
+        if max_name is not None:
+            brand_dir = os.path.join(model_trains_tree_dir, max_name)
+            max_num = 0
+            for name in os.listdir(brand_dir):
+                num = int(name.split("_")[1])
+                folder_path = os.path.join(brand_dir, name)
+                if num >= max_num and (MODEL_NAME + MODEL_EXT) in os.listdir(folder_path):
+                    max_num = num
                     res_dir = folder_path
 
     if res_dir is None:
         return None, None
     else:
-        return res_dir, os.path.join(res_dir, MODEL_NAME)
+        return res_dir, os.path.join(res_dir, (MODEL_NAME + MODEL_EXT))
 
 
-def create_new_model_trains_dir(model_name):
+def create_new_model_trains_dir(model_name, brand_new=False):
     model_trains_tree_dir = os.path.join(RES_FOLDER, model_name)
+    os.makedirs(model_trains_tree_dir, exist_ok=True)
 
-    day_dir = os.path.join(model_trains_tree_dir, datetime.now().strftime(DATE_FORMAT))
-    os.makedirs(day_dir, exist_ok=True)
     max_num = 0
-    for name in os.listdir(day_dir):
-        _, num = name.split("_")
-        max_num = max(int(num), max_num)
+    for name in os.listdir(model_trains_tree_dir):
+        num = int(name.split("_")[1])
+        max_num = max(num, max_num)
 
-    dir = os.path.join(day_dir, RES_PREFIX + "_" + str(max_num + 1))
-    os.makedirs(dir, exist_ok=True)
+    take = max_num + 1 if brand_new else max_num
+    brand_name = BRAND_MODEL_PREFIX + f"_{take}" + f"_({datetime.now().strftime(DATE_FORMAT)})"
+    brand_dir = os.path.join(model_trains_tree_dir, brand_name)
+    os.makedirs(brand_dir, exist_ok=True)
 
-    return dir, os.path.join(dir, MODEL_NAME)
+    max_num = 0
+    for name in os.listdir(brand_dir):
+        num = int(name.split("_")[1])
+        max_num = max(num, max_num)
+
+    run_dir = os.path.join(brand_dir, RUN_PREFIX + "_" + str(max_num + 1))
+    os.makedirs(run_dir, exist_ok=True)
+
+    return run_dir, os.path.join(run_dir, (MODEL_NAME + MODEL_EXT))
 
 
 def get_model_params_count(model):
