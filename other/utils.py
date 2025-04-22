@@ -149,12 +149,17 @@ def create_new_model_trains_dir(model_name, brand_new=False):
     os.makedirs(model_trains_tree_dir, exist_ok=True)
 
     max_num = 0
+    max_name = None
     for name in os.listdir(model_trains_tree_dir):
-        num = int(name.split("_")[1])
-        max_num = max(num, max_num)
+        bnm, num, _ = name.split("_")
+        if int(num) >= max_num:
+            max_num = int(num)
+            max_name = name
 
-    take = max_num + 1 if brand_new else max_num
-    brand_name = BRAND_MODEL_PREFIX + f"_{take}" + f"_({datetime.now().strftime(DATE_FORMAT)})"
+    if brand_new:
+        brand_name = BRAND_MODEL_PREFIX + f"_{max_num + 1}" + f"_({datetime.now().strftime(DATE_FORMAT)})"
+    else:
+        brand_name = max_name
     brand_dir = os.path.join(model_trains_tree_dir, brand_name)
     os.makedirs(brand_dir, exist_ok=True)
 
