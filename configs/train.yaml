@@ -1,22 +1,24 @@
 data:
+  root: ../datasets
   # Would be used only if generates a new model
   # Leave blank if you want random seed
   seed: 42
   # Path to clean data
-  clean: ../datasets/train-clean-100(converted to 8000 sr)
+  clean: openslr/train-clean-100(converted to 8000 sr)
   # Path to labels
-#  labels: ../datasets/8000_30_90_webrtc_labels.csv
-  labels: ../datasets/8000_30_90_webrtc_labels_lite.csv
+  labels: openslr/8000_30_90_webrtc_labels.csv
+#  labels: openslr/8000_30_90_webrtc_labels_lite.csv
   synthetic:
-    labels: buffer/8000_30_90_webrtc_labels.csv
-    zeros_crop_ratio: 0.3
-    count: 0
+    dir: google/speech_commands
+    labels: google/8000_30_90_webrtc_labels_filtered.csv
+    count: 0.0
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
   id:
   # The name of the model from models.py one of {NAMES}
 #  name: DGCGD_7
+#  name: BattleVAD
   name: DGCGCGD_13_7
   # Loads the specified weights to continue training,
   # creates a new run folder for storing results
@@ -34,7 +36,7 @@ model:
 augmentation:
   noises:
     # The count of noises added on a single audio
-    count: 2
+    count: 0
     # The ratio of empty audios that would be added to batch
     # if value is negative then the absolute would be taken
     # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
@@ -49,25 +51,25 @@ augmentation:
 
     ambience:
       weight: 5
-      dir: ../datasets/noise-16k
-      epoch_pool: 500 # The size of the noise pool for audio augmentation TODO: fix description
-      duration: [1, 10]     # The duration of added noises in seconds separated by f,t
+      dir: noises/noise-16k
+      epoch_pool: 500
+      duration: [1, 10]
       random_phase: false
 
     esc50:
       weight: 5
-      dir: ../datasets/ecs-50
-      epoch_pool: 200 # The size of the noise pool for audio augmentation TODO: fix description
-      duration: [1, 10]       # The duration of added noises in seconds separated by f,t
+      dir: noises/ecs-50
+      epoch_pool: 200
+      duration: [1, 10]
       random_phase: false
 
     music:
       weight: 1
-      dir: ../datasets/bg_music_fixed
-      epoch_pool: 125 # The size of the noise pool for audio augmentation TODO: fix description
-      duration: [1, 20]   # The duration of added noises in seconds separated by f,t
+      dir: noises/bg_music_fixed
+      epoch_pool: 125
+      duration: [1, 5]
       random_phase: true
-      snr&weight: # Noises SNRs to use for batch augmentation
+      snr&weight:
         null: 10
         3: 50
         8: 30
@@ -75,21 +77,21 @@ augmentation:
 
   impulses:
     # Impulse responses
-    mic_ir_dir: ../datasets/mic-irs/microphone-irs-8000
+    mic_ir_dir: mic-irs/microphone-irs-8000
     mic_ir_prob: 0.25
 
 train:
   # The learning rate given by power of 10
-  lr: -5
+  lr: -4
   # The number of epochs to train the model in current session
-  epoch: 1
+  epoch: 3
   # The number of workers for data loading during training
-  workers: 0
+  workers: 4
   # The size of training batch (can be not final)
 #  batch: 200
-  batch: 50
+  batch: 15
   # Accumulation steps
-  n_accum: 4
+  n_accum: 5
   # Default window lenght (hop lenght would be half of window)
   win_length: 400
 
@@ -97,14 +99,15 @@ val:
   # The ratio of validation data taken from clean data
   ratio: 0.1
   # The number of epochs to pass before calculating the validation score
-  every: 2
+  every: 1
   # The number of workers for data loading during validation score calculation
-  workers:
+  workers: 4
   # The size of the batch for simultaneous usage of samples during validation score calculation
   # The real size of validation batch is len(snr_list) * mini_batch
   mini_batch: 16
   # Noises SNRs to use for validation batch augmentation
   snr_list: [null, 10, 5, 0]
+  noise_count: 2
 
 verbose:
   # The threshold for labeling the prediction 0 or 1
@@ -116,6 +119,6 @@ verbose:
   val_results: true
   # Count of examples to save
   n_examples:
-    _: 3
-    zero: 0
-    synth: 5
+    _: 2
+    zero: 1
+    synth: 2

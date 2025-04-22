@@ -1,3 +1,4 @@
+import os
 from collections import Counter
 
 import torch
@@ -118,13 +119,14 @@ class NoiseCollate:
                     taken = 0
                 curr_path = self.synth_args.paths[random_inds[taken]]
                 curr_label = self.synth_args.labels[curr_path]
-                frames = get_wav_frames_count(curr_path, self.sample_rate)
+                au_path = os.path.join(self.synth_args.dir, curr_path)
+                frames = get_wav_frames_count(au_path, self.sample_rate)
                 if sum_frames + frames > mean_size:
                     break
                 else:
                     taken += 1
                     sum_frames += frames
-                    audios.append(AudioWorker(curr_path).load()
+                    audios.append(AudioWorker(au_path).load()
                                   .leave_one_channel().resample(self.sample_rate))
                     labels.append(curr_label)
             if len(audios) <= 0:
@@ -147,6 +149,10 @@ class NoiseCollate:
         return batch
 
     def augment_aw_with_noises(self, aw):
+        noise_aug_info = {"snrs": []}
+        if self.noise_args.count <= 0:
+            return noise_aug_info
+
         if self.noise_args.use_weights_as_counts:
             noise_datas_inds_to_counts = {j: d.weight for j, d in enumerate(self.noise_args.datas)}
         else:
@@ -154,7 +160,6 @@ class NoiseCollate:
             noise_datas_inds = torch.multinomial(weights, replacement=True, num_samples=self.noise_args.count).tolist()
             noise_datas_inds_to_counts = Counter(noise_datas_inds)
 
-        noise_aug_info = {"snrs": []}
         for data_i, count in noise_datas_inds_to_counts.items():
             data = self.noise_args.datas[data_i]
             pool = data.loaded_pool
@@ -192,7 +197,7 @@ class ValCollate:
             else:
                 weights = torch.tensor([d.weight for d in self.noise_args.datas], dtype=torch.float)
                 noise_datas_inds = torch.multinomial(weights, replacement=True,
-                                                     num_samples=self.noise_args.count).tolist()
+                                                     num_samples=max(1, self.noise_args.count)).tolist()
                 noise_datas_inds_to_counts = Counter(noise_datas_inds)
 
             for data_i, count in noise_datas_inds_to_counts.items():
@@ -200,7 +205,7 @@ class ValCollate:
                 pool = data.loaded_pool
                 noises_inds = torch.randperm(len(pool))[:count]
                 noises = [pool[j] for j in noises_inds]
-                current_snr_seed = torch.randint(2 ** 32, (1,)).item()
+                current_snr_seed = torch.randint(2 ** 16, (1,)).item()
                 for snr_db in self.snr_dbs:
                     _aw = aw.clone()
                     if snr_db is not None:

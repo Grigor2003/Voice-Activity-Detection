@@ -8,7 +8,7 @@ class SynthArgs:
         self.labels_path = is_type_of(dct['labels'])
         self.labels = dict()
         self.rate = is_type_of(dct['count'], (int, float))
-        self.zeros_crop = is_type_of(dct['zeros_crop_ratio'], (int, float))
+        self.dir = is_type_of(dct['dir'])
         self.paths = []
         self.count = 0
 

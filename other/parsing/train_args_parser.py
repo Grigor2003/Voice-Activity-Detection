@@ -1,3 +1,4 @@
+import os
 import random
 
 import numpy as np
@@ -16,6 +17,7 @@ with open(y_path) as f:
     ydict = yaml.load(f)
 
 # Data section
+root = is_type_of(ydict['data']['root'], req=False)
 seed = is_type_of(ydict['data']['seed'], int, req=False)
 if seed is None:
     seed = random.randint(0, 2 ** 32 - 1)
@@ -51,6 +53,16 @@ noise_args = NoiseArgs(ydict['augmentation']['noises'])
 # Augmentation Impulses
 impulse_args = ImpulseArgs(ydict['augmentation']['impulses'])
 
+# Root fix
+if root is not None:
+    clean_audios_path = os.path.join(root, clean_audios_path)
+    clean_labels_path = os.path.join(root, clean_labels_path)
+    synth_args.dir = os.path.join(root, synth_args.dir)
+    synth_args.labels_path = os.path.join(root, synth_args.labels_path)
+    for d in noise_args.datas:
+        d.data_dir = os.path.join(root, d.data_dir)
+    impulse_args.mic_ir_dir = os.path.join(root, impulse_args.mic_ir_dir)
+
 # Train section
 lr = 10 ** is_range(ydict['train']['lr'], -100, 100)
 do_epoches = is_range(ydict['train']['epoch'], 0, 1000, int)
@@ -79,6 +91,7 @@ if val_num_workers is None:
     val_num_workers = num_workers
 val_batch_size = is_range(ydict['val']['mini_batch'], 1, 2 ** 15, int)
 val_snrs_list = parse_numeric_list(ydict['val']['snr_list'], 1, 100, -25, 25, int, False)
+val_noise_count = is_range(ydict['val']['noise_count'], 1, 2 ** 15, int)
 
 # Verbose section
 threshold = is_range(ydict['verbose']['threshold'], 0, 1)
