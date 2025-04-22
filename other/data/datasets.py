@@ -11,7 +11,7 @@ class OpenSLRDataset(Dataset):
         self.openslr_path = openslr_path
         self.labels_path = labels_path
 
-        self.labels = pd.read_csv(labels_path)
+        self.labels = pd.read_csv(labels_path).dropna()
 
         args = os.path.basename(self.labels_path).split("_")
         self.sample_rate = int(args[0])
@@ -21,7 +21,7 @@ class OpenSLRDataset(Dataset):
     def __len__(self):
         return len(self.labels)
 
-    def __getitem__(self, idx) -> (AudioWorker, AudioBinaryLabel):
+    def __getitem__(self, idx) -> tuple[AudioWorker, AudioBinaryLabel]:
         filename = self.labels.filename[idx]
         reader, chapter, _ = filename.split('-')
         audio_file_path = os.path.join(self.openslr_path, reader, chapter, filename)
