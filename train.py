@@ -180,7 +180,7 @@ if __name__ == '__main__':
     info_txt += '\n' + (f"Checkpoints: {saves_count} in {do_epoches}")
     info_txt += '\n' + ("Training: " +
                         # f"\n\t- SNR values: [{', '.join(map(str, snr_dict))}]".replace('None', '_') +
-                        f"\n\t- final batch size:  {batch_size + noise_args.zero_count + synth_args.count}")
+                        f"\n\t- final batch size:  {batch_size * (synth_args is None) + noise_args.zero_count + synth_args.count}")
 
     if val_every != 0:
         info_txt += '\n' + ("Validation: " +
