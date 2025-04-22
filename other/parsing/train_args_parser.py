@@ -21,10 +21,12 @@ root = is_type_of(ydict['data']['root'], req=False)
 seed = is_type_of(ydict['data']['seed'], int, req=False)
 if seed is None:
     seed = random.randint(0, 2 ** 32 - 1)
-clean_audios_path = is_type_of(ydict['data']['clean'])
-clean_labels_path = is_type_of(ydict['data']['labels'])
+
+clean_audios_path = is_type_of(ydict['data']['clean'], req=True)
+clean_labels_path = is_type_of(ydict['data']['labels'], req=True)
 
 # Synthetic data
+empty_batches = is_range(ydict['data']['empty_batches'], 1, 2 ** 16, int, req=False)
 synth_args = SynthArgs(ydict['data']['synthetic'])
 
 # Model section
@@ -57,8 +59,11 @@ impulse_args = ImpulseArgs(ydict['augmentation']['impulses'])
 if root is not None:
     clean_audios_path = os.path.join(root, clean_audios_path)
     clean_labels_path = os.path.join(root, clean_labels_path)
-    synth_args.dir = os.path.join(root, synth_args.dir)
-    synth_args.labels_path = os.path.join(root, synth_args.labels_path)
+
+    if synth_args.labels is not None:
+        synth_args.labels_path = os.path.join(root, synth_args.labels_path)
+        synth_args.dir = os.path.join(root, synth_args.dir)
+
     for d in noise_args.datas:
         d.data_dir = os.path.join(root, d.data_dir)
     impulse_args.mic_ir_dir = os.path.join(root, impulse_args.mic_ir_dir)

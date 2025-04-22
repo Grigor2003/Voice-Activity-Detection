@@ -9,7 +9,7 @@ from tqdm import tqdm
 from other.data.audio_utils import AudioWorker
 from other.models.models_handler import MODELS, count_parameters, estimate_vram_usage
 from other.data.collates import NoiseCollate, ValCollate
-from other.data.datasets import OpenSLRDataset
+from other.data.datasets import OpenSLRDataset, NoneDataset
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter2, ChebyshevType2Filter
 from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box, Example, plot_target_prediction, \
     get_files_by_extension, MODEL_NAME, MODEL_EXT
@@ -95,9 +95,15 @@ if __name__ == '__main__':
     info_txt += '\n' + (f"Optimizer: {type(optimizer)}")
 
     dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
-    info_txt += '\n' + ("Train dataset: " +
-                        f"\n\t- files count: {len(dataset)}" +
-                        f"\n\t- labels path: '{clean_labels_path}'")
+    empty_dataset = None
+
+    if empty_batches is not None:
+        empty_dataset = NoneDataset(empty_batches * batch_size, dataset.sample_rate)
+        info_txt += '\n' + (f"Train with empty batches: {empty_batches}")
+    else:
+        info_txt += '\n' + ("Train dataset: " +
+                            f"\n\t- files count: {len(dataset)}" +
+                            f"\n\t- labels path: '{clean_labels_path}'")
 
     with open(synth_args.labels_path, 'r') as f:
         lines = f.readlines()
@@ -140,6 +146,10 @@ if __name__ == '__main__':
 
     train_dataloader, val_dataloader = get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size,
                                                                  num_workers, val_num_workers, generator)
+
+    if empty_dataset is not None:
+        train_dataloader, _ = get_train_val_dataloaders(empty_dataset, 1, batch_size, val_batch_size,
+                                                        num_workers, val_num_workers, generator)
 
     info_txt += '\n' + ("Estimated: " +
                         f"\n\t- parameters: {count_parameters(model)}" +
@@ -373,14 +383,14 @@ if __name__ == '__main__':
                     output_iw_mask = np.full(ex.wave.size(1), False, dtype=bool)
                     for i, speech_lh in enumerate(speech_mask.T):
                         output_iw_mask[hop_length * i:hop_length * i + win_length] = (
-                            (speech_lh > threshold) or
-                            output_iw_mask[hop_length * i:hop_length * i + win_length])
+                                (speech_lh > threshold) or
+                                output_iw_mask[hop_length * i:hop_length * i + win_length])
 
                     target_iw_mask = np.full(ex.wave.size(1), False, dtype=bool)
                     for i, speech_lh in enumerate(ex.label):
                         target_iw_mask[hop_length * i:hop_length * i + win_length] = (
-                            (speech_lh > threshold) or
-                            target_iw_mask[hop_length * i:hop_length * i + win_length])
+                                (speech_lh > threshold) or
+                                target_iw_mask[hop_length * i:hop_length * i + win_length])
 
                     # try:
                     p = os.path.join(epoch_folder, f"{ex.name}_b{ex.bi}_i{ex.i}" + '{pfx}')

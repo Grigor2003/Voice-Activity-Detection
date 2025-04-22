@@ -28,11 +28,13 @@ class NoiseCollate:
 
     def __call__(self, batch: list[tuple[AudioWorker, AudioBinaryLabel]]):
 
+        batch = [x for x in batch if x is not None]
+
+        types_to_batches = {"_": batch}
         sizes = [aw.length for aw, _ in batch]
-        types_to_batches = {
-            "_": batch,
-            "zero": self.generate_zero_samples(sizes),
-            "synth": self.generate_synth_samples(sizes)}
+        types_to_batches['synth'] = self.generate_synth_samples(sizes, self.synth_args.default_comb_count)
+        sizes = sizes + [aw.length for aw, _ in types_to_batches['synth']]
+        types_to_batches['zero'] = self.generate_zero_samples(sizes)
 
         type_to_ex_inds = {}
         if self.n_examples is not None:
@@ -103,10 +105,10 @@ class NoiseCollate:
             batch.append((aw, empty))
         return batch
 
-    def generate_synth_samples(self, sizes):
+    def generate_synth_samples(self, sizes, count):
         if self.synth_args.count <= 0:
             return []
-        mean_size = sum(sizes) // len(sizes)
+        mean_size = sum(sizes) // len(sizes) if len(sizes) != 0 else None
         random_inds = torch.randperm(len(self.synth_args.paths))
         taken = 0
         batch = []
@@ -114,6 +116,7 @@ class NoiseCollate:
             audios = []
             labels = []
             sum_frames = 0
+            concatenated_count = 0
             while True:
                 if taken >= len(self.synth_args.paths):
                     taken = 0
@@ -121,9 +124,12 @@ class NoiseCollate:
                 curr_label = self.synth_args.labels[curr_path]
                 au_path = os.path.join(self.synth_args.dir, curr_path)
                 frames = get_wav_frames_count(au_path, self.sample_rate)
-                if sum_frames + frames > mean_size:
+                if mean_size is not None and sum_frames + frames > mean_size:
+                    break
+                elif mean_size is None and concatenated_count + 1 > count:
                     break
                 else:
+                    concatenated_count += 1
                     taken += 1
                     sum_frames += frames
                     audios.append(AudioWorker(au_path).load()

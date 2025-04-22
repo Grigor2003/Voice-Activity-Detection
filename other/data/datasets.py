@@ -37,6 +37,18 @@ class OpenSLRDataset(Dataset):
         return aw, label
 
 
+class NoneDataset(Dataset):
+    def __init__(self, count, target_rate):
+        self.count = count
+        self.sample_rate = target_rate
+
+    def __len__(self):
+        return self.count
+
+    def __getitem__(self, idx):
+        return None
+
+
 class MSDWildDataset(Dataset):
     def __init__(self, wavs_path, rttm_path, target_rate):
         self.wavs_path = wavs_path

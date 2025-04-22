@@ -5,10 +5,12 @@ from other.parsing.parsing_utils import *
 
 class SynthArgs:
     def __init__(self, dct):
-        self.labels_path = is_type_of(dct['labels'])
+        self.labels_path = is_type_of(dct['labels'], req=False)
+        self.rate = is_type_of(dct['count'], (int, float), req=self.labels_path is not None)
+        self.dir = is_type_of(dct['dir'], req=self.labels_path is not None)
+        self.default_comb_count = is_range(dct['default_comb_count'], 1, 100, req=self.labels_path is not None)
+
         self.labels = dict()
-        self.rate = is_type_of(dct['count'], (int, float))
-        self.dir = is_type_of(dct['dir'])
         self.paths = []
         self.count = 0
 
@@ -70,7 +72,7 @@ class NoiseData:
 
 class ImpulseArgs:
     def __init__(self, dct):
-        self.mic_ir_dir = is_type_of(dct['mic_ir_dir'])
-        self.mic_ir_prob = is_range(dct['mic_ir_prob'], 0, 1)
+        self.mic_ir_dir = is_type_of(dct['mic_ir_dir'], req=False)
+        self.mic_ir_prob = is_range(dct['mic_ir_prob'], 0, 1, req=self.mic_ir_dir is not None)
         self.mic_ir_files_paths = []
         self.mic_ir_loaded = []

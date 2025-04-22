@@ -15,9 +15,12 @@ def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, 
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
                                   shuffle=True, num_workers=num_workers, generator=generator)
-    val_dataloader = DataLoader(val_dataset, batch_size=val_batch_size,
-                                shuffle=True, num_workers=val_num_workers, generator=generator)
-    return train_dataloader, val_dataloader
+    if train_ratio < 1:
+        val_dataloader = DataLoader(val_dataset, batch_size=val_batch_size,
+                                    shuffle=True, num_workers=val_num_workers, generator=generator)
+        return train_dataloader, val_dataloader
+    else:
+        return train_dataloader, None
 
 
 class WaveToMFCCConverter:

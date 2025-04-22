@@ -6,12 +6,16 @@ data:
   # Path to clean data
   clean: openslr/train-clean-100(converted to 8000 sr)
   # Path to labels
-  labels: openslr/8000_30_90_webrtc_labels.csv
-#  labels: openslr/8000_30_90_webrtc_labels_lite.csv
+#  labels: openslr/8000_30_90_webrtc_labels.csv
+  labels: openslr/8000_30_90_webrtc_labels_lite.csv
+  # Will ignore dataset and only generate given amount of empty batches
+  empty_batches: 20
   synthetic:
     dir: google/speech_commands
     labels: google/8000_30_90_webrtc_labels_filtered.csv
-    count: 0.0
+    count: -50
+    # in case if you don't have batch this amount of synthetic audios will be combined
+    default_comb_count: 10
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
@@ -84,9 +88,9 @@ train:
   # The learning rate given by power of 10
   lr: -4
   # The number of epochs to train the model in current session
-  epoch: 3
+  epoch: 1
   # The number of workers for data loading during training
-  workers: 4
+  workers: 0
   # The size of training batch (can be not final)
 #  batch: 200
   batch: 15
@@ -121,4 +125,4 @@ verbose:
   n_examples:
     _: 2
     zero: 1
-    synth: 2
+    synth: 5
