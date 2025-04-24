@@ -15,8 +15,6 @@ class OpenSLRDataset(Dataset):
 
         args = os.path.basename(self.labels_path).split("_")
         self.sample_rate = int(args[0])
-        self.vad_window = int(args[1])
-        self.vad_overlap_percent = int(args[2]) / 100.0
 
     def __len__(self):
         return len(self.labels)
