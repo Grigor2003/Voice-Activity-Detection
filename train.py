@@ -1,16 +1,16 @@
-import torch
-import torchaudio
-import os
-import time
 import shutil
+import time
+from collections import Counter
+
 import pandas as pd
+import torchaudio
 from tqdm import tqdm
 
 from other.data.audio_utils import AudioWorker
-from other.models.models_handler import MODELS, count_parameters, estimate_vram_usage
 from other.data.collates import NoiseCollate, ValCollate
 from other.data.datasets import OpenSLRDataset, NoneDataset
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter2, ChebyshevType2Filter
+from other.models.models_handler import MODELS, count_parameters, estimate_vram_usage
 from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box, Example, plot_target_prediction, \
     get_files_by_extension, MODEL_NAME, MODEL_EXT
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
@@ -226,7 +226,6 @@ if __name__ == '__main__':
 
         model.train()
         batch_idx, batch_count = 0, len(train_dataloader)
-        # example_batch_indexes = np.linspace(0, batch_count - 1, n_examples, dtype=int)
         example_batch_indexes = [batch_count - 2]
         working_examples[global_epoch] = []
 
@@ -307,7 +306,20 @@ if __name__ == '__main__':
 
                 print()
                 time.sleep(0.25)
-                for all_tensors in tqdm(val_dataloader, desc=f"Calculating validation scores: "):
+                val_dataloader.collate_fn.n_examples = 0
+                batch_to_ex_count = {}
+                if val_examples is not None:
+                    batch_to_ex_count = Counter([int(f) for f in
+                                                 torch.linspace(0, len(val_dataloader) - 1e-4, val_examples,
+                                                                dtype=float).tolist()])
+                    val_dataloader.collate_fn.n_examples = batch_to_ex_count[0]
+
+                all_tensors = {}
+                for bi, (all_tensors, examples) in enumerate(
+                        tqdm(val_dataloader, desc=f"Calculating validation scores: ")):
+                    if (bi + 1) in batch_to_ex_count.keys():
+                        val_dataloader.collate_fn.n_examples = batch_to_ex_count[bi + 1]
+
                     for snr_db, (batch_inputs, batch_targets, mask) in all_tensors.items():
                         batch_inputs = batch_inputs.to(device)
                         mask = mask.to(device)
@@ -316,6 +328,11 @@ if __name__ == '__main__':
 
                         output = mask * model(batch_inputs, ~mask).squeeze(-1)
                         val_loss[snr_db] += loss_function(output, batch_targets, mask, val=True).item()
+
+                        if bi in batch_to_ex_count.keys():
+                            for ex in examples:
+                                ex.update(bi=bi, pred=output[ex.i][mask[ex.i]].detach().cpu())
+                                working_examples[global_epoch].append(ex)
 
                         pred_correct = ((output > threshold) == (batch_targets > threshold)) * mask
                         correct_count[snr_db] += torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
@@ -370,11 +387,15 @@ if __name__ == '__main__':
                                   os.path.join(model_dir, 'accuracy.png'))
 
             for exam_global_epoch in range(curr_run_start_global_epoch, curr_run_start_global_epoch + epoch):
-                epoch_folder = os.path.join(model_dir, EXAMPLE_FOLDER, str(abs(exam_global_epoch)))
-                if os.path.exists(epoch_folder) and len(os.listdir(epoch_folder)) > 0:
+                epoch_ex_folder = os.path.join(model_dir, '_T_' + EXAMPLE_FOLDER, str(abs(exam_global_epoch)))
+                epoch_val_ex_folder = os.path.join(model_dir, '_V_' + EXAMPLE_FOLDER, str(abs(exam_global_epoch)))
+
+                if os.path.exists(epoch_ex_folder) and len(os.listdir(epoch_ex_folder)) > 0:
                     continue
 
-                os.makedirs(epoch_folder, exist_ok=True)
+                os.makedirs(epoch_ex_folder, exist_ok=True)
+                os.makedirs(epoch_val_ex_folder, exist_ok=True)
+
                 stats, examples = working_examples[-exam_global_epoch], working_examples[exam_global_epoch]
 
                 for ex_id, ex in enumerate(examples):
@@ -393,8 +414,8 @@ if __name__ == '__main__':
                                 (speech_lh > threshold) or
                                 target_iw_mask[hop_length * i:hop_length * i + win_length])
 
-                    # try:
-                    p = os.path.join(epoch_folder, f"{ex.name}_b{ex.bi}_i{ex.i}" + '{pfx}')
+                    ex_folder = epoch_val_ex_folder if ex.is_val else epoch_ex_folder
+                    p = os.path.join(ex_folder, f"{ex.name}_b{ex.bi}_i{ex.i}" + '{pfx}')
                     torchaudio.save(p.format(pfx='_0_input') + '.wav', ex.wave, sample_rate)
                     torchaudio.save(p.format(pfx='_1_output') + '.wav', ex.wave[:, output_iw_mask], sample_rate)
                     torchaudio.save(p.format(pfx='_2_target') + '.wav', ex.wave[:, target_iw_mask], sample_rate)
@@ -402,16 +423,15 @@ if __name__ == '__main__':
                     plot_target_prediction(ex.clear, ex.wave, target_iw_mask, output_iw_mask, sample_rate,
                                            p.format(pfx='_plot') + '.png')
 
-                    with open(p.format(pfx='') + '.info', 'a') as f:
-                        info = {}
-                        [info.update(dct) for dct in ex.info_dicts]
-                        print(*info.items(), file=f, sep='\n')
-                    # except Exception as e:
-                    #     print(f"WARNING: {e}")
+                    if not ex.is_val:
+                        with open(p.format(pfx='') + '.info', 'a') as f:
+                            info = {}
+                            [info.update(dct) for dct in ex.info_dicts]
+                            print(*info.items(), file=f, sep='\n')
 
                 stats["target_pos_rate"] = stats["target_positive"] / stats["whole_mask"]
                 stats["output_pos_rate"] = stats["output_positive"] / stats["whole_mask"]
-                with open(os.path.join(epoch_folder, '___batch_stats___.txt'), 'a') as f:
+                with open(os.path.join(epoch_ex_folder, '___batch_stats___.txt'), 'a') as f:
                     print(*stats.items(), file=f, sep='\n')
 
             torch.save({

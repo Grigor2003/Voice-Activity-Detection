@@ -180,30 +180,41 @@ class NoiseCollate:
 
 
 class ValCollate:
-    def __init__(self, sample_rate, noise_args: NoiseArgs, snr_dbs, mfcc_converter: WaveToMFCCConverter2):
-        self.spectre_filter = None
-
+    def __init__(self, sample_rate, noise_args: NoiseArgs, snr_dbs,
+                 mfcc_converter: WaveToMFCCConverter2, n_examples=None):
         self.sample_rate = sample_rate
         self.noise_args = noise_args
         self.snr_dbs = snr_dbs
         self.mfcc_converter = mfcc_converter
+        self.n_examples = n_examples
+
+        self.spectre_filter = None
 
     def __call__(self, batch):
         all_inputs = {snr_db: [] for snr_db in self.snr_dbs}
         all_targets = {snr_db: [] for snr_db in self.snr_dbs}
 
-        for aw, abl in batch:
+        ex_inds = []
+        if self.n_examples is not None:
+            self.n_examples = min(self.n_examples, len(batch))
+            if self.n_examples > 0:
+                ex_inds = (torch.randperm(len(batch) - 1)[:self.n_examples]).tolist()
+
+        examples = []
+        for i, (aw, abl) in enumerate(batch):
             window = self.mfcc_converter.win_length
             one_counts = binary_counts_to_windows_np(abl.binary_goc(), window, aw.length)
             labels = one_counts > (window // 2)
             tar = torch.tensor(labels).float()
 
             if self.noise_args.use_weights_as_counts:
-                noise_datas_inds_to_counts = {j: d.weight for j, d in enumerate(self.noise_args.datas)}
+                noise_datas_inds_to_counts = {j: max(self.noise_args.val_min_noise_count, d.weight) for j, d in
+                                              enumerate(self.noise_args.datas)}
             else:
                 weights = torch.tensor([d.weight for d in self.noise_args.datas], dtype=torch.float)
                 noise_datas_inds = torch.multinomial(weights, replacement=True,
-                                                     num_samples=max(self.noise_args.val_min_noise_count, self.noise_args.count)).tolist()
+                                                     num_samples=max(self.noise_args.val_min_noise_count,
+                                                                     self.noise_args.count)).tolist()
                 noise_datas_inds_to_counts = Counter(noise_datas_inds)
 
             for data_i, count in noise_datas_inds_to_counts.items():
@@ -220,9 +231,16 @@ class ValCollate:
 
                     all_inputs[snr_db].append(_aw.wave[0])
                     all_targets[snr_db].append(tar)
+
+            if i in ex_inds:
+                rand_snr = self.snr_dbs[torch.randint(len(self.snr_dbs), (1,)).item()]
+                name = f"snr_{rand_snr}"
+                examples.append(Example(wave=all_inputs[rand_snr][-1].unsqueeze(0), clear=aw.wave, name=name,
+                                        i=i, label=labels, is_val=True))
+
         all_inputs = {k: self.mfcc_converter(pad_sequence(v, batch_first=True), spectre_filter=self.spectre_filter) for
                       k, v in all_inputs.items()}
-        return {snr_db: create_batch_tensor(all_inputs[snr_db], all_targets[snr_db]) for snr_db in self.snr_dbs}
+        return {snr_db: create_batch_tensor(all_inputs[snr_db], all_targets[snr_db]) for snr_db in self.snr_dbs}, examples
 
 
 def create_batch_tensor(inputs, targets):

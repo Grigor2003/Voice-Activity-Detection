@@ -46,7 +46,7 @@ class Example:
                  label: torch.Tensor = None,
                  pred: torch.Tensor = None,
                  name: str = None, info_dicts: list[dict] = None,
-                 bi: int = None, i: int = None):
+                 bi: int = None, i: int = None, is_val: bool = False):
         self.wave = wave
         self.clear = clear
         self.label = label
@@ -55,6 +55,7 @@ class Example:
         self.info_dicts = info_dicts
         self.bi = bi
         self.i = i
+        self.is_val = is_val
 
     def update(self,
                wave: torch.Tensor = None,
@@ -62,7 +63,7 @@ class Example:
                label: torch.Tensor = None,
                pred: torch.Tensor = None,
                name: str = None, info_dicts: list[dict] = None,
-               bi: int = None, i: int = None):
+               bi: int = None, i: int = None, is_val: bool = None):
         if wave is not None:
             self.wave = wave
         if clear is not None:
@@ -79,6 +80,8 @@ class Example:
             self.bi = bi
         if i is not None:
             self.i = i
+        if is_val is not None:
+            self.is_val = is_val
 
 
 def print_as_table(dataframe):
@@ -156,7 +159,7 @@ def create_new_model_trains_dir(model_name, brand_new=False):
             max_num = int(num)
             max_name = name
 
-    if brand_new:
+    if brand_new or max_name is None:
         brand_name = BRAND_MODEL_PREFIX + f"_{max_num + 1}" + f"_({datetime.now().strftime(DATE_FORMAT)})"
     else:
         brand_name = max_name

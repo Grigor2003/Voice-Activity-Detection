@@ -9,7 +9,7 @@ data:
   labels: openslr/8000_silero_labels.csv
 #  labels: openslr/8000_30_90_webrtc_labels_lite.csv
   # Will ignore dataset and only generate given amount of empty batches
-  empty_batches: 300
+  empty_batches: 200
   synthetic:
     dir: google/speech_commands
     labels: google/8000_silero_labels_filtered.csv
@@ -86,7 +86,7 @@ augmentation:
 
 train:
   # The learning rate given by power of 10
-  lr: -5
+  lr: -4
   # The number of epochs to train the model in current session
   epoch: 3
   # The number of workers for data loading during training
@@ -95,7 +95,7 @@ train:
 #  batch: 200
   batch: 15
   # Accumulation steps
-  n_accum: 5
+  n_accum: 1
   # Default window lenght (hop lenght would be half of window)
   win_length: 400
 
@@ -126,3 +126,4 @@ verbose:
     _: 2
     zero: 1
     synth: 5
+  val_examples: 10

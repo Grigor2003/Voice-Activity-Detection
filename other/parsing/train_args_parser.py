@@ -104,6 +104,7 @@ plot = is_type_of(ydict['verbose']['plot'], bool)
 print_mbox = is_type_of(ydict['verbose']['mbox'], bool)
 print_val_results = is_type_of(ydict['verbose']['val_results'], bool)
 n_examples = ydict['verbose']['n_examples']
+val_examples = is_range(ydict['verbose']['val_examples'], 1, 100, int, req=False)
 
 
 def model_has_been_saved():
