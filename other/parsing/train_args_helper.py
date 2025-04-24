@@ -32,6 +32,8 @@ class NoiseArgs:
                                                  [-25, 25, True, False],
                                                  [0, 2 ** 16, True, True])
 
+        self.val_min_noise_count = 1
+
         self.datas = []
         for name, d in dct.items():
             if not isinstance(d, dict) or name in ["snr&weight"]:

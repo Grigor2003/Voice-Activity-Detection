@@ -96,7 +96,7 @@ if val_num_workers is None:
     val_num_workers = num_workers
 val_batch_size = is_range(ydict['val']['mini_batch'], 1, 2 ** 15, int)
 val_snrs_list = parse_numeric_list(ydict['val']['snr_list'], 1, 100, -25, 25, int, False)
-val_noise_count = is_range(ydict['val']['noise_count'], 1, 2 ** 15, int)
+noise_args.val_min_noise_count = is_range(ydict['val']['min_noise_count'], 1, 2 ** 15, int)
 
 # Verbose section
 threshold = is_range(ydict['verbose']['threshold'], 0, 1)

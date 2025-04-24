@@ -203,7 +203,7 @@ class ValCollate:
             else:
                 weights = torch.tensor([d.weight for d in self.noise_args.datas], dtype=torch.float)
                 noise_datas_inds = torch.multinomial(weights, replacement=True,
-                                                     num_samples=max(1, self.noise_args.count)).tolist()
+                                                     num_samples=max(self.noise_args.val_min_noise_count, self.noise_args.count)).tolist()
                 noise_datas_inds_to_counts = Counter(noise_datas_inds)
 
             for data_i, count in noise_datas_inds_to_counts.items():
