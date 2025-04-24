@@ -29,6 +29,7 @@ if __name__ == '__main__':
 
     if weights_load_from is not None:
         last_weights_path = find_model_in_dir_or_path(weights_load_from)
+        model_dir = os.path.dirname(last_weights_path)
         create_new_model = True
     else:
         if create_new_model is None:
@@ -89,7 +90,6 @@ if __name__ == '__main__':
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             optimizer.lr = lr
         except:
-
             info_txt += '\n' + (f"WARNING: Couldn't load optimizer states from the checkpoint")
 
     info_txt += '\n' + (f"Optimizer: {type(optimizer)}")
@@ -160,6 +160,7 @@ if __name__ == '__main__':
         accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'),
                                              index_col="global_epoch")
     except:
+        info_txt += '\n' + (f"WARNING: Couldn't load history datas from the given directory")
         loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
         accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
         loss_history_table.set_index('global_epoch', inplace=True)
