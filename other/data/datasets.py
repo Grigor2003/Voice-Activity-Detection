@@ -20,7 +20,7 @@ class OpenSLRDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx) -> tuple[AudioWorker, AudioBinaryLabel]:
-        filename = self.labels.filename[idx]
+        filename = self.labels.filename.iloc[idx]
         reader, chapter, _ = filename.split('-')
         audio_file_path = os.path.join(self.openslr_path, reader, chapter, filename)
 
@@ -29,7 +29,7 @@ class OpenSLRDataset(Dataset):
         aw = AudioWorker(audio_file_path, os.path.basename(filename))
         aw.load().leave_one_channel().resample(self.sample_rate)
 
-        stamps_flatten = [*map(int, self.labels.at[idx, 'labels'].split('-'))]
+        stamps_flatten = [*map(int, self.labels.labels.iloc[idx].split('-'))]
         stamps = list(zip(stamps_flatten[::2], stamps_flatten[1::2]))
         label = AudioBinaryLabel.from_one_stamps(stamps, aw.length)
         return aw, label

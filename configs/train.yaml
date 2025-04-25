@@ -9,11 +9,11 @@ data:
   labels: openslr/8000_silero_labels.csv
 #  labels: openslr/8000_30_90_webrtc_labels_lite.csv
   # Will ignore dataset and only generate given amount of empty batches
-  empty_batches: 200
+  empty_batches:
   synthetic:
     dir: google/speech_commands
     labels: google/8000_silero_labels_filtered.csv
-    count: -50
+    count: 1
     # in case if you don't have batch this amount of synthetic audios will be combined
     default_comb_count: 10
 
@@ -45,7 +45,7 @@ augmentation:
     # if value is negative then the absolute would be taken
     # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
     # Example: batch: 100, zero_rate: 1.25 => 100 + 125 = 225
-    zero_arg: 0
+    zero_arg: 1
     use_weights_as_counts: false
     snr&weight: # Noises SNRs to use for batch augmentation
       null: 50
@@ -95,7 +95,7 @@ train:
 #  batch: 200
   batch: 15
   # Accumulation steps
-  n_accum: 1
+  n_accum: 10
   # Default window lenght (hop lenght would be half of window)
   win_length: 400
 
