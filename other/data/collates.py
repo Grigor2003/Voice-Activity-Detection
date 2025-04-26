@@ -64,7 +64,7 @@ class NoiseCollate:
                 pitch_aug_info = augment_pitch_shift(aw)
 
                 # Augmenting audio by adding real noise and white noise
-                gain_aug_info = augment_volume_gain(aw)
+                # gain_aug_info = augment_volume_gain(aw)
 
                 noise_aug_info = self.augment_aw_with_noises(aw)
 
@@ -77,8 +77,10 @@ class NoiseCollate:
                     global_ex_inds.append(len(waves) - 1)
                     name = f"snr_{noise_aug_info['snrs']}"
                     name = tp + '_' + name
+                    # examples.append(Example(wave=aw.wave, clear=clear, name=name,
+                    # info_dicts=[pitch_aug_info, gain_aug_info, noise_aug_info], i=i, label=labels))
                     examples.append(Example(wave=aw.wave, clear=clear, name=name,
-                                            info_dicts=[pitch_aug_info, gain_aug_info, noise_aug_info], i=i, label=labels))
+                                            info_dicts=[pitch_aug_info, noise_aug_info], i=i, label=labels))
 
         pad_waves = pad_sequence(waves, batch_first=True)
 
@@ -243,7 +245,8 @@ class ValCollate:
 
         all_inputs = {k: self.mfcc_converter(pad_sequence(v, batch_first=True), spectre_filter=self.spectre_filter) for
                       k, v in all_inputs.items()}
-        return {snr_db: create_batch_tensor(all_inputs[snr_db], all_targets[snr_db]) for snr_db in self.snr_dbs}, examples
+        return {snr_db: create_batch_tensor(all_inputs[snr_db], all_targets[snr_db]) for snr_db in
+                self.snr_dbs}, examples
 
 
 def create_batch_tensor(inputs, targets):
