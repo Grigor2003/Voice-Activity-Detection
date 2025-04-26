@@ -1,4 +1,5 @@
 import torch
+import torchaudio.functional as F
 
 from other.data.audio_utils import AudioWorker
 
@@ -104,6 +105,18 @@ def augment_with_noises(aw: AudioWorker, noises=None, noise_duration_range=(2, 5
 
     return {"noises_starts": noises_starts,
             "noises_durations": noise_durations}
+
+
+def augment_pitch_shift(aw: AudioWorker, pitch_range=(-4, 4)):
+    mean, std = 0.5, 0.25
+
+    i_min, i_max = pitch_range
+    r = torch.clamp((mean + torch.randn(1) * std), 0.0, 1.0).item()
+    pitch_arg = i_min + r * (i_max - i_min)
+
+    # aw.wave = F.pitch_shift(aw.wave, sample_rate=aw.rate, n_steps=int(pitch_arg))
+
+    return {"pitch_arg": pitch_arg, "n_steps": int(pitch_arg)}
 
 
 def augment_volume_gain(aw: AudioWorker, gain_function='random', effect_duration_s=(3, 10),

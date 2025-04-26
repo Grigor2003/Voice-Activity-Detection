@@ -5,11 +5,12 @@ import torch
 from other.models.models_handler import MODELS
 from other.utils import find_last_model_in_tree
 
-model_name = 'DGCGCGD_13_7'
-out_name = model_name + '_fully' + '.onnx'
+model_name = 'DGCGD_7'
+out_name = model_name + '_+6e_noise' + '.onnx'
 example_inp_x = torch.rand(1, 1000, 64)
-# ckp_path = (r"C:\Users\gg\Projects\VAD_infrastructure\Voice-Activity-Detection\RESULTS\DGCGCGD_13_7\START_1_(2025-04-24)\run_1\weights.pt")
-_, ckp_path = find_last_model_in_tree(model_name)
+ckp_path = (r"C:\Users\gg\Projects\VAD_infrastructure\Voice-Activity-Detection\RESULTS\DGCGD_7\START_2_(2025-04-25)"
+            + r"\run_3\weights.pt")
+# _, ckp_path = find_last_model_in_tree(model_name)
 print(ckp_path)
 save_path = os.path.join(os.path.dirname(ckp_path), out_name)
 model = MODELS[model_name]()
