@@ -22,7 +22,7 @@ if __name__ == '__main__':
     # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
     # os.environ['TORCH_USE_CUDA_DSA'] = "1"
     info_txt = ""
-    info_txt += run_desc
+    info_txt += f"desc: {run_desc}"
     info_txt += '\n' + f"Create new model: {create_new_model}"
 
     model_dir, model_path = None, None
@@ -223,17 +223,18 @@ if __name__ == '__main__':
         working_examples[-global_epoch] = stats
 
         running_loss = torch.scalar_tensor(0, device=device)
-        running_correct_count = torch.scalar_tensor(0, device=device)
+        sample_accuracies_sum = torch.scalar_tensor(0, device=device)
         running_whole_count = torch.scalar_tensor(0, device=device)
 
         model.train()
         batch_idx, batch_count = 0, len(train_dataloader)
-        example_batch_indexes = [batch_count - 2]
+        total = min(max_batches, len(train_dataloader))
+        example_batch_indexes = [total - 2]
         working_examples[global_epoch] = []
 
-        for batch_idx, ((batch_inputs, batch_targets, mask), examples) in enumerate(
-                tqdm(train_dataloader, desc=f"Training epoch: {global_epoch} ({epoch}\\{do_epoches})" + ' | ',
-                     disable=0)):
+        _tqdm_desc_str = "Epoch {ge} ({e}\\{de})".ljust(15) + ' | ' + "batch acc: {acc:.2f}%".ljust(10)
+        _tqdm = tqdm(train_dataloader, desc=_tqdm_desc_str, total=total)
+        for batch_idx, ((batch_inputs, batch_targets, mask), examples) in enumerate(_tqdm):
 
             # Move data to the GPU if available
             batch_inputs = batch_inputs.to(device)
@@ -265,7 +266,12 @@ if __name__ == '__main__':
             running_loss += loss.item() * batch_samples_count * accumulation_steps  # Rescale back for logging
             running_whole_count += batch_samples_count
             pred_correct = ((output > threshold) == (batch_targets > threshold)) * mask
-            running_correct_count += torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
+            pred_correct_count = torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
+            sample_accuracies_sum += pred_correct_count
+
+            _tqdm.set_description(str.format(_tqdm_desc_str,
+                                             **{'ge': global_epoch, 'e': epoch, 'de': do_epoches,
+                                                'acc': 100 * (pred_correct_count / batch_samples_count)}))
 
             # Backward pass (accumulate gradients)
             loss.backward()
@@ -275,13 +281,16 @@ if __name__ == '__main__':
                 optimizer.step()
                 optimizer.zero_grad()
 
+            if batch_idx + 1 >= max_batches:
+                break
+
         # After the final batch, check if there are remaining gradients to update
         if (batch_idx + 1) % accumulation_steps != 0:
             optimizer.step()
             optimizer.zero_grad()
 
         running_loss = (running_loss / running_whole_count).item()
-        accuracy = (running_correct_count / running_whole_count).item()
+        accuracy = (sample_accuracies_sum / running_whole_count).item()
 
         row_loss_values = {
             'global_epoch': global_epoch,
@@ -309,16 +318,17 @@ if __name__ == '__main__':
                 print()
                 time.sleep(0.25)
                 val_dataloader.collate_fn.n_examples = 0
+                val_total = min(int(max_batches * (1 - train_ratio)), len(val_dataloader))
                 batch_to_ex_count = {}
                 if val_examples is not None:
                     batch_to_ex_count = Counter([int(f) for f in
-                                                 torch.linspace(0, len(val_dataloader) - 1e-4, val_examples,
+                                                 torch.linspace(0, val_total - 1e-4, val_examples,
                                                                 dtype=float).tolist()])
                     val_dataloader.collate_fn.n_examples = batch_to_ex_count[0]
 
                 all_tensors = {}
                 for bi, (all_tensors, examples) in enumerate(
-                        tqdm(val_dataloader, desc=f"Calculating validation scores: ")):
+                        tqdm(val_dataloader, desc=f"Calculating validation scores: ", total=val_total)):
                     if (bi + 1) in batch_to_ex_count.keys():
                         val_dataloader.collate_fn.n_examples = batch_to_ex_count[bi + 1]
 
@@ -339,6 +349,9 @@ if __name__ == '__main__':
                         pred_correct = ((output > threshold) == (batch_targets > threshold)) * mask
                         correct_count[snr_db] += torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
                         whole_count[snr_db] += real_samples_count
+
+                    if bi + 1 >= val_total:
+                        break
 
                 for snr_db in val_snrs_list:
                     val_loss[snr_db] /= whole_count[snr_db]

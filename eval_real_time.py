@@ -13,19 +13,16 @@ from other.data.processing import WaveToMFCCConverter
 from other.utils import find_last_model_in_tree
 
 # model_name = r"WhisperLike_64"
-model_name = r"DGCGD_64"
-train_res_dir = "train_results"
+model_name = r"DGCGD_7"
 th = 0.6
 frames_to_pass = 200
 orig_filename = "buffer/original_recording.wav"
 cropped_filename = "buffer/cropped_recording.wav"
 
-model_trains_tree_dir = os.path.join(train_res_dir, model_name)
-
-model_new_dir, model_path = find_last_model_in_tree(model_trains_tree_dir)
+_, model_path = find_last_model_in_tree(model_name)
 
 if model_path is None:
-    raise Exception(f"No model was found at {model_trains_tree_dir}")
+    raise Exception(f"No model was found at {model_name}")
 print(f"Model was found at {model_path}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -58,7 +55,6 @@ q = queue.Queue()
 def callback(frame, frame_len, time_info, status):
     """This is called (from a separate thread) for each audio block."""
     q.put(frame.copy())
-
 
 
 orig_file = sf.SoundFile(orig_filename, mode='w', samplerate=sample_rate, channels=1)

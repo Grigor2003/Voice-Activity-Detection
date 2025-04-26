@@ -75,6 +75,7 @@ lr = 10 ** is_range(ydict['train']['lr'], -100, 100)
 do_epoches = is_range(ydict['train']['epoch'], 0, 1000, int)
 num_workers = is_range(ydict['train']['workers'], 0, 32, int)
 batch_size = is_range(ydict['train']['batch'], 1, 2 ** 15, int)
+max_batches = is_range(ydict['train']['max_batches'], 1, 2 ** 15, int)
 accumulation_steps = is_range(ydict['train']['n_accum'], 1, 2 ** 15, int)
 
 if saves_count == 0:

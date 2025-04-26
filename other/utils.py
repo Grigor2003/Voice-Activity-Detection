@@ -22,7 +22,6 @@ def loss_function(pred, target, mask, reduction="auto", val=False):
     ce_loss = torch.nn.functional.binary_cross_entropy(pred, target, reduction='none')
     masked_loss = ce_loss * mask
     loss = torch.sum(masked_loss, dim=-1) / mask.sum(dim=-1).float()
-    loss = loss ** 2
 
     if reduction == "none":
         pass

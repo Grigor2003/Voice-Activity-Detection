@@ -1,16 +1,16 @@
-run_description: re{e} try pitch and desc
+run_description: re{e} noise added
 data:
   root: ../datasets
   # Would be used only if generates a new model
   # Leave blank if you want random seed
   seed: 42
   # Path to clean data
-  clean: openslr/train-clean-100(converted to 8000 sr)
+  clean: openslr/8k_pitched
 #  clean: msdwild_speech
   # Path to labels
 #  labels: msdwild_speech/8000_msdwild.csv
-  labels: openslr/8000_30_90_webrtc_labels_lite.csv
-#  labels: openslr/8000_silero_labels.csv
+#  labels: openslr/8000_30_90_webrtc_labels_lite.csv
+  labels: openslr/8000_silero_labels_pitched.csv
   # Will ignore dataset and only generate given amount of empty batches
   empty_batches:
   synthetic:
@@ -48,7 +48,7 @@ model:
 augmentation:
   noises:
     # The count of noises added on a single audio
-    count: 0
+    count: 3
     use_weights_as_counts: false
     snr&weight: # Noises SNRs to use for batch augmentation
       null: 50
@@ -89,14 +89,16 @@ augmentation:
 
 train:
   # The learning rate given by power of 10
-  lr: -4
+  lr: 0
   # The number of epochs to train the model in current session
-  epoch: 1
+  epoch: 3
   # The number of workers for data loading during training
   workers: 8
   # The size of training batch (can be not final)
 #  batch: 200
   batch: 15
+  # Epoch maximum batches count
+  max_batches: 1000
   # Accumulation steps
   n_accum: 10
   # Default window lenght (hop lenght would be half of window)

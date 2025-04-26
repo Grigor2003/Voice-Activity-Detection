@@ -5,8 +5,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 
 from other.data.audio_utils import AudioWorker, get_wav_frames_count
-from other.data.augmentation_utils import generate_white_noise, augment_with_noises, augment_volume_gain, \
-    augment_pitch_shift
+from other.data.augmentation_utils import generate_white_noise, augment_with_noises, augment_volume_gain
 from other.data.processing import WaveToMFCCConverter2
 from other.data.stamps_utils import balance_regions, binary_counts_to_windows_np, AudioBinaryLabel
 from other.parsing.train_args_helper import NoiseArgs, ImpulseArgs, SynthArgs
@@ -61,10 +60,8 @@ class NoiseCollate:
                 if i in ex_inds:
                     clear = aw.wave.clone()
 
-                pitch_aug_info = augment_pitch_shift(aw)
-
                 # Augmenting audio by adding real noise and white noise
-                # gain_aug_info = augment_volume_gain(aw)
+                gain_aug_info = augment_volume_gain(aw)
 
                 noise_aug_info = self.augment_aw_with_noises(aw)
 
@@ -80,7 +77,7 @@ class NoiseCollate:
                     # examples.append(Example(wave=aw.wave, clear=clear, name=name,
                     # info_dicts=[pitch_aug_info, gain_aug_info, noise_aug_info], i=i, label=labels))
                     examples.append(Example(wave=aw.wave, clear=clear, name=name,
-                                            info_dicts=[pitch_aug_info, noise_aug_info], i=i, label=labels))
+                                            info_dicts=[gain_aug_info, noise_aug_info], i=i, label=labels))
 
         pad_waves = pad_sequence(waves, batch_first=True)
 
