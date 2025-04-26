@@ -21,8 +21,11 @@ class OpenSLRDataset(Dataset):
 
     def __getitem__(self, idx) -> tuple[AudioWorker, AudioBinaryLabel]:
         filename = self.labels.filename.iloc[idx]
-        reader, chapter, _ = filename.split('-')
-        audio_file_path = os.path.join(self.openslr_path, reader, chapter, filename)
+        try:
+            reader, chapter, _ = filename.split('-')
+            audio_file_path = os.path.join(self.openslr_path, reader, chapter, filename)
+        except:
+            audio_file_path = os.path.join(self.openslr_path, filename)
 
         # name = os.path.splitext(audio_file_path)[0].replace("\\", "-")
         # au = AudioWorker(os.path.join(self.openslr_path, audio_file_path), name)

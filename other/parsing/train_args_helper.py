@@ -6,25 +6,34 @@ from other.parsing.parsing_utils import *
 class SynthArgs:
     def __init__(self, dct):
         self.labels_path = is_type_of(dct['labels'], req=False)
-        self.rate = is_type_of(dct['count'], (int, float), req=self.labels_path is not None)
         self.dir = is_type_of(dct['dir'], req=self.labels_path is not None)
         self.default_comb_count = is_range(dct['default_comb_count'], 1, 100, req=self.labels_path is not None)
+
+        self.synth_arg = is_type_of(dct['synth_arg'], (int, float), req=self.labels_path is not None)
+        self.zero_arg = is_type_of(dct['zero_arg'], (int, float))
+
+        self.count = 0
+        self.zero_count = 0
 
         self.labels = dict()
         self.paths = []
         self.count = 0
 
     def post_count(self, batch_size):
-        if self.rate < 0:
-            self.count = int(-self.rate)
-        elif self.rate > 0:
-            self.count = int(self.rate * batch_size)
+        if self.synth_arg < 0:
+            self.count = int(-self.synth_arg)
+        elif self.synth_arg > 0:
+            self.count = int(self.synth_arg * batch_size)
+
+    def post_zero_count(self, batch_size):
+        if self.zero_arg < 0:
+            self.zero_count = int(-self.zero_arg)
+        elif self.zero_arg > 0:
+            self.zero_count = int(self.zero_arg * batch_size)
 
 
 class NoiseArgs:
     def __init__(self, dct):
-        self.zero_rate = is_type_of(dct['zero_arg'], (int, float))
-        self.zero_count = 0
         self.count = is_range(dct['count'], 0, 100, int)
         self.use_weights_as_counts = is_type_of(dct['use_weights_as_counts'], bool)
         default_snr_to_frec = parse_numeric_dict(dct['snr&weight'],
@@ -39,12 +48,6 @@ class NoiseArgs:
             if not isinstance(d, dict) or name in ["snr&weight"]:
                 continue
             self.datas.append(NoiseData(name, d, default_snr_to_frec))
-
-    def post_zero_count(self, batch_size):
-        if self.zero_rate < 0:
-            self.zero_count = int(-self.zero_rate)
-        elif self.zero_rate > 0:
-            self.zero_count = int(self.zero_rate * batch_size)
 
 
 class NoiseData:

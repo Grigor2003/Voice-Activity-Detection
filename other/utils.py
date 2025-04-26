@@ -147,7 +147,7 @@ def find_last_model_in_tree(model_name):
         return res_dir, os.path.join(res_dir, (MODEL_NAME + MODEL_EXT))
 
 
-def create_new_model_trains_dir(model_name, brand_new=False):
+def create_new_model_trains_dir(model_name, brand_new=False, desc=None):
     model_trains_tree_dir = os.path.join(RES_FOLDER, model_name)
     os.makedirs(model_trains_tree_dir, exist_ok=True)
 
@@ -171,7 +171,7 @@ def create_new_model_trains_dir(model_name, brand_new=False):
         num = int(name.split("_")[1])
         max_num = max(num, max_num)
 
-    run_dir = os.path.join(brand_dir, RUN_PREFIX + "_" + str(max_num + 1))
+    run_dir = os.path.join(brand_dir, RUN_PREFIX + "_" + str(max_num + 1) + f"_({desc})" if desc is not None else "")
     os.makedirs(run_dir, exist_ok=True)
 
     return run_dir, os.path.join(run_dir, (MODEL_NAME + MODEL_EXT))

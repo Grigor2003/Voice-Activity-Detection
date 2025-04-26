@@ -16,6 +16,8 @@ yaml = ruamel.yaml.YAML(typ='rt')
 with open(y_path) as f:
     ydict = yaml.load(f)
 
+run_desc = ydict['run_description']
+
 # Data section
 root = is_type_of(ydict['data']['root'], req=False)
 seed = is_type_of(ydict['data']['seed'], int, req=False)
@@ -81,7 +83,7 @@ elif saves_count > do_epoches:
     raise ValueError(f"Saves count must be less than epoches count to do: {do_epoches}")
 save_frames = np.linspace(do_epoches / saves_count, do_epoches, saves_count, dtype=int)
 
-noise_args.post_zero_count(batch_size)
+synth_args.post_zero_count(batch_size)
 synth_args.post_count(batch_size)
 
 default_win_length = is_range(ydict['train']['win_length'], 1, 2 ** 15, int)
@@ -105,6 +107,8 @@ print_mbox = is_type_of(ydict['verbose']['mbox'], bool)
 print_val_results = is_type_of(ydict['verbose']['val_results'], bool)
 n_examples = ydict['verbose']['n_examples']
 val_examples = is_range(ydict['verbose']['val_examples'], 1, 100, int, req=False)
+
+run_desc = str.format(run_desc, e=do_epoches)
 
 
 def model_has_been_saved():

@@ -1,29 +1,36 @@
+run_description: "re{e}_msdWild_only"
 data:
   root: ../datasets
   # Would be used only if generates a new model
   # Leave blank if you want random seed
   seed: 42
   # Path to clean data
-  clean: openslr/train-clean-100(converted to 8000 sr)
+#  clean: openslr/train-clean-100(converted to 8000 sr)
+  clean: msdwild_speech
   # Path to labels
-  labels: openslr/8000_silero_labels.csv
+  labels: msdwild_speech/8000_msdwild.csv
 #  labels: openslr/8000_30_90_webrtc_labels_lite.csv
   # Will ignore dataset and only generate given amount of empty batches
   empty_batches:
   synthetic:
     dir: google/speech_commands
     labels: google/8000_silero_labels_filtered.csv
-    count: 1
     # in case if you don't have batch this amount of synthetic audios will be combined
     default_comb_count: 10
+    # The any_arg of synthetic audios that would be added to batch
+    # if value is negative then the absolute would be taken
+    # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
+    # Example: batch: 100, zero_rate: 1.25 => 100 + 125 = 225
+    synth_arg: 0
+    zero_arg: 0.2
 
 model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
   id:
   # The name of the model from models.py one of {NAMES}
-#  name: DGCGD_7
+  name: DGCGD_7
 #  name: BattleVAD
-  name: DGCGCGD_13_7
+#  name: DGCGCGD_13_7
   # Loads the specified weights to continue training,
   # creates a new run folder for storing results
   # Clears the weights and sets create_new_model to false as soon as saved
@@ -32,7 +39,7 @@ model:
   # creates a new run folder for storing results
   # If empty, continue training on last model, but in new run folder
   # Always sets create_new_model to false as soon as saved
-  create_new_model:
+  create_new_model: +
   # The count of saves (one save is always done at the end of the run)
   # When 0 will be saved every epoch
   saves_count: 0
@@ -41,11 +48,6 @@ augmentation:
   noises:
     # The count of noises added on a single audio
     count: 0
-    # The ratio of empty audios that would be added to batch
-    # if value is negative then the absolute would be taken
-    # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
-    # Example: batch: 100, zero_rate: 1.25 => 100 + 125 = 225
-    zero_arg: 1
     use_weights_as_counts: false
     snr&weight: # Noises SNRs to use for batch augmentation
       null: 50
@@ -88,9 +90,9 @@ train:
   # The learning rate given by power of 10
   lr: -4
   # The number of epochs to train the model in current session
-  epoch: 3
+  epoch: 1
   # The number of workers for data loading during training
-  workers: 8
+  workers: 4
   # The size of training batch (can be not final)
 #  batch: 200
   batch: 15

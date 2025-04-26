@@ -95,9 +95,9 @@ class NoiseCollate:
         return create_batch_tensor(pad_inputs, targets), examples
 
     def generate_zero_samples(self, sizes):
-        if self.noise_args.zero_count <= 0:
+        if self.synth_args.zero_count <= 0:
             return []
-        inds = torch.randint(0, len(sizes), (self.noise_args.zero_count,))
+        inds = torch.randint(0, len(sizes), (self.synth_args.zero_count,))
         batch = []
         for i in inds:
             aw = AudioWorker.from_wave(generate_white_noise(1, sizes[i], -50, 5), self.sample_rate)

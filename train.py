@@ -22,7 +22,8 @@ if __name__ == '__main__':
     # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
     # os.environ['TORCH_USE_CUDA_DSA'] = "1"
     info_txt = ""
-    info_txt += f"Create new model: {create_new_model}"
+    info_txt += run_desc
+    info_txt += '\n' + f"Create new model: {create_new_model}"
 
     model_dir, model_path = None, None
     last_weights_path = None
@@ -160,7 +161,8 @@ if __name__ == '__main__':
         accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'),
                                              index_col="global_epoch")
     except:
-        info_txt += '\n' + (f"WARNING: Couldn't load history datas from the given directory")
+        if last_weights_path is not None:
+            info_txt += '\n' + (f"WARNING: Couldn't load history datas from the given directory")
         loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
         accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
         loss_history_table.set_index('global_epoch', inplace=True)
@@ -181,7 +183,7 @@ if __name__ == '__main__':
     info_txt += '\n' + (f"Checkpoints: {saves_count} in {do_epoches}")
     info_txt += '\n' + ("Training: " +
                         # f"\n\t- SNR values: [{', '.join(map(str, snr_dict))}]".replace('None', '_') +
-                        f"\n\t- final batch size:  {batch_size * (synth_args is None) + noise_args.zero_count + synth_args.count}")
+                        f"\n\t- final batch size:  {batch_size * (empty_batches is None) + synth_args.zero_count + synth_args.count}")
 
     if val_every != 0:
         info_txt += '\n' + ("Validation: " +
@@ -362,7 +364,7 @@ if __name__ == '__main__':
 
         if epoch in save_frames:
             if model_path is None:
-                model_dir, model_path = create_new_model_trains_dir(model_name, create_new_model)
+                model_dir, model_path = create_new_model_trains_dir(model_name, create_new_model, run_desc)
                 print(f"\nCreated {model_dir}")
 
             curr_info_save_path = os.path.join(model_dir, 'info.yaml')
