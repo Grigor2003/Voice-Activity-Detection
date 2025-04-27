@@ -1,4 +1,4 @@
-run_description: re{e} noise added
+run_description: re{e} big model with pitched data
 data:
   root: ../datasets
   # Would be used only if generates a new model
@@ -29,9 +29,9 @@ model:
   # The id of the model from models.py from 0 to {MODELS_COUNT - 1}
   id:
   # The name of the model from models.py one of {NAMES}
-  name: DGCGD_7
+#  name: DGCGD_7
 #  name: BattleVAD
-#  name: DGCGCGD_13_7
+  name: DGCGCGD_13_7
   # Loads the specified weights to continue training,
   # creates a new run folder for storing results
   # Clears the weights and sets create_new_model to false as soon as saved
@@ -40,7 +40,7 @@ model:
   # creates a new run folder for storing results
   # If empty, continue training on last model, but in new run folder
   # Always sets create_new_model to false as soon as saved
-  create_new_model:
+  create_new_model: +
   # The count of saves (one save is always done at the end of the run)
   # When 0 will be saved every epoch
   saves_count: 0
@@ -89,16 +89,16 @@ augmentation:
 
 train:
   # The learning rate given by power of 10
-  lr: 0
+  lr: -2
   # The number of epochs to train the model in current session
-  epoch: 3
+  epoch: 15
   # The number of workers for data loading during training
   workers: 8
   # The size of training batch (can be not final)
 #  batch: 200
   batch: 15
   # Epoch maximum batches count
-  max_batches: 1000
+  max_batches:
   # Accumulation steps
   n_accum: 10
   # Default window lenght (hop lenght would be half of window)
