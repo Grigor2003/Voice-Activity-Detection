@@ -10,11 +10,11 @@ attention = lambda: AttentionModel(input_dim=64, attention_dim=128, hidden_dim2=
 # simple_gru_with_denses = lambda: SimpleDGGD(input_dim=64, hidden_dim1=48, hidden_dim2=32, hidden_dim3=16, hidden_dim4=8)
 gruconv_with_denses = lambda: DGCGD(input_dim=64, hidden_dim1=48, hidden_dim2=32, hidden_dim3=16, hidden_dim4=8,
                                dropout_prob=0.2)
-gruconv_with_denses_bigger_x2 = lambda: DGCGCGD_13_7(input_dim=64)
+gruconv_with_denses_bigger_x2 = lambda: DGCGCGD_13_7(input_dim=48)
 
 bottleneck = lambda: EfficientModel(64)
 
-battle_vad = lambda: BattleVAD(64)
+battle_vad = lambda: BattleVAD(48)
 
 MODELS = {
     "WhisperLike_64": whisper_like,

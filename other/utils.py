@@ -19,10 +19,14 @@ EXAMPLE_FOLDER = "examples"
 
 
 def loss_function(pred, target, mask, reduction="auto", val=False):
-    ce_loss = torch.nn.functional.binary_cross_entropy(pred, target, reduction='none')
+    target = target.argmax(dim=-1)
+    batch_size, seq_len = target.shape[0], target.shape[1]
+    pred = pred.reshape(-1, pred.shape[-1])
+    target = target.reshape(-1)
+    ce_loss = torch.nn.functional.cross_entropy(pred, target, reduction='none')
+    ce_loss = ce_loss.reshape(batch_size, seq_len)
     masked_loss = ce_loss * mask
     loss = torch.sum(masked_loss, dim=-1) / mask.sum(dim=-1).float()
-    loss = loss ** 2
 
     if reduction == "none":
         pass
@@ -256,3 +260,36 @@ def plot_target_prediction(wave, noised_wave, target, pred, sample_rate, save_pa
 
     plt.savefig(save_path, dpi=200, bbox_inches='tight')
     plt.close()
+    
+def get_confusion_matrix(preds, labels, mask, num_classes):
+    # Convert one-hot to class indices
+    preds = preds.argmax(dim=-1)[mask]
+    labels = labels.argmax(dim=-1)[mask]
+
+    # Compute indices for bincount
+    indices = num_classes * labels + preds  # Unique index for each (true, pred) pair
+
+    # Count occurrences
+    cm = torch.bincount(indices, minlength=num_classes**2).reshape(num_classes, num_classes)
+    return cm
+
+
+def compute_mean_f1_from_confusion(confusion_matrix):
+
+    # True Positives (Diagonal)
+    TP = np.diag(confusion_matrix)
+
+    # False Positives (Column sum minus TP)
+    FP = np.sum(confusion_matrix, axis=0) - TP
+
+    # False Negatives (Row sum minus TP)
+    FN = np.sum(confusion_matrix, axis=1) - TP
+
+    # Compute per-class precision and recall
+    precision = TP / (TP + FP + 1e-6)  # Avoid division by zero
+    recall = TP / (TP + FN + 1e-6)
+
+    # Compute per-class F1 score
+    f1_per_class = 2 * (precision * recall) / (precision + recall + 1e-6)
+
+    return f1_per_class.mean()

@@ -5,13 +5,16 @@ from collections import Counter
 import pandas as pd
 import torchaudio
 from tqdm import tqdm
+import torch
+
+torch.set_num_threads(4)
 
 from other.data.audio_utils import AudioWorker
 from other.data.collates import NoiseCollate, ValCollate
-from other.data.datasets import OpenSLRDataset, NoneDataset
+from other.data.accent_dataset import CommonAccent
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter2, ChebyshevType2Filter
 from other.models.models_handler import MODELS, count_parameters, estimate_vram_usage
-from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box, Example, plot_target_prediction, \
+from other.utils import EXAMPLE_FOLDER, compute_mean_f1_from_confusion, get_confusion_matrix, loss_function, async_message_box, Example, plot_target_prediction, \
     get_files_by_extension, MODEL_NAME, MODEL_EXT
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
 from other.utils import print_as_table, save_history_plot
@@ -94,40 +97,25 @@ if __name__ == '__main__':
 
     info_txt += '\n' + (f"Optimizer: {type(optimizer)}")
 
-    dataset = OpenSLRDataset(clean_audios_path, clean_labels_path)
+    dataset = CommonAccent(clean_audios_path, clean_labels_path)
     empty_dataset = None
 
-    if empty_batches is not None:
-        empty_dataset = NoneDataset(empty_batches * batch_size, dataset.sample_rate)
-        info_txt += '\n' + (f"Train with empty batches: {empty_batches}")
-    else:
-        info_txt += '\n' + ("Train dataset: " +
-                            f"\n\t- files count: {len(dataset)}" +
-                            f"\n\t- labels path: '{clean_labels_path}'")
+    info_txt += '\n' + ("Train dataset: " +
+                        f"\n\t- files count: {len(dataset)}" +
+                        f"\n\t- labels path: '{clean_labels_path}'")
 
-    with open(synth_args.labels_path, 'r') as f:
-        lines = f.readlines()
-    for line in lines[1:]:
-        path, label = line.strip().split(',')
-        if label == '':
-            continue
-        synth_args.labels[path] = list(map(int, label.split('-')))
-    synth_args.paths = list(synth_args.labels.keys())
-
-    info_txt += '\n' + ("Synthetic: " +
-                        f"\n\t- files count: {len(synth_args.paths)}" +
-                        f"\n\t- count in batch: {synth_args.count}" +
-                        f"\n\t- labels path: '{synth_args.labels_path}'")
 
     if checkpoint is not None:
         mfcc_converter = WaveToMFCCConverter2(
             n_mfcc=checkpoint['mfcc_n_mfcc'],
+            n_mels=checkpoint['mfcc_n_mels'],
             sample_rate=checkpoint['mfcc_sample_rate'],
             win_length=checkpoint['mfcc_win_length'],
             hop_length=checkpoint['mfcc_hop_length'])
     else:
         mfcc_converter = WaveToMFCCConverter2(
             n_mfcc=model.input_dim,
+            n_mels=model.input_dim //2,
             sample_rate=dataset.sample_rate,
             win_length=default_win_length,
             hop_length=default_win_length // 2)
@@ -159,29 +147,35 @@ if __name__ == '__main__':
         loss_history_table = pd.read_csv(os.path.join(model_dir, 'loss_history.csv'), index_col="global_epoch")
         accuracy_history_table = pd.read_csv(os.path.join(model_dir, 'accuracy_history.csv'),
                                              index_col="global_epoch")
+        f1_history_table = pd.read_csv(os.path.join(model_dir, 'f1_history.csv'),
+                                             index_col="global_epoch")
     except:
         info_txt += '\n' + (f"WARNING: Couldn't load history datas from the given directory")
         loss_history_table = pd.DataFrame(columns=['global_epoch', 'train_loss'])
         accuracy_history_table = pd.DataFrame(columns=['global_epoch', 'train_accuracy'])
+        f1_history_table = pd.DataFrame(columns=['global_epoch', 'train_f1'])
         loss_history_table.set_index('global_epoch', inplace=True)
         accuracy_history_table.set_index('global_epoch', inplace=True)
+        f1_history_table.set_index('global_epoch', inplace=True)
 
         for snr in val_snrs_list:
             if snr is None:
                 loss_history_table['clear_audio_loss'] = []
                 accuracy_history_table['clear_audio_acc'] = []
+                f1_history_table['clear_audio_f1'] = []
             else:
                 loss_history_table[f'noised_audio_snr{snr}_loss'] = []
                 accuracy_history_table[f'noised_audio_snr{snr}_acc'] = []
+                f1_history_table[f'noised_audio_snr{snr}_f1'] = []
 
-    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, noise_args, synth_args, impulse_args,
+    train_dataloader.collate_fn = NoiseCollate(dataset.sample_rate, noise_args, impulse_args,
                                                mfcc_converter, n_examples)
     val_dataloader.collate_fn = ValCollate(dataset.sample_rate, noise_args, val_snrs_list, mfcc_converter)
 
     info_txt += '\n' + (f"Checkpoints: {saves_count} in {do_epoches}")
     info_txt += '\n' + ("Training: " +
                         # f"\n\t- SNR values: [{', '.join(map(str, snr_dict))}]".replace('None', '_') +
-                        f"\n\t- final batch size:  {batch_size * (synth_args is None) + noise_args.zero_count + synth_args.count}")
+                        f"\n\t- final batch size:  {batch_size * (None is None) + noise_args.zero_count}")
 
     if val_every != 0:
         info_txt += '\n' + ("Validation: " +
@@ -201,6 +195,7 @@ if __name__ == '__main__':
     print(f"\n{'=' * 100}\n")
     print("Training")
 
+    num_classes = len(train_dataloader.dataset.unique_labels) + 1
     working_examples = {'ex': [Example()]}
     for epoch in range(1, do_epoches + 1):
 
@@ -217,13 +212,12 @@ if __name__ == '__main__':
                                           for ir_path in impulse_args.mic_ir_files_paths]
 
         train_dataloader.collate_fn.spectre_filter = chebyshev_filter
-        stats = {"target_positive": 0, "output_positive": 0, "whole_mask": 0}
-        working_examples[-global_epoch] = stats
 
         running_loss = torch.scalar_tensor(0, device=device)
-        running_correct_count = torch.scalar_tensor(0, device=device)
+        running_confusion_matrix = torch.zeros(num_classes, num_classes, dtype=torch.float32)
         running_whole_count = torch.scalar_tensor(0, device=device)
-
+        running_frame_count = torch.scalar_tensor(0, device=device)
+        
         model.train()
         batch_idx, batch_count = 0, len(train_dataloader)
         example_batch_indexes = [batch_count - 2]
@@ -240,13 +234,9 @@ if __name__ == '__main__':
 
             # Forward pass
             out = model(batch_inputs, ~mask)
-            output = mask * out.squeeze(-1)
+            output = mask.unsqueeze(-1) * out
 
-            # Save some stats and examples
-            with torch.no_grad():
-                stats["target_positive"] += torch.sum(batch_targets).item()
-                stats["output_positive"] += torch.sum(output > threshold).item()
-                stats["whole_mask"] += torch.sum(mask).item()
+            # Save examples
 
             if batch_idx in example_batch_indexes:
                 for ex in examples:
@@ -258,12 +248,12 @@ if __name__ == '__main__':
             loss = loss_function(output, batch_targets, mask)
             loss = loss / accumulation_steps  # Scale loss by the number of accumulation steps
 
-            # Accumulate running loss and correct count (for logging/metrics)
+            # Accumulate running loss and conf matrix (for logging/metrics)
             batch_samples_count = mask.size(0)
             running_loss += loss.item() * batch_samples_count * accumulation_steps  # Rescale back for logging
             running_whole_count += batch_samples_count
-            pred_correct = ((output > threshold) == (batch_targets > threshold)) * mask
-            running_correct_count += torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
+            running_frame_count += mask.sum()
+            running_confusion_matrix += get_confusion_matrix(output, batch_targets, mask, num_classes).detach().cpu()
 
             # Backward pass (accumulate gradients)
             loss.backward()
@@ -272,6 +262,10 @@ if __name__ == '__main__':
             if (batch_idx + 1) % accumulation_steps == 0:
                 optimizer.step()
                 optimizer.zero_grad()
+                
+            if train_dataloader.sampler.must_stop:
+                train_dataloader.sampler.must_stop
+                break
 
         # After the final batch, check if there are remaining gradients to update
         if (batch_idx + 1) % accumulation_steps != 0:
@@ -279,7 +273,8 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
         running_loss = (running_loss / running_whole_count).item()
-        accuracy = (running_correct_count / running_whole_count).item()
+        accuracy = (running_confusion_matrix.diagonal().sum() / running_frame_count).item()
+        f1 = compute_mean_f1_from_confusion(running_confusion_matrix.numpy())
 
         row_loss_values = {
             'global_epoch': global_epoch,
@@ -289,20 +284,26 @@ if __name__ == '__main__':
             'global_epoch': global_epoch,
             'train_accuracy': accuracy
         }
+        row_f1_scores = {
+            'global_epoch': global_epoch,
+            'train_f1': f1
+        }
 
         time.sleep(0.25)
-        print(f"Training | loss: {running_loss:.4f} | accuracy: {accuracy:.4f}")
+        print(f"Training | loss: {running_loss:.4f} | accuracy: {accuracy:.4f} | f1: {f1:.4f}")
         time.sleep(0.25)
 
-        val_loss, val_acc = None, None
+        val_loss, val_acc, val_f1 = None, None, None
         if val_every != 0 and epoch % val_every == 0:
             model.eval()
 
             with torch.no_grad():
                 val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
                 val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
-                correct_count = {snr_db: 0 for snr_db in val_snrs_list}
+                val_f1 = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
+                confusion_matrix = {snr_db: torch.zeros(num_classes, num_classes, dtype=torch.float32, device=device) for snr_db in val_snrs_list}
                 whole_count = {snr_db: 0 for snr_db in val_snrs_list}
+                frame_count = {snr_db: 0 for snr_db in val_snrs_list}
 
                 print()
                 time.sleep(0.25)
@@ -326,7 +327,7 @@ if __name__ == '__main__':
                         batch_targets = batch_targets.to(device)
                         real_samples_count = mask.size(0)
 
-                        output = mask * model(batch_inputs, ~mask).squeeze(-1)
+                        output = mask.unsqueeze(-1) * model(batch_inputs, ~mask)
                         val_loss[snr_db] += loss_function(output, batch_targets, mask, val=True).item()
 
                         if bi in batch_to_ex_count.keys():
@@ -334,31 +335,37 @@ if __name__ == '__main__':
                                 ex.update(bi=bi, pred=output[ex.i][mask[ex.i]].detach().cpu())
                                 working_examples[global_epoch].append(ex)
 
-                        pred_correct = ((output > threshold) == (batch_targets > threshold)) * mask
-                        correct_count[snr_db] += torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
+                        confusion_matrix[snr_db] += get_confusion_matrix(output, batch_targets, mask, num_classes)
                         whole_count[snr_db] += real_samples_count
+                        frame_count[snr_db] += mask.sum()
 
                 for snr_db in val_snrs_list:
                     val_loss[snr_db] /= whole_count[snr_db]
-                    val_acc[snr_db] = correct_count[snr_db] / whole_count[snr_db]
+                    val_acc[snr_db] = confusion_matrix[snr_db].diagonal().sum() / frame_count[snr_db]
+                    val_f1[snr_db] = compute_mean_f1_from_confusion(confusion_matrix[snr_db].detach().cpu().numpy())
 
         for snr in val_snrs_list:
             if snr is None:
                 row_loss_values['clear_audio_loss'] = val_loss[snr].item() if val_loss is not None else np.nan
                 row_acc_values['clear_audio_acc'] = val_acc[snr].item() if val_acc is not None else np.nan
+                row_f1_scores['clear_audio_f1'] = val_f1[snr].item() if val_f1 is not None else np.nan
             else:
                 row_loss_values[f'noised_audio_snr{snr}_loss'] = val_loss[
                     snr].item() if val_loss is not None else np.nan
                 row_acc_values[f'noised_audio_snr{snr}_acc'] = val_acc[snr].item() if val_acc is not None else np.nan
+                row_f1_scores[f'noised_audio_snr{snr}_f1'] = val_f1[snr].item() if val_f1 is not None else np.nan
 
         loss_history_table.loc[global_epoch] = row_loss_values
         accuracy_history_table.loc[global_epoch] = row_acc_values
+        f1_history_table.loc[global_epoch] = row_f1_scores
 
         if print_val_results and val_every != 0 and epoch % val_every == 0:
             print(f"\nLoss history")
             print_as_table(loss_history_table)
             print(f"\nAccuracy history")
             print_as_table(accuracy_history_table)
+            print(f"\nF1 history")
+            print_as_table(f1_history_table)
 
         if epoch in save_frames:
             if model_path is None:
@@ -378,6 +385,7 @@ if __name__ == '__main__':
 
             loss_history_table.to_csv(os.path.join(model_dir, 'loss_history.csv'))
             accuracy_history_table.to_csv(os.path.join(model_dir, 'accuracy_history.csv'))
+            f1_history_table.to_csv(os.path.join(model_dir, 'f1_history.csv'))
 
             if plot:
                 save_history_plot(loss_history_table, 'global_epoch', 'Loss history', 'Epoch', 'Loss',
@@ -385,54 +393,52 @@ if __name__ == '__main__':
 
                 save_history_plot(accuracy_history_table, 'global_epoch', 'Accuracy history', 'Epoch', 'Accuracy',
                                   os.path.join(model_dir, 'accuracy.png'))
+                save_history_plot(f1_history_table, 'global_epoch', 'F1 history', 'Epoch', 'F1',
+                                  os.path.join(model_dir, 'f1.png'))
 
-            for exam_global_epoch in range(curr_run_start_global_epoch, curr_run_start_global_epoch + epoch):
-                epoch_ex_folder = os.path.join(model_dir, '_T_' + EXAMPLE_FOLDER, str(abs(exam_global_epoch)))
-                epoch_val_ex_folder = os.path.join(model_dir, '_V_' + EXAMPLE_FOLDER, str(abs(exam_global_epoch)))
+            # for exam_global_epoch in range(curr_run_start_global_epoch, curr_run_start_global_epoch + epoch):
+            #     epoch_ex_folder = os.path.join(model_dir, '_T_' + EXAMPLE_FOLDER, str(abs(exam_global_epoch)))
+            #     epoch_val_ex_folder = os.path.join(model_dir, '_V_' + EXAMPLE_FOLDER, str(abs(exam_global_epoch)))
 
-                if os.path.exists(epoch_ex_folder) and len(os.listdir(epoch_ex_folder)) > 0:
-                    continue
+            #     if os.path.exists(epoch_ex_folder) and len(os.listdir(epoch_ex_folder)) > 0:
+            #         continue
 
-                os.makedirs(epoch_ex_folder, exist_ok=True)
-                os.makedirs(epoch_val_ex_folder, exist_ok=True)
+            #     os.makedirs(epoch_ex_folder, exist_ok=True)
+            #     os.makedirs(epoch_val_ex_folder, exist_ok=True)
 
-                stats, examples = working_examples[-exam_global_epoch], working_examples[exam_global_epoch]
+            #     examples = working_examples[exam_global_epoch]
 
-                for ex_id, ex in enumerate(examples):
-                    win_length, hop_length, sample_rate = mfcc_converter.win_length, mfcc_converter.hop_length, mfcc_converter.sample_rate
+            #     for ex_id, ex in enumerate(examples):
+            #         win_length, hop_length, sample_rate = mfcc_converter.win_length, mfcc_converter.hop_length, mfcc_converter.sample_rate
 
-                    speech_mask = ex.pred.squeeze(-1).numpy()
-                    output_iw_mask = np.full(ex.wave.size(1), False, dtype=bool)
-                    for i, speech_lh in enumerate(speech_mask.T):
-                        output_iw_mask[hop_length * i:hop_length * i + win_length] = (
-                                (speech_lh > threshold) or
-                                output_iw_mask[hop_length * i:hop_length * i + win_length])
+            #         speech_mask = ex.pred.squeeze(-1).numpy()
+            #         output_iw_mask = np.full(ex.wave.size(1), False, dtype=bool)
+            #         for i, speech_lh in enumerate(speech_mask.T):
+            #             output_iw_mask[hop_length * i:hop_length * i + win_length] = (
+            #                     (speech_lh > threshold) or
+            #                     output_iw_mask[hop_length * i:hop_length * i + win_length])
 
-                    target_iw_mask = np.full(ex.wave.size(1), False, dtype=bool)
-                    for i, speech_lh in enumerate(ex.label):
-                        target_iw_mask[hop_length * i:hop_length * i + win_length] = (
-                                (speech_lh > threshold) or
-                                target_iw_mask[hop_length * i:hop_length * i + win_length])
+            #         target_iw_mask = np.full(ex.wave.size(1), False, dtype=bool)
+            #         for i, speech_lh in enumerate(ex.label):
+            #             target_iw_mask[hop_length * i:hop_length * i + win_length] = (
+            #                     (speech_lh > threshold) or
+            #                     target_iw_mask[hop_length * i:hop_length * i + win_length])
 
-                    ex_folder = epoch_val_ex_folder if ex.is_val else epoch_ex_folder
-                    p = os.path.join(ex_folder, f"{ex.name}_b{ex.bi}_i{ex.i}" + '{pfx}')
-                    torchaudio.save(p.format(pfx='_0_input') + '.wav', ex.wave, sample_rate)
-                    torchaudio.save(p.format(pfx='_1_output') + '.wav', ex.wave[:, output_iw_mask], sample_rate)
-                    torchaudio.save(p.format(pfx='_2_target') + '.wav', ex.wave[:, target_iw_mask], sample_rate)
-                    torchaudio.save(p.format(pfx='_3_target_clear') + '.wav', ex.clear[:, target_iw_mask], sample_rate)
-                    plot_target_prediction(ex.clear, ex.wave, target_iw_mask, output_iw_mask, sample_rate,
-                                           p.format(pfx='_plot') + '.png')
+            #         ex_folder = epoch_val_ex_folder if ex.is_val else epoch_ex_folder
+            #         p = os.path.join(ex_folder, f"{ex.name}_b{ex.bi}_i{ex.i}" + '{pfx}')
+            #         torchaudio.save(p.format(pfx='_0_input') + '.wav', ex.wave, sample_rate)
+            #         torchaudio.save(p.format(pfx='_1_output') + '.wav', ex.wave[:, output_iw_mask], sample_rate)
+            #         torchaudio.save(p.format(pfx='_2_target') + '.wav', ex.wave[:, target_iw_mask], sample_rate)
+            #         torchaudio.save(p.format(pfx='_3_target_clear') + '.wav', ex.clear[:, target_iw_mask], sample_rate)
+            #         plot_target_prediction(ex.clear, ex.wave, target_iw_mask, output_iw_mask, sample_rate,
+            #                                p.format(pfx='_plot') + '.png')
 
-                    if not ex.is_val:
-                        with open(p.format(pfx='') + '.info', 'a') as f:
-                            info = {}
-                            [info.update(dct) for dct in ex.info_dicts]
-                            print(*info.items(), file=f, sep='\n')
+            #         if not ex.is_val:
+            #             with open(p.format(pfx='') + '.info', 'a') as f:
+            #                 info = {}
+            #                 [info.update(dct) for dct in ex.info_dicts]
+            #                 print(*info.items(), file=f, sep='\n')
 
-                stats["target_pos_rate"] = stats["target_positive"] / stats["whole_mask"]
-                stats["output_pos_rate"] = stats["output_positive"] / stats["whole_mask"]
-                with open(os.path.join(epoch_ex_folder, '___batch_stats___.txt'), 'a') as f:
-                    print(*stats.items(), file=f, sep='\n')
 
             torch.save({
                 'seed': seed,
@@ -443,6 +449,7 @@ if __name__ == '__main__':
                 'optimizer_state_dict': optimizer.state_dict(),
 
                 'mfcc_n_mfcc': mfcc_converter.n_mfcc,
+                'mfcc_n_mels': mfcc_converter.n_mels,
                 'mfcc_sample_rate': mfcc_converter.sample_rate,
                 'mfcc_win_length': mfcc_converter.win_length,
                 'mfcc_hop_length': mfcc_converter.hop_length,

@@ -3,24 +3,6 @@ import torch
 from other.parsing.parsing_utils import *
 
 
-class SynthArgs:
-    def __init__(self, dct):
-        self.labels_path = is_type_of(dct['labels'], req=False)
-        self.rate = is_type_of(dct['count'], (int, float), req=self.labels_path is not None)
-        self.dir = is_type_of(dct['dir'], req=self.labels_path is not None)
-        self.default_comb_count = is_range(dct['default_comb_count'], 1, 100, req=self.labels_path is not None)
-
-        self.labels = dict()
-        self.paths = []
-        self.count = 0
-
-    def post_count(self, batch_size):
-        if self.rate < 0:
-            self.count = int(-self.rate)
-        elif self.rate > 0:
-            self.count = int(self.rate * batch_size)
-
-
 class NoiseArgs:
     def __init__(self, dct):
         self.zero_rate = is_type_of(dct['zero_arg'], (int, float))

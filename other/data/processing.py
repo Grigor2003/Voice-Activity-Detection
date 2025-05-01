@@ -4,23 +4,22 @@ import torch
 import torchaudio
 from torch.utils.data import random_split, DataLoader
 
+from other.data.accent_dataset import AccentSampler, CommonAccent
 
-def get_train_val_dataloaders(dataset, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers,
-                              generator):
-    train_size = int(train_ratio * len(dataset))
-    val_size = len(dataset) - train_size
 
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size],
-                                              torch.Generator().manual_seed(generator.initial_seed()))
+def get_train_val_dataloaders(dataset: CommonAccent, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers, generator):
+
+    train_dataset, val_dataset = dataset.get_train_val_subsets(train_ratio, generator)
+
+    del dataset
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
-                                  shuffle=True, num_workers=num_workers, generator=generator)
-    if train_ratio < 1:
-        val_dataloader = DataLoader(val_dataset, batch_size=val_batch_size,
-                                    shuffle=True, num_workers=val_num_workers, generator=generator)
-        return train_dataloader, val_dataloader
-    else:
-        return train_dataloader, None
+                                  num_workers=num_workers, generator=generator,
+                                  sampler=AccentSampler(train_dataset.datapoints, reset=True, shuffle=True))
+    val_dataloader = DataLoader(val_dataset, batch_size=val_batch_size,
+                                num_workers=val_num_workers, generator=generator,
+                                sampler=AccentSampler(val_dataset.datapoints, reset=False, shuffle=False))
+    return train_dataloader, val_dataloader
 
 
 class WaveToMFCCConverter:

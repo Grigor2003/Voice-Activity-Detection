@@ -21,8 +21,8 @@ class DGCGCGD_13_7(nn.Module):
         self.activation2 = nn.ReLU()
         self.dropout2 = nn.Dropout(0.2)
 
-        self.fc3 = nn.Linear(12, 1)
-        self.activation3 = nn.Sigmoid()
+        self.fc3 = nn.Linear(12, 7)
+        # self.activation3 = nn.Sigmoid()
 
         self.input_dim = input_dim
         self.hidden_states = None
@@ -54,7 +54,7 @@ class DGCGCGD_13_7(nn.Module):
         out = self.activation2(out)
         out = self.dropout2(out)
         out = self.fc3(out)
-        out = self.activation3(out)
+        # out = self.activation3(out)
         return out
 
 

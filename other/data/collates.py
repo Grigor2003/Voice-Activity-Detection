@@ -8,19 +8,18 @@ from other.data.audio_utils import AudioWorker, get_wav_frames_count
 from other.data.augmentation_utils import generate_white_noise, augment_with_noises, augment_volume_gain
 from other.data.processing import WaveToMFCCConverter2
 from other.data.stamps_utils import balance_regions, binary_counts_to_windows_np, AudioBinaryLabel
-from other.parsing.train_args_helper import NoiseArgs, ImpulseArgs, SynthArgs
+from other.parsing.train_args_helper import NoiseArgs, ImpulseArgs
 from other.utils import Example
 
 
 class NoiseCollate:
     def __init__(self, sample_rate,
-                 noise_args: NoiseArgs, synth_args: SynthArgs, impulses_args: ImpulseArgs,
+                 noise_args: NoiseArgs, impulses_args: ImpulseArgs,
                  mfcc_converter: WaveToMFCCConverter2, n_examples=None):
         self.spectre_filter = None
 
         self.sample_rate = sample_rate
         self.noise_args = noise_args
-        self.synth_args = synth_args
         self.impulses_args = impulses_args
         self.n_examples = n_examples
 
@@ -31,10 +30,8 @@ class NoiseCollate:
         batch = [x for x in batch if x is not None]
 
         types_to_batches = {"_": batch}
-        sizes = [aw.length for aw, _ in batch]
-        types_to_batches['synth'] = self.generate_synth_samples(sizes, self.synth_args.default_comb_count)
-        sizes = sizes + [aw.length for aw, _ in types_to_batches['synth']]
-        types_to_batches['zero'] = self.generate_zero_samples(sizes)
+        sizes = [aw.length for aw, _, _ in batch]
+        # types_to_batches['zero'] = self.generate_zero_samples(sizes)
 
         type_to_ex_inds = {}
         if self.n_examples is not None:
@@ -47,16 +44,12 @@ class NoiseCollate:
         window = self.mfcc_converter.win_length
 
         for tp, ex_inds in type_to_ex_inds.items():
-            for i, (aw, abl) in enumerate(types_to_batches[tp]):
-
-                # Augmenting audio and balancing zero and one counts in labels
-                aw.wave, balanced_binary = balance_regions(aw.wave, abl.binary_goc())
-                AudioBinaryLabel.from_binary(balanced_binary, to=abl)
-
+            for i, (aw, cl, abl) in enumerate(types_to_batches[tp]):
                 one_counts = binary_counts_to_windows_np(abl.binary_goc(), window, aw.length)
                 labels = one_counts > (window // 2)
-                tar = torch.tensor(labels).float()
-
+                vad_labels = torch.tensor(labels).float()
+                tar = vad_labels.unsqueeze(-1) * (cl.unsqueeze(0))
+                tar = torch.cat([tar, 1 - vad_labels.unsqueeze(-1)], dim=-1)
                 if i in ex_inds:
                     clear = aw.wave.clone()
 
@@ -103,55 +96,6 @@ class NoiseCollate:
             aw = AudioWorker.from_wave(generate_white_noise(1, sizes[i], -50, 5), self.sample_rate)
             empty = AudioBinaryLabel.from_one_stamps([], aw.length)
             batch.append((aw, empty))
-        return batch
-
-    def generate_synth_samples(self, sizes, count):
-        if self.synth_args.count <= 0:
-            return []
-        mean_size = sum(sizes) // len(sizes) if len(sizes) != 0 else None
-        random_inds = torch.randperm(len(self.synth_args.paths))
-        taken = 0
-        batch = []
-        for i in range(self.synth_args.count):
-            audios = []
-            labels = []
-            sum_frames = 0
-            concatenated_count = 0
-            while True:
-                if taken >= len(self.synth_args.paths):
-                    taken = 0
-                curr_path = self.synth_args.paths[random_inds[taken]]
-                curr_label = self.synth_args.labels[curr_path]
-                au_path = os.path.join(self.synth_args.dir, curr_path)
-                frames = get_wav_frames_count(au_path, self.sample_rate)
-                if mean_size is not None and sum_frames + frames > mean_size:
-                    break
-                elif mean_size is None and concatenated_count + 1 > count:
-                    break
-                else:
-                    concatenated_count += 1
-                    taken += 1
-                    sum_frames += frames
-                    audios.append(AudioWorker(au_path).load()
-                                  .leave_one_channel().resample(self.sample_rate))
-                    labels.append(curr_label)
-            if len(audios) <= 0:
-                print(f"WARNING: Couldn't synthesize audio, batch mean is {mean_size / self.sample_rate}s")
-                continue
-
-            wave = torch.concat([aw.wave for aw in audios], dim=-1)
-            aw = AudioWorker.from_wave(wave, self.sample_rate)
-            regions = []
-            curr_len = 0
-            for a, label in zip(audios, labels):
-                regions.append([
-                    label[0] + curr_len,
-                    label[1] + curr_len
-                ])
-                curr_len += a.length
-
-            abl = AudioBinaryLabel.from_one_stamps(regions, curr_len)
-            batch.append((aw, abl))
         return batch
 
     def augment_aw_with_noises(self, aw):
@@ -201,11 +145,13 @@ class ValCollate:
                 ex_inds = (torch.randperm(len(batch) - 1)[:self.n_examples]).tolist()
 
         examples = []
-        for i, (aw, abl) in enumerate(batch):
+        for i, (aw, cl, abl) in enumerate(batch):
             window = self.mfcc_converter.win_length
             one_counts = binary_counts_to_windows_np(abl.binary_goc(), window, aw.length)
             labels = one_counts > (window // 2)
-            tar = torch.tensor(labels).float()
+            vad_labels = torch.tensor(labels).float()
+            tar = vad_labels.unsqueeze(-1) * (cl.unsqueeze(0))
+            tar = torch.cat([tar, 1 - vad_labels.unsqueeze(-1)], dim=-1)
 
             if self.noise_args.use_weights_as_counts:
                 noise_datas_inds_to_counts = {j: max(self.noise_args.val_min_noise_count, d.weight) for j, d in
