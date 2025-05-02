@@ -46,6 +46,8 @@ class CommonAccent(Dataset):
                                               os.path.join(folder, file)) for file in files)
 
         self.unique_labels = sorted(self.unique_labels)
+        self.unique_labels.remove('other')
+        self.unique_labels.append('other')
         self.label2idx = {label: i for i, label in enumerate(self.unique_labels)}
         self.idx2label = {i: label for label, i in self.label2idx.items()}
         self.idx2tensor = torch.eye(len(self.unique_labels))

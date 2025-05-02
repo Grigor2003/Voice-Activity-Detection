@@ -9,7 +9,7 @@ class BattleVAD(nn.Module):
         # self.fc1 = nn.Linear(input_dim, 128)
         # self.activation1 = nn.Tanh()
 
-        self.gru1 = nn.GRU(64, 32, 1, batch_first=True)
+        self.gru1 = nn.GRU(input_dim, 32, 1, batch_first=True)
         self.btn11 = Bottleneck(1, 8, 8, (1, 1))
         self.btn12 = Bottleneck(8, 1, 8, (1, 1))
         # self.conv2d1 = nn.Conv2d(1, 1, kernel_size=(13, 13), padding='same')
@@ -24,7 +24,7 @@ class BattleVAD(nn.Module):
         self.activation2 = nn.ReLU()
         # self.dropout2 = nn.Dropout(0.2)
 
-        self.fc3 = nn.Linear(8, 7)
+        self.fc3 = nn.Linear(8, 4)
         # self.activation3 = nn.Sigmoid()
 
         self.input_dim = input_dim
