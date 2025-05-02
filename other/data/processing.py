@@ -9,7 +9,7 @@ from other.data.accent_dataset import AccentSampler, CommonAccent
 
 def get_train_val_dataloaders(dataset: CommonAccent, train_ratio, batch_size, val_batch_size, num_workers, val_num_workers, generator):
 
-    train_dataset, val_dataset = dataset.get_train_val_subsets(train_ratio, generator)
+    train_dataset, val_dataset = dataset.get_train_val_subsets(train_ratio, torch.Generator().manual_seed(generator.initial_seed()))
 
     del dataset
 
