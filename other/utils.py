@@ -7,6 +7,7 @@ import threading
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
+import seaborn as sns
 from tabulate import tabulate
 
 RES_FOLDER = "RESULTS"
@@ -260,7 +261,8 @@ def plot_target_prediction(wave, noised_wave, target, pred, sample_rate, save_pa
 
     plt.savefig(save_path, dpi=200, bbox_inches='tight')
     plt.close()
-    
+
+
 def get_confusion_matrix(preds, labels, mask, num_classes):
     # Convert one-hot to class indices
     preds = preds.argmax(dim=-1)[mask]
@@ -293,3 +295,17 @@ def compute_mean_f1_from_confusion(confusion_matrix):
     f1_per_class = 2 * (precision * recall) / (precision + recall + 1e-6)
 
     return f1_per_class.mean()
+
+
+def plot_confusion_matrix(confusion_matrix, class_names, save_path):
+
+    conf_matrix_np = confusion_matrix.numpy()
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(conf_matrix_np, annot=True, fmt='d', cmap='Blues',
+                xticklabels=class_names, yticklabels=class_names)
+
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.title('Confusion Matrix')
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=200, bbox_inches="tight")

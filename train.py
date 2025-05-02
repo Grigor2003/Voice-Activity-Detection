@@ -14,7 +14,7 @@ from other.data.collates import NoiseCollate, ValCollate
 from other.data.accent_dataset import CommonAccent
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter2, ChebyshevType2Filter
 from other.models.models_handler import MODELS, count_parameters, estimate_vram_usage
-from other.utils import EXAMPLE_FOLDER, compute_mean_f1_from_confusion, get_confusion_matrix, loss_function, async_message_box, Example, plot_target_prediction, \
+from other.utils import EXAMPLE_FOLDER, compute_mean_f1_from_confusion, get_confusion_matrix, loss_function, async_message_box, Example, plot_confusion_matrix, plot_target_prediction, \
     get_files_by_extension, MODEL_NAME, MODEL_EXT
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
 from other.utils import print_as_table, save_history_plot
@@ -196,6 +196,7 @@ if __name__ == '__main__':
     print("Training")
 
     num_classes = len(train_dataloader.dataset.unique_labels) + 1
+    class_names = train_dataloader.dataset.unique_labels + ['other']
     working_examples = {'ex': [Example()]}
     for epoch in range(1, do_epoches + 1):
 
@@ -214,7 +215,7 @@ if __name__ == '__main__':
         train_dataloader.collate_fn.spectre_filter = chebyshev_filter
 
         running_loss = torch.scalar_tensor(0, device=device)
-        running_confusion_matrix = torch.zeros(num_classes, num_classes, dtype=torch.float32)
+        running_confusion_matrix = torch.zeros(num_classes, num_classes, dtype=torch.int32)
         running_whole_count = torch.scalar_tensor(0, device=device)
         running_frame_count = torch.scalar_tensor(0, device=device)
         
@@ -301,7 +302,7 @@ if __name__ == '__main__':
                 val_loss = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
                 val_acc = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
                 val_f1 = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
-                confusion_matrix = {snr_db: torch.zeros(num_classes, num_classes, dtype=torch.float32, device=device) for snr_db in val_snrs_list}
+                confusion_matrix = {snr_db: torch.zeros(num_classes, num_classes, dtype=torch.int32, device=device) for snr_db in val_snrs_list}
                 whole_count = {snr_db: 0 for snr_db in val_snrs_list}
                 frame_count = {snr_db: 0 for snr_db in val_snrs_list}
 
@@ -335,14 +336,14 @@ if __name__ == '__main__':
                                 ex.update(bi=bi, pred=output[ex.i][mask[ex.i]].detach().cpu())
                                 working_examples[global_epoch].append(ex)
 
-                        confusion_matrix[snr_db] += get_confusion_matrix(output, batch_targets, mask, num_classes)
+                        confusion_matrix[snr_db] += get_confusion_matrix(output, batch_targets, mask, num_classes).detach()
                         whole_count[snr_db] += real_samples_count
                         frame_count[snr_db] += mask.sum()
 
                 for snr_db in val_snrs_list:
                     val_loss[snr_db] /= whole_count[snr_db]
                     val_acc[snr_db] = confusion_matrix[snr_db].diagonal().sum() / frame_count[snr_db]
-                    val_f1[snr_db] = compute_mean_f1_from_confusion(confusion_matrix[snr_db].detach().cpu().numpy())
+                    val_f1[snr_db] = compute_mean_f1_from_confusion(confusion_matrix[snr_db].cpu().numpy())
 
         for snr in val_snrs_list:
             if snr is None:
@@ -390,11 +391,15 @@ if __name__ == '__main__':
             if plot:
                 save_history_plot(loss_history_table, 'global_epoch', 'Loss history', 'Epoch', 'Loss',
                                   os.path.join(model_dir, 'loss.png'))
-
                 save_history_plot(accuracy_history_table, 'global_epoch', 'Accuracy history', 'Epoch', 'Accuracy',
                                   os.path.join(model_dir, 'accuracy.png'))
                 save_history_plot(f1_history_table, 'global_epoch', 'F1 history', 'Epoch', 'F1',
                                   os.path.join(model_dir, 'f1.png'))
+                if val_every != 0 and epoch % val_every == 0:
+                    for snr in val_snrs_list:
+                        name = 'confusion_mat' + ('_clear' if snr is None else f'_snr{snr}')
+                        save_path = os.path.join(model_dir, f'{name}.png')
+                        plot_confusion_matrix(confusion_matrix[snr_db].cpu(), class_names, save_path)
 
             # for exam_global_epoch in range(curr_run_start_global_epoch, curr_run_start_global_epoch + epoch):
             #     epoch_ex_folder = os.path.join(model_dir, '_T_' + EXAMPLE_FOLDER, str(abs(exam_global_epoch)))
