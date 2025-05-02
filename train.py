@@ -14,7 +14,7 @@ from other.data.collates import NoiseCollate, ValCollate
 from other.data.accent_dataset import CommonAccent
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter2, ChebyshevType2Filter
 from other.models.models_handler import MODELS, count_parameters, estimate_vram_usage
-from other.utils import EXAMPLE_FOLDER, compute_mean_f1_from_confusion, get_confusion_matrix, loss_function, async_message_box, Example, plot_confusion_matrix, plot_target_prediction, \
+from other.utils import EXAMPLE_FOLDER, compute_mean_f1_from_confusion, get_confusion_matrix, loss_function, focal_loss, async_message_box, Example, plot_confusion_matrix, plot_target_prediction, \
     get_files_by_extension, MODEL_NAME, MODEL_EXT
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
 from other.utils import print_as_table, save_history_plot
@@ -246,7 +246,7 @@ if __name__ == '__main__':
                     working_examples[global_epoch].append(ex)
 
             # Calculate the loss
-            loss = loss_function(output, batch_targets, mask)
+            loss = focal_loss(output, batch_targets, mask)
             loss = loss / accumulation_steps  # Scale loss by the number of accumulation steps
 
             # Accumulate running loss and conf matrix (for logging/metrics)
@@ -399,7 +399,7 @@ if __name__ == '__main__':
                     for snr in val_snrs_list:
                         name = 'confusion_mat' + ('_clear' if snr is None else f'_snr{snr}')
                         save_path = os.path.join(model_dir, f'{name}.png')
-                        plot_confusion_matrix(confusion_matrix[snr_db].cpu(), class_names, save_path)
+                        plot_confusion_matrix(confusion_matrix[snr].cpu(), class_names, save_path)
 
             # for exam_global_epoch in range(curr_run_start_global_epoch, curr_run_start_global_epoch + epoch):
             #     epoch_ex_folder = os.path.join(model_dir, '_T_' + EXAMPLE_FOLDER, str(abs(exam_global_epoch)))

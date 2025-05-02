@@ -6,6 +6,7 @@ import threading
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from matplotlib import pyplot as plt
 import seaborn as sns
 from tabulate import tabulate
@@ -41,6 +42,40 @@ def loss_function(pred, target, mask, reduction="auto", val=False):
         raise ValueError(
             f"Invalid Value for arg 'reduction': '{reduction} \n Supported reduction modes: 'none', 'mean', 'sum'"
         )
+    return loss
+
+
+def focal_loss(pred, target, mask, alpha=1.0, gamma=2.0, reduction="auto", val=False):
+    target = target.argmax(dim=-1)
+    batch_size, seq_len = target.shape
+
+    pred = pred.reshape(-1, pred.shape[-1])
+    target = target.reshape(-1)
+    mask = mask.reshape(-1)
+
+    log_probs = F.log_softmax(pred, dim=-1)
+    probs = torch.exp(log_probs)
+    target_probs = probs[torch.arange(len(target)), target]
+    focal_weight = (1 - target_probs) ** gamma
+
+    ce_loss = F.nll_loss(log_probs, target, reduction='none')
+    focal_loss = focal_weight * ce_loss
+    focal_loss = focal_loss.reshape(batch_size, seq_len)
+    mask = mask.reshape(batch_size, seq_len)
+    masked_loss = focal_loss * mask
+    loss = torch.sum(masked_loss, dim=-1) / mask.sum(dim=-1).float()
+
+    if reduction == "none":
+        pass
+    elif reduction == "mean":
+        loss = loss.mean()
+    elif reduction == "sum":
+        loss = loss.sum()
+    elif reduction == "auto":
+        loss = loss.sum() if val else loss.mean()
+    else:
+        raise ValueError(f"Invalid Value for 'reduction': {reduction}")
+
     return loss
 
 
