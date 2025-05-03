@@ -217,7 +217,6 @@ if __name__ == '__main__':
         running_loss = torch.scalar_tensor(0, device=device)
         running_confusion_matrix = torch.zeros(num_classes, num_classes, dtype=torch.int32)
         running_whole_count = torch.scalar_tensor(0, device=device)
-        running_frame_count = torch.scalar_tensor(0, device=device)
         
         model.train()
         batch_idx, batch_count = 0, len(train_dataloader)
@@ -253,7 +252,6 @@ if __name__ == '__main__':
             batch_samples_count = mask.size(0)
             running_loss += loss.item() * batch_samples_count * accumulation_steps  # Rescale back for logging
             running_whole_count += batch_samples_count
-            running_frame_count += mask.sum()
             running_confusion_matrix += get_confusion_matrix(output, batch_targets, mask, num_classes).detach().cpu()
 
             # Backward pass (accumulate gradients)
@@ -274,7 +272,7 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
         running_loss = (running_loss / running_whole_count).item()
-        accuracy = (running_confusion_matrix.diagonal().sum() / running_frame_count).item()
+        accuracy = (running_confusion_matrix.diagonal().sum() / running_confusion_matrix.sum()).item()
         f1 = compute_mean_f1_from_confusion(running_confusion_matrix.numpy())
 
         row_loss_values = {
@@ -304,7 +302,6 @@ if __name__ == '__main__':
                 val_f1 = {snr_db: torch.scalar_tensor(0.0, device=device) for snr_db in val_snrs_list}
                 confusion_matrix = {snr_db: torch.zeros(num_classes, num_classes, dtype=torch.int32, device=device) for snr_db in val_snrs_list}
                 whole_count = {snr_db: 0 for snr_db in val_snrs_list}
-                frame_count = {snr_db: 0 for snr_db in val_snrs_list}
 
                 print()
                 time.sleep(0.25)
@@ -338,11 +335,10 @@ if __name__ == '__main__':
 
                         confusion_matrix[snr_db] += get_confusion_matrix(output, batch_targets, mask, num_classes).detach()
                         whole_count[snr_db] += real_samples_count
-                        frame_count[snr_db] += mask.sum()
 
                 for snr_db in val_snrs_list:
                     val_loss[snr_db] /= whole_count[snr_db]
-                    val_acc[snr_db] = confusion_matrix[snr_db].diagonal().sum() / frame_count[snr_db]
+                    val_acc[snr_db] = confusion_matrix[snr_db].diagonal().sum() / confusion_matrix[snr_db].sum()
                     val_f1[snr_db] = compute_mean_f1_from_confusion(confusion_matrix[snr_db].cpu().numpy())
 
         for snr in val_snrs_list:
