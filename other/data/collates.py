@@ -156,8 +156,14 @@ class ValCollate:
             one_counts = binary_counts_to_windows_np(abl.binary_goc(), window, aw.length)
             labels = one_counts > (window // 2)
             vad_labels = torch.tensor(labels).float()
-            tar = vad_labels.unsqueeze(-1) * (cl.unsqueeze(0))
-            tar = torch.cat([tar, 1 - vad_labels.unsqueeze(-1)], dim=-1)
+            init_idx = torch.where(vad_labels)[0][0]
+            vad_labels[init_idx:] = 1
+            # Other case
+            if cl.argmax() + 1 == cl.shape[0]:
+                tar = torch.zeros(vad_labels.shape[0], cl.shape[0])
+                tar[:,-1] = 1
+            else:
+                tar = vad_labels.unsqueeze(-1) * (cl.unsqueeze(0))
 
             if self.noise_args.use_weights_as_counts:
                 noise_datas_inds_to_counts = {j: max(self.noise_args.val_min_noise_count, d.weight) for j, d in

@@ -195,8 +195,8 @@ if __name__ == '__main__':
     print(f"\n{'=' * 100}\n")
     print("Training")
 
-    num_classes = len(train_dataloader.dataset.unique_labels) + 1
-    class_names = train_dataloader.dataset.unique_labels + ['other']
+    num_classes = len(train_dataloader.dataset.unique_labels)
+    class_names = train_dataloader.dataset.unique_labels
     working_examples = {'ex': [Example()]}
     for epoch in range(1, do_epoches + 1):
 
