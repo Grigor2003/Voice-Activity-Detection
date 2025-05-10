@@ -300,9 +300,9 @@ def plot_target_prediction(wave, noised_wave, target, pred, sample_rate, save_pa
 
 def get_confusion_matrix(preds, labels, mask, num_classes):
     # Convert one-hot to class indices
-    lengths = mask.sum(dim=-1)
-    preds = preds[torch.arange(mask.shape[0]), lengths-1].argmax(dim=-1)
-    labels = labels[torch.arange(mask.shape[0]), lengths-1].argmax(dim=-1)
+    starts = [torch.where(m)[0][0].item() for m in mask]
+    preds = ((preds * mask.unsqueeze(-1)).sum(dim=-2) / mask.sum(-1, keepdim=True)).argmax(dim=-1)
+    labels = labels[torch.arange(mask.shape[0]), starts].argmax(dim=-1)
 
     # Compute indices for bincount
     indices = num_classes * labels + preds  # Unique index for each (true, pred) pair
@@ -345,3 +345,4 @@ def plot_confusion_matrix(confusion_matrix, class_names, save_path):
     plt.title('Confusion Matrix')
     plt.tight_layout()
     plt.savefig(save_path, dpi=200, bbox_inches="tight")
+    plt.close()

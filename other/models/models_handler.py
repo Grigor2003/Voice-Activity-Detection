@@ -1,6 +1,7 @@
 from other.models.combined import BattleVAD
 from other.models.convolutional_models import EfficientModel
-from other.models.gru_models import DGCGD, DGCGCGD_13_7
+from other.models.custom_espanet import CustomESPANet
+from other.models.gru_models import DGCGD, DGCGCGD_13_7, DGGD
 from other.models.attention_models import AttentionModel, WhisperLikeModel
 
 whisper_like = lambda: WhisperLikeModel(input_dim=64)
@@ -12,9 +13,13 @@ gruconv_with_denses = lambda: DGCGD(input_dim=64, hidden_dim1=48, hidden_dim2=32
                                dropout_prob=0.2)
 gruconv_with_denses_bigger_x2 = lambda: DGCGCGD_13_7(input_dim=48)
 
+gru_with_denses = lambda : DGGD(48, 64, 64, 32, 32)
+
 bottleneck = lambda: EfficientModel(64)
 
 battle_vad = lambda: BattleVAD(48)
+
+custom_espanet = lambda: CustomESPANet(48)
 
 MODELS = {
     "WhisperLike_64": whisper_like,
@@ -25,8 +30,10 @@ MODELS = {
     # "DNGGND_7": gru_with_denses_and_norms,
     "DGCGCGD_13_7": gruconv_with_denses_bigger_x2,
     "DGCGD_7": gruconv_with_denses,
+    "DGGD": gru_with_denses,
     "Bottleneck": bottleneck,
     "BattleVAD": battle_vad,
+    "CustomESPANet": custom_espanet,
     "Other": None
 }
 

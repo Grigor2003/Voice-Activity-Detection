@@ -1,6 +1,49 @@
 import torch
 import torch.nn as nn
 
+class DGGD(nn.Module):
+    def __init__(self, input_dim, hidden_dim1, hidden_dim2, hidden_dim3, hidden_dim4, num_layers=1, dropout_prob=0.5):
+        super().__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim1)
+        self.activation1 = nn.ReLU()
+        self.dropout1 = nn.Dropout(dropout_prob)
+
+        self.gru1 = nn.GRU(hidden_dim1, hidden_dim2, num_layers, batch_first=True)
+        self.activation2 = nn.ReLU()
+        self.dropout2 = nn.Dropout(dropout_prob)
+        self.gru2 = nn.GRU(hidden_dim2, hidden_dim3, num_layers, batch_first=True)
+
+        self.fc2 = nn.Linear(hidden_dim3, hidden_dim4)
+        self.activation3 = nn.ReLU()
+        self.dropout3 = nn.Dropout(dropout_prob)
+
+        self.fc3 = nn.Linear(hidden_dim4, 4)
+
+        self.input_dim = input_dim
+        self.hidden_states = None
+
+    def forward(self, x: torch.Tensor, padding_mask=None, hidden_state=None):
+        out = self.fc1(x)
+        out = self.activation1(out)
+        out = self.dropout1(out)
+
+        # region GRU block
+        h1, h2 = None, None
+        if hidden_state is not None:
+            h1, h2 = hidden_state
+        hiddens1, _ = self.gru1(out, h1)
+        out = self.activation1(hiddens1)
+        out = self.dropout1(out)
+        hiddens2, _ = self.gru2(out, h2)
+        self.hidden_states = [hiddens1, hiddens2]
+        # endregion
+
+        out = self.fc2(hiddens2)
+        out = self.activation3(out)
+        out = self.dropout3(out)
+        out = self.fc3(out)
+        out = self.activation3(out)
+        return out
 
 class DGCGCGD_13_7(nn.Module):
     def __init__(self, input_dim):
@@ -52,6 +95,7 @@ class DGCGCGD_13_7(nn.Module):
 
         out = self.fc2(hiddens3)
         out = self.activation2(out)
+        self.prelast = out.detach().clone()
         out = self.dropout2(out)
         out = self.fc3(out)
         # out = self.activation3(out)

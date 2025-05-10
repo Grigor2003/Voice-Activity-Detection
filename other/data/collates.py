@@ -50,12 +50,7 @@ class NoiseCollate:
                 vad_labels = torch.tensor(labels).float()
                 init_idx = torch.where(vad_labels)[0][0]
                 vad_labels[init_idx:] = 1
-                # Other case
-                if cl.argmax() + 1 == cl.shape[0]:
-                    tar = torch.zeros(vad_labels.shape[0], cl.shape[0])
-                    tar[:,-1] = 1
-                else:
-                    tar = vad_labels.unsqueeze(-1) * (cl.unsqueeze(0))
+                tar = vad_labels.unsqueeze(-1) * (cl.unsqueeze(0))
                 if i in ex_inds:
                     clear = aw.wave.clone()
 
@@ -151,19 +146,16 @@ class ValCollate:
                 ex_inds = (torch.randperm(len(batch) - 1)[:self.n_examples]).tolist()
 
         examples = []
+        self.orig_vad_labels = []
         for i, (aw, cl, abl) in enumerate(batch):
             window = self.mfcc_converter.win_length
             one_counts = binary_counts_to_windows_np(abl.binary_goc(), window, aw.length)
             labels = one_counts > (window // 2)
             vad_labels = torch.tensor(labels).float()
+            self.orig_vad_labels.append(vad_labels)
             init_idx = torch.where(vad_labels)[0][0]
             vad_labels[init_idx:] = 1
-            # Other case
-            if cl.argmax() + 1 == cl.shape[0]:
-                tar = torch.zeros(vad_labels.shape[0], cl.shape[0])
-                tar[:,-1] = 1
-            else:
-                tar = vad_labels.unsqueeze(-1) * (cl.unsqueeze(0))
+            tar = vad_labels.unsqueeze(-1) * (cl.unsqueeze(0))
 
             if self.noise_args.use_weights_as_counts:
                 noise_datas_inds_to_counts = {j: max(self.noise_args.val_min_noise_count, d.weight) for j, d in
@@ -207,5 +199,6 @@ def create_batch_tensor(inputs, targets):
     mask = torch.arange(max_len).expand(len(lengths), max_len) < torch.tensor(lengths).unsqueeze(1)
     padded_input = pad_sequence(inputs, batch_first=True)
     padded_output = pad_sequence(targets, batch_first=True)
-
+    actual_labels = padded_output.sum(dim=-1)
+    mask = (mask * actual_labels).bool()
     return padded_input, padded_output, mask
