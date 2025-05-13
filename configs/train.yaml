@@ -49,7 +49,7 @@ model:
 augmentation:
   noises:
     # The count of noises added on a single audio
-    count: 1
+    count: 3
     use_weights_as_counts: false
     snr&weight: # Noises SNRs to use for batch augmentation
       null: 50
