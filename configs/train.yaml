@@ -49,7 +49,7 @@ model:
 augmentation:
   noises:
     # The count of noises added on a single audio
-    count: 3
+    count: 5
     use_weights_as_counts: false
     snr&weight: # Noises SNRs to use for batch augmentation
       null: 50
@@ -92,7 +92,7 @@ train:
 #  batch: 200
   batch: 10
   # Epoch maximum batches count
-  max_batches: 250
+  max_batches: 20
   # Accumulation steps
   n_accum: 15
   # Default window lenght (hop lenght would be half of window)
@@ -122,7 +122,7 @@ verbose:
   val_results: true
   # Count of examples to save
   n_examples:
-    _: 5
-    zero: 5
-    synth: 5
+    _: 2
+    zero: 1
+    synth: 3
   val_examples: 5

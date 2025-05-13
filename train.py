@@ -315,8 +315,9 @@ if __name__ == '__main__':
                         'recall': f"{EpochInfo.recall(epoch_infos[tp]):.4f} ({EpochInfo.recall(epoch_infos[tp], batch=-1):.4f})",
                         }]
         _frame += [{'': 'MEAN BY SAMPLES', 'accuracy': f"{accuracy:.4f}", 'recall': recall}]
-        _frame = pd.DataFrame(_frame)
-        print_as_table(_frame.set_index('').T)
+        _frame = pd.DataFrame(_frame).set_index('')
+        working_examples[-global_epoch]['epoch_info'] = '\n' + str(_frame) + '\n'
+        print_as_table(_frame.T)
         time.sleep(0.25)
 
         val_loss, val_acc = None, None
@@ -462,10 +463,10 @@ if __name__ == '__main__':
                             [info.update(dct) for dct in ex.info_dicts]
                             print(*info.items(), file=f, sep='\n')
 
-                stats["target_pos_rate"] = stats["target_positive"] / stats["whole_mask"]
-                stats["output_pos_rate"] = stats["output_positive"] / stats["whole_mask"]
                 with open(os.path.join(epoch_ex_folder, '___batch_stats___.txt'), 'a') as f:
-                    print(*stats.items(), file=f, sep='\n')
+                    print("target_pos_rate:", stats["target_positive"] / stats["whole_mask"], file=f)
+                    print("output_pos_rate:", stats["output_positive"] / stats["whole_mask"], file=f,)
+                    print(stats['epoch_info'], file=f)
 
             print("Saving checkpoint")
             torch.save({

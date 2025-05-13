@@ -71,21 +71,34 @@ def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=800
 def augment_with_noises(aw: AudioWorker, noises=None, noise_duration_range=(2, 5), snr_db=3, random_noise_phase=False,
                         warnings=True, seed=None):
     if None in [noises, noise_duration_range, snr_db]:
+        wr = "no noise augmentation applied"
         if warnings:
-            print("WARNING: no noise augmentation applied")
-        return {"noise_None": True}
+            print(f"WARNING: {wr}")
+        return {"noise_skipped": wr, "noise_None": True}
 
     for noise in noises:
         if noise.rate != aw.rate:
+            wr = "noise and audio sample rates do not match"
             if warnings:
-                print("WARNING: noise and audio sample rates do not match")
-            return {"noise_rate": noise.rate, "audio_rate": aw.rate}
+                print(f"WARNING: {wr}")
+            return {"noise_skipped": wr, "noise_rate": noise.rate, "audio_rate": aw.rate}
 
     noise_count = len(noises)
     if noise_count <= 0:
+        wr = "noises were empty"
         if warnings:
-            print("WARNING: noises were empty")
-        return {"noise_count": noise_count}
+            print(f"WARNING: {wr}")
+        return {"noise_skipped": wr, "noise_count": noise_count}
+
+    if isinstance(snr_db, int):
+        snr_dbs = [snr_db] * noise_count
+    elif not isinstance(snr_db, list):
+        wr = "snr_db was not a list or int"
+        if warnings:
+            print("WARNING: invalid snr_db argument")
+        return {"noise_skipped": wr, "noise_count": noise_count}
+    else:
+        snr_dbs = snr_db
 
     gen = None
     if seed is not None:
@@ -97,10 +110,11 @@ def augment_with_noises(aw: AudioWorker, noises=None, noise_duration_range=(2, 5
     noise_phase = None
     if random_noise_phase:
         noise_phase = torch.randint(aw.length, (1,), generator=gen)
-    for i, noise in enumerate(noises):
-        aw.wave = add_noise(aw.wave, sample_rate=aw.rate, noise=noise.wave,
-                            snr_db=snr_db, start=noises_starts[i], end=-noise_durations[i],
-                            noise_phase=noise_phase)
+    for i, (noise, snr_db) in enumerate(zip(noises, snr_dbs)):
+        if snr_db is not None:
+            aw.wave = add_noise(aw.wave, sample_rate=aw.rate, noise=noise.wave,
+                                snr_db=snr_db, start=noises_starts[i], end=-noise_durations[i],
+                                noise_phase=noise_phase)
 
     return {"noises_starts": noises_starts,
             "noises_durations": noise_durations}

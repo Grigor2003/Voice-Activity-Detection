@@ -164,7 +164,7 @@ class NoiseCollate:
         return batch
 
     def augment_aw_with_noises(self, aw):
-        noise_aug_info = {"snrs": []}
+        noise_aug_info = {"snrs": ''}
         if self.noise_args.count <= 0:
             return noise_aug_info
 
@@ -179,11 +179,11 @@ class NoiseCollate:
             data = self.noise_args.datas[data_i]
             pool = data.loaded_pool
             noises_inds = torch.randperm(len(pool))[:count]
-            snr_db = data.snr_dbs[torch.multinomial(data.snr_dbs_freqs, 1)]
-            if snr_db is not None:
-                noise_aug_info[data.name] = augment_with_noises(aw, [pool[j] for j in noises_inds],
-                                                                data.duration_range, snr_db, data.random_phase)
-            noise_aug_info["snrs"].append(snr_db)
+            snr_db_inds = torch.multinomial(data.snr_dbs_freqs, count, replacement=True)
+            snr_dbs = [data.snr_dbs[i] for i in snr_db_inds]
+            noise_aug_info[data.name] = augment_with_noises(aw, [pool[j] for j in noises_inds],
+                                                            data.duration_range, snr_dbs, data.random_phase)
+            noise_aug_info["snrs"] += str(snr_dbs)
 
         return noise_aug_info
 
