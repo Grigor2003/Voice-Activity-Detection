@@ -36,21 +36,28 @@ class NoiseCollate:
         sizes = sizes + [aw.length for aw, _ in types_to_batches['synth']]
         types_to_batches['zero'] = self.generate_zero_samples(sizes)
 
-        type_to_ex_inds = {}
+        struct = {}
+        last_struct_end = 0
+        for tp, sub_batch in types_to_batches.items():
+            to = last_struct_end + len(sub_batch)
+            struct[tp] = torch.arange(last_struct_end, to, dtype=torch.int)
+            last_struct_end = to
+
+        ex_inds = []
         if self.n_examples is not None:
             for tp, c in self.n_examples.items():
-                if len(types_to_batches[tp]) > 0:
-                    type_to_ex_inds[tp] = (torch.randperm(len(types_to_batches[tp]) - 1)[:c]).tolist()
+                if len(struct[tp]) > 0:
+                    shuffled = torch.randperm(len(struct[tp]))[:c]
+                    ex_inds += struct[tp][shuffled].tolist()
 
         waves, targets, global_ex_inds = [], [], []
         examples, clear = [], None
         window = self.mfcc_converter.win_length
 
-        struct = {}
-        last_struct_end = 0
-        for tp, ex_inds in type_to_ex_inds.items():
-            for i, (aw, abl) in enumerate(types_to_batches[tp]):
-
+        real_ind = -1
+        for tp, sub_batch in types_to_batches.items():
+            for i, (aw, abl) in enumerate(sub_batch):
+                real_ind += 1
                 # Augmenting audio and balancing zero and one counts in labels
                 aw.wave, balanced_binary = balance_regions(aw.wave, abl.binary_goc())
                 AudioBinaryLabel.from_binary(balanced_binary, to=abl)
@@ -59,7 +66,7 @@ class NoiseCollate:
                 labels = one_counts > (window // 2)
                 tar = torch.tensor(labels).float()
 
-                if i in ex_inds:
+                if real_ind in ex_inds:
                     clear = aw.wave.clone()
 
                 # Augmenting audio by adding real noise and white noise
@@ -72,18 +79,12 @@ class NoiseCollate:
                 waves.append(aw.wave.squeeze(0))
                 targets.append(tar)
 
-                if i in ex_inds:
+                if real_ind in ex_inds:
                     global_ex_inds.append(len(waves) - 1)
                     name = f"snr_{noise_aug_info['snrs']}"
                     name = tp + '_' + name
-                    # examples.append(Example(wave=aw.wave, clear=clear, name=name,
-                    # info_dicts=[pitch_aug_info, gain_aug_info, noise_aug_info], i=i, label=labels))
                     examples.append(Example(wave=aw.wave, clear=clear, name=name,
-                                            info_dicts=[gain_aug_info, noise_aug_info], i=i, label=labels))
-
-            to = last_struct_end + len(types_to_batches[tp])
-            struct[tp] = torch.arange(last_struct_end, to, dtype=torch.int)
-            last_struct_end = to
+                                            info_dicts=[gain_aug_info, noise_aug_info], i=real_ind, label=labels))
 
         pad_waves = pad_sequence(waves, batch_first=True)
 

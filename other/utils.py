@@ -93,7 +93,7 @@ class EpochInfo:
 
     def add(self, output, target, mask):
         pred_correct = ((output > self.th) == (target > self.th)) * mask
-        ones_correct = pred_correct == target
+        ones_correct = pred_correct * target
 
         self.accuracies_sum += [torch.sum(pred_correct.sum(dim=-1) / mask.sum(dim=-1)).item()]
         self.recall_sum += [torch.sum(ones_correct.sum(dim=-1) / target.sum(dim=-1)).item()]

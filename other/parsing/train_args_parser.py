@@ -71,7 +71,8 @@ if root is not None:
     impulse_args.mic_ir_dir = os.path.join(root, impulse_args.mic_ir_dir)
 
 # Train section
-lr = 10 ** is_range(ydict['train']['lr'], -100, 100)
+lr_pow = is_range(ydict['train']['lr'], -100, 100)
+lr = 10 ** lr_pow
 do_epoches = is_range(ydict['train']['epoch'], 0, 1000, int)
 num_workers = is_range(ydict['train']['workers'], 0, 32, int)
 batch_size = is_range(ydict['train']['batch'], 1, 2 ** 15, int)
@@ -111,7 +112,7 @@ print_val_results = is_type_of(ydict['verbose']['val_results'], bool)
 n_examples = ydict['verbose']['n_examples']
 val_examples = is_range(ydict['verbose']['val_examples'], 1, 100, int, req=False)
 
-run_desc = str.format(run_desc, e=do_epoches)
+run_desc = str.format(run_desc, e=do_epoches, l=lr)
 
 
 def model_has_been_saved():

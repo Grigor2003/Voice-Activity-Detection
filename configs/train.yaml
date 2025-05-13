@@ -1,4 +1,4 @@
-run_description: re{e}
+run_description: re{e}_lr10^{l}
 data:
   root: ../datasets
   # Would be used only if generates a new model
@@ -83,7 +83,7 @@ augmentation:
 
 train:
   # The learning rate given by power of 10
-  lr: -4
+  lr: -6
   # The number of epochs to train the model in current session
   epoch: 3
   # The number of workers for data loading during training
