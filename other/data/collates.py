@@ -46,6 +46,8 @@ class NoiseCollate:
         examples, clear = [], None
         window = self.mfcc_converter.win_length
 
+        struct = {}
+        last_struct_end = 0
         for tp, ex_inds in type_to_ex_inds.items():
             for i, (aw, abl) in enumerate(types_to_batches[tp]):
 
@@ -79,6 +81,10 @@ class NoiseCollate:
                     examples.append(Example(wave=aw.wave, clear=clear, name=name,
                                             info_dicts=[gain_aug_info, noise_aug_info], i=i, label=labels))
 
+            to = last_struct_end + len(types_to_batches[tp])
+            struct[tp] = torch.arange(last_struct_end, to, dtype=torch.int)
+            last_struct_end = to
+
         pad_waves = pad_sequence(waves, batch_first=True)
 
         use_mic_filter = torch.rand(1).item() < self.impulses_args.mic_ir_prob
@@ -94,7 +100,7 @@ class NoiseCollate:
         for ex, w in zip(examples, exam_waves):
             ex.update(wave=w[:, :ex.wave.size(-1)])
 
-        return create_batch_tensor(pad_inputs, targets), examples
+        return create_batch_tensor(pad_inputs, targets), struct, examples
 
     def generate_zero_samples(self, sizes):
         if self.synth_args.zero_count <= 0:

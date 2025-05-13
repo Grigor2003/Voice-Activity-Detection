@@ -1,6 +1,6 @@
 from other.models.combined import BattleVAD
 from other.models.convolutional_models import EfficientModel
-from other.models.gru_models import DGCGD_7, DGCGCGD_13_7
+from other.models.gru_models import DGCGD_7, DGCGCGD_13_7, DCGCGCD_7_13_7
 from other.models.attention_models import AttentionModel, WhisperLikeModel
 
 whisper_like = lambda: WhisperLikeModel(input_dim=64)
@@ -11,6 +11,8 @@ attention = lambda: AttentionModel(input_dim=64, attention_dim=128, hidden_dim2=
 gruconv_with_denses = lambda: DGCGD_7(input_dim=64, hidden_dim1=48, hidden_dim2=32, hidden_dim3=16, hidden_dim4=8,
                                       dropout_prob=0.2)
 gruconv_with_denses_bigger_x2 = lambda: DGCGCGD_13_7(input_dim=64)
+
+gruconv_with_denses_bigger_x4 = lambda: DCGCGCD_7_13_7(input_dim=64)
 
 bottleneck = lambda: EfficientModel(64)
 
@@ -24,6 +26,7 @@ MODELS = {
     # "DGGD_64": gru_with_denses,
     # "DNGGND_7": gru_with_denses_and_norms,
     "DGCGCGD_13_7": gruconv_with_denses_bigger_x2,
+    "DCGCGCD_7_13_7": gruconv_with_denses_bigger_x4,
     "DGCGD_7": gruconv_with_denses,
     "Bottleneck": bottleneck,
     "BattleVAD": battle_vad,

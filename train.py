@@ -12,7 +12,7 @@ from other.data.datasets import OpenSLRDataset, NoneDataset
 from other.data.processing import get_train_val_dataloaders, WaveToMFCCConverter2, ChebyshevType2Filter
 from other.models.models_handler import MODELS, count_parameters, estimate_vram_usage
 from other.utils import EXAMPLE_FOLDER, loss_function, async_message_box, Example, plot_target_prediction, \
-    get_files_by_extension, MODEL_NAME, MODEL_EXT
+    get_files_by_extension, MODEL_NAME, MODEL_EXT, EpochInfo
 from other.utils import find_last_model_in_tree, create_new_model_trains_dir, find_model_in_dir_or_path
 from other.utils import print_as_table, save_history_plot
 
@@ -229,12 +229,13 @@ if __name__ == '__main__':
         model.train()
         batch_idx, batch_count = 0, len(train_dataloader)
         total = min(max_batches, len(train_dataloader))
-        example_batch_indexes = [total - 2]
+        example_batch_indexes = [total - 1]
         working_examples[global_epoch] = []
+        epoch_infos, last_batch_acc_info = {}, {}
 
         _tqdm_desc_str = "Epoch {ge} ({e}\\{de})".ljust(15) + ' | ' + "batch acc: {acc:.2f}%".ljust(10)
-        _tqdm = tqdm(train_dataloader, desc=_tqdm_desc_str, total=total)
-        for batch_idx, ((batch_inputs, batch_targets, mask), examples) in enumerate(_tqdm):
+        _tqdm = tqdm(train_dataloader, total=total)
+        for batch_idx, ((batch_inputs, batch_targets, mask), struct, examples) in enumerate(_tqdm):
 
             # Move data to the GPU if available
             batch_inputs = batch_inputs.to(device)
@@ -265,13 +266,15 @@ if __name__ == '__main__':
             batch_samples_count = mask.size(0)
             running_loss += loss.item() * batch_samples_count * accumulation_steps  # Rescale back for logging
             running_whole_count += batch_samples_count
-            pred_correct = ((output > threshold) == (batch_targets > threshold)) * mask
-            pred_correct_count = torch.sum(torch.sum(pred_correct, dim=-1) / mask.sum(dim=-1))
-            sample_accuracies_sum += pred_correct_count
+
+            for tp, inds in struct.items():
+                if tp not in epoch_infos.keys():
+                    epoch_infos[tp] = EpochInfo(threshold)
+                epoch_infos[tp].add(output[inds], batch_targets[inds], mask[inds])
 
             _tqdm.set_description(str.format(_tqdm_desc_str,
                                              **{'ge': global_epoch, 'e': epoch, 'de': do_epoches,
-                                                'acc': 100 * (pred_correct_count / batch_samples_count)}))
+                                                'acc': 100 * EpochInfo.accuracy(*epoch_infos.values(), batch=-1)}))
 
             # Backward pass (accumulate gradients)
             loss.backward()
@@ -290,7 +293,8 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
         running_loss = (running_loss / running_whole_count).item()
-        accuracy = (sample_accuracies_sum / running_whole_count).item()
+        accuracy = EpochInfo.accuracy(*epoch_infos.values())
+        recall = EpochInfo.recall(*epoch_infos.values())
 
         row_loss_values = {
             'global_epoch': global_epoch,
@@ -302,7 +306,16 @@ if __name__ == '__main__':
         }
 
         time.sleep(0.25)
-        print(f"Training | loss: {running_loss:.4f} | accuracy: {accuracy:.4f}")
+        print(f"Training loss: {running_loss:.4f}")
+        _frame = []
+        for tp in epoch_infos.keys():
+            _frame += [{'': tp,
+                        'accuracy': f"{EpochInfo.accuracy(epoch_infos[tp]):.4f} ({EpochInfo.accuracy(epoch_infos[tp], batch=-1):.4f})",
+                        'recall': f"{EpochInfo.recall(epoch_infos[tp]):.4f} ({EpochInfo.recall(epoch_infos[tp], batch=-1):.4f})",
+                        }]
+        _frame += [{'': 'MEAN BY SAMPLES', 'accuracy': f"{accuracy:.4f}", 'recall': recall}]
+        _frame = pd.DataFrame(_frame)
+        print_as_table(_frame.set_index('').T)
         time.sleep(0.25)
 
         val_loss, val_acc = None, None

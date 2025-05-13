@@ -5,6 +5,7 @@ import ctypes
 import threading
 
 import numpy as np
+import pandas as pd
 import torch
 from matplotlib import pyplot as plt
 from tabulate import tabulate
@@ -81,6 +82,38 @@ class Example:
             self.i = i
         if is_val is not None:
             self.is_val = is_val
+
+
+class EpochInfo:
+    def __init__(self, th=0.5):
+        self.th = th
+        self.accuracies_sum = []
+        self.recall_sum = []
+        self.samples_count = []
+
+    def add(self, output, target, mask):
+        pred_correct = ((output > self.th) == (target > self.th)) * mask
+        ones_correct = pred_correct == target
+
+        self.accuracies_sum += [torch.sum(pred_correct.sum(dim=-1) / mask.sum(dim=-1)).item()]
+        self.recall_sum += [torch.sum(ones_correct.sum(dim=-1) / target.sum(dim=-1)).item()]
+        self.samples_count += [output.size(0)]
+
+    @staticmethod
+    def accuracy(*infos, batch=None):
+        s, c = 0, 0
+        for info in infos:
+            s += sum(info.accuracies_sum) if batch is None else info.accuracies_sum[batch]
+            c += sum(info.samples_count) if batch is None else info.samples_count[batch]
+        return s / c
+
+    @staticmethod
+    def recall(*infos, batch=None):
+        s, c = 0, 0
+        for info in infos:
+            s += sum(info.recall_sum) if batch is None else info.recall_sum[batch]
+            c += sum(info.samples_count) if batch is None else info.samples_count[batch]
+        return s / c
 
 
 def print_as_table(dataframe):
