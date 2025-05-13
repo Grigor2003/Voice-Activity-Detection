@@ -26,11 +26,11 @@ def add_noise(audio, noise, snr_db, start, end, in_seconds=True, sample_rate=800
     audio_part = audio[:, start:end]
     orig_noise = noise.clone()
     if noise_phase is not None:
-        orig_noise = orig_noise[:, noise_phase:]
+        noise = orig_noise[:, noise_phase:]
     if torch.sum(torch.isnan(orig_noise)):
         print("orig noise has nan")
     while end - start > noise.size(-1):
-        noise = torch.cat([orig_noise, noise], dim=1)
+        noise = torch.cat([noise, orig_noise], dim=1)
     noise = noise[:, : end - start]
     if torch.sum(torch.isnan(noise)):
         print("nan after repeating noise ", torch.sum(torch.isnan(orig_noise)), torch.sum(torch.isnan(noise)))

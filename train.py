@@ -275,6 +275,7 @@ if __name__ == '__main__':
             _tqdm.set_description(str.format(_tqdm_desc_str,
                                              **{'ge': global_epoch, 'e': epoch, 'de': do_epoches,
                                                 'acc': 100 * EpochInfo.accuracy(*epoch_infos.values(), batch=-1)}))
+            _tqdm.refresh()
 
             # Backward pass (accumulate gradients)
             loss.backward()
@@ -393,12 +394,14 @@ if __name__ == '__main__':
                 model_dir, model_path = create_new_model_trains_dir(model_name, create_new_model, run_desc)
                 print(f"\nCreated {model_dir}")
 
+            print("Creating info.yaml")
             curr_info_save_path = os.path.join(model_dir, 'info.yaml')
             with open(curr_info_save_path, 'w') as f:
                 yaml.dump(strip_comments(ydict), f)
                 f.write(3 * "\n" + "# " + 100 * "=" + 3 * "\n")
                 f.write(info_txt)
 
+            print("Saving losses and accuracies")
             if last_weights_path is not None:
                 old = os.path.join(model_dir, "old")
                 os.makedirs(old, exist_ok=True)
@@ -407,6 +410,7 @@ if __name__ == '__main__':
             loss_history_table.to_csv(os.path.join(model_dir, 'loss_history.csv'))
             accuracy_history_table.to_csv(os.path.join(model_dir, 'accuracy_history.csv'))
 
+            print("Drawing plots")
             if plot:
                 save_history_plot(loss_history_table, 'global_epoch', 'Loss history', 'Epoch', 'Loss',
                                   os.path.join(model_dir, 'loss.png'))
@@ -414,6 +418,7 @@ if __name__ == '__main__':
                 save_history_plot(accuracy_history_table, 'global_epoch', 'Accuracy history', 'Epoch', 'Accuracy',
                                   os.path.join(model_dir, 'accuracy.png'))
 
+            print("Saving examples")
             for exam_global_epoch in range(curr_run_start_global_epoch, curr_run_start_global_epoch + epoch):
                 epoch_ex_folder = os.path.join(model_dir, '_T_' + EXAMPLE_FOLDER, str(abs(exam_global_epoch)))
                 epoch_val_ex_folder = os.path.join(model_dir, '_V_' + EXAMPLE_FOLDER, str(abs(exam_global_epoch)))
@@ -462,6 +467,7 @@ if __name__ == '__main__':
                 with open(os.path.join(epoch_ex_folder, '___batch_stats___.txt'), 'a') as f:
                     print(*stats.items(), file=f, sep='\n')
 
+            print("Saving checkpoint")
             torch.save({
                 'seed': seed,
                 'random_state': generator.get_state(),

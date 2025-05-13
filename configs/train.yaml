@@ -49,7 +49,7 @@ model:
 augmentation:
   noises:
     # The count of noises added on a single audio
-    count: 4
+    count: 1
     use_weights_as_counts: false
     snr&weight: # Noises SNRs to use for batch augmentation
       null: 50
@@ -57,19 +57,12 @@ augmentation:
       3: 20
       10: 20
 
-    ambience:
-      weight: 5
-      dir: noises/noise-16k
-      epoch_pool: 500
-      duration: [1, 10]
-      random_phase: false
-
     esc50:
       weight: 5
       dir: noises/ecs-50
       epoch_pool: 200
       duration: [1, 10]
-      random_phase: false
+      random_phase: true
 
     music:
       weight: 1
@@ -94,12 +87,12 @@ train:
   # The number of epochs to train the model in current session
   epoch: 3
   # The number of workers for data loading during training
-  workers: 0
+  workers: 8
   # The size of training batch (can be not final)
 #  batch: 200
   batch: 10
   # Epoch maximum batches count
-  max_batches: 3
+  max_batches: 250
   # Accumulation steps
   n_accum: 15
   # Default window lenght (hop lenght would be half of window)
@@ -129,7 +122,7 @@ verbose:
   val_results: true
   # Count of examples to save
   n_examples:
-    _: 2
-    zero: 2
-    synth: 2
+    _: 5
+    zero: 5
+    synth: 5
   val_examples: 5
