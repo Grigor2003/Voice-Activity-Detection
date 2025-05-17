@@ -78,6 +78,7 @@ if __name__ == '__main__':
             info_txt += '\n' + (f"WARNING: Last train random state couldn't be found in the checkpoint")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = 'cpu'
 
     info_txt += '\n' + (f"Device: {device}")
 
@@ -213,6 +214,7 @@ if __name__ == '__main__':
                                           for ir_path in impulse_args.mic_ir_files_paths]
 
         train_dataloader.collate_fn.spectre_filter = chebyshev_filter
+        val_dataloader.collate_fn.spectre_filter = chebyshev_filter
 
         running_loss = torch.scalar_tensor(0, device=device)
         running_confusion_matrix = torch.zeros(num_classes, num_classes, dtype=torch.int32)

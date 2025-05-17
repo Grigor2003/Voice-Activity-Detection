@@ -6,7 +6,7 @@ data:
   # Path to clean data
   clean: accent-dataset\common_accent
   # Path to labels
-  vad_labels: datasets\16000_silero_labels.csv
+  vad_labels: accent-dataset\16000_silero_labels_concated.csv
 #  labels: openslr/8000_30_90_webrtc_labels_lite.csv
   # Will ignore dataset and only generate given amount of empty batches
 
@@ -17,7 +17,7 @@ model:
   # The name of the model from models.py one of {NAMES}
 #  name: DGCGD_7
 #  name: BattleVAD
-  name: DGCGCGD_13_7
+  name: DGCGCD_13_7
   # Loads the specified weights to continue training,
   # creates a new run folder for storing results
   # Clears the weights and sets create_new_model to false as soon as saved
@@ -39,7 +39,7 @@ augmentation:
     # if value is negative then the absolute would be taken
     # Example: batch: 128, zero_rate: -10 => 128 + 10 = 138
     # Example: batch: 100, zero_rate: 1.25 => 100 + 125 = 225
-    zero_arg: 1
+    zero_arg: 0
     use_weights_as_counts: false
     snr&weight: # Noises SNRs to use for batch augmentation
       null: 50
@@ -80,16 +80,16 @@ augmentation:
 
 train:
   # The learning rate given by power of 10
-  lr: -2
+  lr: -4
   # The number of epochs to train the model in current session
   epoch: 4
   # The number of workers for data loading during training
-  workers: 0
+  workers: 4
   # The size of training batch (can be not final)
 #  batch: 200
-  batch: 128
+  batch: 16
   # Accumulation steps
-  n_accum: 4
+  n_accum: 32
   # Default window lenght (hop lenght would be half of window)
   win_length: 800
 
@@ -97,14 +97,14 @@ val:
   # The ratio of validation data taken from clean data
   ratio: 0.1
   # The number of epochs to pass before calculating the validation score
-  every: 2
+  every: 1
   # The number of workers for data loading during validation score calculation
-  workers: 0
+  workers: 4
   # The size of the batch for simultaneous usage of samples during validation score calculation
   # The real size of validation batch is len(snr_list) * mini_batch
   mini_batch: 16
   # Noises SNRs to use for validation batch augmentation
-  snr_list: [null, 0]
+  snr_list: [null, 10, 5, 0]
   min_noise_count: 1
 
 verbose:

@@ -67,3 +67,48 @@ class EfficientModel(nn.Module):
         x = self.fc(x)
         x = F.sigmoid(x)
         return x
+
+class Conv7_13Block(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.conv_7 = nn.Conv2d(in_channels//2, out_channels//2, (7, 7), padding='same')
+        self.conv_13 = nn.Conv2d(in_channels//2, out_channels//2, (13, 13), padding='same')
+        self.activation = nn.ReLU()
+        
+    def forward(self, x):
+        b, c, h, w = x.shape
+        out_7 = self.conv_7(x[:,:c//2])
+        out_13 = self.conv_7(x[:,c//2:])
+        out = torch.cat([out_7, out_13], dim=1)
+        return self.activation(out)
+
+class ConvModel(nn.Module):
+    def __init__(self, input_dim):
+        super().__init__()
+        self.input_dim = input_dim
+        self.expand = nn.Conv2d(1, 16, kernel_size=(1, 1))
+        self.conv_block_1 = Conv7_13Block(16, 16)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.conv_block_2 = Conv7_13Block(16, 32)
+        self.bn2 = nn.BatchNorm2d(32)
+        self.conv_block_3 = Conv7_13Block(32, 16)
+        self.bn3 = nn.BatchNorm2d(16)
+        self.fc1 = nn.Linear(input_dim, 64) #change to 16
+        self.activation1 = nn.ReLU()
+        self.fc2 = nn.Linear(64, 4)
+        
+    def forward(self, x, mask=None):
+        x = self.expand(x.unsqueeze(1))
+        out = self.conv_block_1(x)
+        out = self.bn1(out)
+        out = self.conv_block_2(out)
+        out = self.bn2(out)
+        out = self.conv_block_3(out)
+        out = self.bn3(out)
+        out = out.mean(dim=-3)
+        out = self.fc1(out.squeeze(1))
+        out = self.activation1(out)
+        self.prelast = out.detach()
+        out = self.fc2(out)
+        return out
+        
